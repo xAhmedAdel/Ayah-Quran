@@ -1,7 +1,7 @@
 # Ayah — Phase 7 Report (Beta Release, Final QA & Launch Readiness)
 
-Date: 2026-11-17 · Status: **beta release candidate ready — pending
-physical-device testing and owner actions**
+Date: 2026-11-17 · Status: **beta release candidate pushed to GitHub —
+pending physical-device testing and owner actions**
 
 ## 1. Release artifacts
 
@@ -12,7 +12,7 @@ physical-device testing and owner actions**
 
 | Field | Value |
 |---|---|
-| applicationId | `com.ayah.quran` (stable, no suffix) |
+| applicationId | `com.ayah.quran` |
 | versionCode | 2 |
 | versionName | 1.0.0-beta.1 |
 | minSdk | 29 (Android 10) |
@@ -31,7 +31,7 @@ Certificate SHA-256 fingerprint:
 | v3 | false |
 | v4 | false |
 
-- Development keystore used for signing (gitignored).
+- Development keystore used (gitignored, credentials in local.properties).
 - **No secrets committed to git**: verified with `git diff --cached -S`
   for credential values; the build script reads from Properties at build
   time; `local.properties` and `keystore/` are gitignored.
@@ -52,6 +52,7 @@ Certificate SHA-256 fingerprint:
 | local.properties tracked? | ✅ No (gitignored) |
 | Credential values in staged content? | ✅ No (verified with `git diff --cached -S`) |
 | `.gitignore` covers keystore/, *.keystore, *.jks, local.properties | ✅ |
+| Git repository | ✅ https://github.com/xAhmedAdel/Ayah-Quran (main + tag v1.0.0-beta.1) |
 
 ## 4. Regression results
 
@@ -59,10 +60,11 @@ Certificate SHA-256 fingerprint:
 |---|---|---|
 | `testDebugUnitTest` | 46 | ✅ 0 failures |
 | `connectedDebugAndroidTest` | 43 | ✅ 0 failures |
-| Quran dataset integrity | ✅ | 114/6236/30/604 cross-checked |
-| No Quran text modified | ✅ | byte-for-byte enforced |
-| Room migrations | ✅ | v3 (pre-release destructive policy) |
-| Wallpaper history bounded | ✅ | 100-entry ring |
+| Total | **89** | ✅ **0 failures** |
+| Quran dataset integrity | ✅ | 114/6236/30/604, cross-check identical |
+| No Quran text modified | ✅ | byte-for-byte verbatim enforced |
+| Room migrations | ✅ | v3 destructive (pre-release policy) |
+| Wallpaper history bounded | ✅ | 100-entry ring, trimmed on insert |
 | Scheduling correct | ✅ | UPDATE policy, battery-not-low |
 | No fabricated playback | ✅ | UI test asserts zero Playing while idle |
 
@@ -80,13 +82,6 @@ Certificate SHA-256 fingerprint:
 
 **NOT PERFORMED** — no physical device available in this environment.
 The complete 22-item checklist is in `RELEASE-CHECKLIST.md`.
-
-Required devices (when available):
-| Priority | Device type | Android | Purpose |
-|---|---|---|---|
-| 1 | Samsung Galaxy | 13–14 | One UI skin, audio focus, wallpaper |
-| 2 | Xiaomi/Redmi | 12–14 | MIUI skin, battery optimization |
-| 3 | Google Pixel | 14–16 | Stock Android, TalkBack |
 
 ## 7. Beta testing guide
 
@@ -141,4 +136,4 @@ Play Store submission requires:
 GitHub: https://github.com/xAhmedAdel/Ayah-Quran
 Branch: `main`
 Tag: `v1.0.0-beta.1`
-Commit: `ac3053a`
+Commits: `ac3053a` (initial), `a0a7c3f` (Phase 7 docs)
