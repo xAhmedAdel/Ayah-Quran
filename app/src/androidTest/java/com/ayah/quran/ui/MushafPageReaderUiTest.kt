@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.geometry.Offset
@@ -106,6 +107,28 @@ class MushafPageReaderUiTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText(indicator(1)).assertExists()
+    }
+
+    @Test
+    fun doubleTapResetsZoomAndRestoresPaging() {
+        openMushafAtFaatiha()
+        // Zoom in (pager swiping disabled), then double-tap to reset.
+        composeRule.onRoot().performTouchInput {
+            pinch(
+                start0 = center + Offset(-100f, -100f),
+                end0 = center + Offset(-250f, -250f),
+                start1 = center + Offset(100f, 100f),
+                end1 = center + Offset(250f, 250f),
+            )
+        }
+        composeRule.onRoot().performTouchInput { doubleClick(center) }
+        composeRule.waitForIdle()
+        // Reset must restore the boundary view and pager swiping: the same
+        // swipe that advances pages works again after the reset.
+        composeRule.onRoot().performTouchInput {
+            if (AppLocale.isArabic) swipeRight() else swipeLeft()
+        }
+        waitForText(indicator(2))
     }
 
     @Test
