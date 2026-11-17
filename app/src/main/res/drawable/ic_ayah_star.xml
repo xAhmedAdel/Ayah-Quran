@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Eight-pointed Islamic star (khatam): two overlapping squares, one rotated 45°.
+     Drawn on a 108x108 adaptive-icon canvas; content lives inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Square 1 (axis-aligned) -->
+    <path
+        android:pathData="M31,31 L77,31 L77,77 L31,77 Z"
+        android:strokeColor="#D5B56A"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Square 2 (rotated 45° around the center) -->
+    <path
+        android:pathData="M54,25.3 L82.7,54 L54,82.7 L25.3,54 Z"
+        android:strokeColor="#D5B56A"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Center dot -->
+    <path
+        android:fillColor="#D5B56A"
+        android:pathData="M54,54 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0" />
+</vector>

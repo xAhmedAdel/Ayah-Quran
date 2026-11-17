@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- The app theme is fully rendered by Compose; this host theme only
+         covers the window before the first Compose frame. -->
+    <style name="Theme.Ayah" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ayah_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Splash screen (androidx.core:core-splashscreen) shown during cold start. -->
+    <style name="Theme.Ayah.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ayah_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_ayah_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.Ayah</item>
+    </style>
+
+</resources>

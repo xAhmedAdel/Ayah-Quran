@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window/splash colors match the Compose dark surface so cold start
+         has no visible flash between the platform window and first frame. -->
+    <color name="ayah_window_background">#111714</color>
+    <color name="ayah_splash_background">#153D32</color>
+    <color name="ic_launcher_background">#153D32</color>
+</resources>

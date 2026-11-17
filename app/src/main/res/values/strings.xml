@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ayah</string>
+    <string name="app_tagline">A verse in every moment</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_quran">Quran</string>
+    <string name="nav_wallpapers">Wallpapers</string>
+    <string name="nav_audio">Audio</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Quran data import -->
+    <string name="import_preparing">Preparing Quran text…</string>
+    <string name="import_progress_format">Importing verified Quran text… %1$d%%</string>
+    <string name="import_failed">The Quran data import failed and was not completed. Nothing was shown in its place.</string>
+    <string name="import_retry">Retry import</string>
+
+    <!-- Quran list -->
+    <string name="quran_title">Quran</string>
+    <string name="quran_search_hint">Search surah</string>
+    <string name="quran_search_no_results">No surah matches “%1$s”</string>
+    <string name="quran_list_empty">The Surah list is empty. This should not happen after a successful import.</string>
+    <string name="surah_meta_format" translatable="false">%1$s · %2$d ayahs</string>
+    <string name="surah_number_format" translatable="false">%1$d</string>
+
+    <!-- Reader -->
+    <string name="reader_surah_format" translatable="false">Surah %1$s</string>
+    <string name="reader_meta_format" translatable="false">%1$s · %2$d ayahs · Juz %3$s · Pages %4$s–%5$s</string>
+    <string name="reader_ayah_number_format" translatable="false">﴿%1$s﴾</string>
+    <string name="reader_prev_surah">Previous surah</string>
+    <string name="reader_next_surah">Next surah</string>
+    <string name="reader_back">Back</string>
+    <string name="reader_bookmark">Bookmark this ayah</string>
+    <string name="reader_loading">Loading surah…</string>
+    <string name="reader_surah_not_found">Surah not found.</string>
+
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">Bookmarks</string>
+    <string name="bookmarks_empty">No bookmarks yet. Tap the bookmark icon next to any ayah in the reader.</string>
+    <string name="bookmarks_back">Back</string>
+
+    <!-- Home -->
+    <string name="home_daily_ayah_title">Daily Ayah</string>
+    <string name="home_daily_ayah_pending">The Daily Ayah arrives with the wallpaper engine phase.</string>
+    <string name="home_continue_reading_title">Continue Reading</string>
+    <string name="home_continue_reading_pending">Open any surah and your position will be saved automatically.</string>
+    <string name="home_continue_reading_format" translatable="false">Surah %1$s · Ayah %2$d of %3$d</string>
+    <string name="home_continue_reading_progress">Reading progress</string>
+    <string name="home_continue_reading_button">Continue</string>
+    <string name="home_wallpaper_card_title">Current wallpaper</string>
+    <string name="home_wallpaper_card_none">No wallpaper applied yet. Create your first Quranic wallpaper from the Wallpapers tab.</string>
+    <string name="home_wallpaper_ayah_format" translatable="false">%1$s · %2$d:%3$d</string>
+    <string name="home_wallpaper_template_format" translatable="false">%1$s · applied %2$s</string>
+    <string name="home_wallpaper_automation_on" translatable="false">Auto-updates on · every %1$d min (approx.)</string>
+    <string name="home_wallpaper_automation_off">Auto-updates off</string>
+    <string name="home_open_quran">Open Quran</string>
+    <string name="home_open_bookmarks">Bookmarks</string>
+    <string name="home_open_wallpapers">Wallpaper settings</string>
+
+    <!-- Full-screen wallpaper preview -->
+    <string name="preview_close">Close preview</string>
+    <string name="preview_wallpaper_image">Full-screen wallpaper preview</string>
+    <string name="preview_apply">Apply wallpaper</string>
+
+    <!-- History management -->
+    <string name="history_delete_entry">Delete entry</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_clear_title">Clear wallpaper history?</string>
+    <string name="history_clear_message">All wallpaper application records will be removed. Your current device wallpaper and bookmarks are not affected.</string>
+    <string name="history_clear_confirm">Clear</string>
+    <string name="history_entry_deleted">History entry deleted</string>
+
+    <!-- Wallpapers -->
+    <string name="wallpapers_title">Wallpapers</string>
+    <string name="wallpapers_preview_caption">Preview</string>
+    <string name="wallpapers_engine_pending">The wallpaper engine (rendering, templates, automatic scheduling) is the next development phase. Controls will activate when it ships.</string>
+    <string name="wallpapers_apply_home">Home screen</string>
+    <string name="wallpapers_apply_lock">Lock screen</string>
+    <string name="wallpapers_apply_both">Both</string>
+    <string name="wallpapers_auto_updates">Automatic updates</string>
+    <string name="wallpapers_interval">Change every</string>
+    <string name="wallpapers_apply_now">Apply now</string>
+    <string name="wallpapers_template_section">Template</string>
+    <string name="wallpapers_text_section">Verse text</string>
+    <string name="wallpapers_font_size">Font size</string>
+    <string name="wallpapers_position_top">Top</string>
+    <string name="wallpapers_position_center">Center</string>
+    <string name="wallpapers_position_bottom">Bottom</string>
+    <string name="wallpapers_verse_source">Verse</string>
+    <string name="wallpapers_shuffle_verse">Shuffle verse</string>
+    <string name="wallpapers_pick_surah">Surah</string>
+    <string name="wallpapers_pick_ayah">Ayah</string>
+    <string name="wallpapers_ayah_number_error">Enter an ayah number between 1 and %1$d</string>
+    <string name="wallpapers_apply_success">Wallpaper applied to %1$s.</string>
+    <string name="wallpapers_apply_failed">The system rejected the wallpaper. Nothing was applied. Reason: %1$s</string>
+    <string name="wallpapers_apply_working">Applying…</string>
+    <string name="wallpapers_auto_every_format">Every %1$s (approximate)</string>
+    <string name="wallpapers_auto_off">Automatic updates are off</string>
+    <string name="wallpapers_auto_hint">WorkManager schedules updates approximately; exact timing is not guaranteed and depends on system battery optimizations.</string>
+    <string name="wallpapers_last_applied_never">Never applied yet</string>
+    <string name="wallpapers_last_applied_format">Last applied: %1$s</string>
+    <string name="wallpapers_history_section">History</string>
+    <string name="wallpapers_history_empty">No wallpapers have been applied yet.</string>
+    <string name="wallpapers_history_reapply">Reapply</string>
+    <string name="wallpapers_history_status_success">Applied</string>
+    <string name="wallpapers_history_status_failed">Failed</string>
+    <string name="wallpapers_history_ayah_format">%1$s · %2$d:%3$d</string>
+
+    <!-- Audio -->
+    <string name="audio_title">Audio</string>
+    <string name="audio_header_tagline">Recitations</string>
+    <string name="audio_reciters_section">Reciters</string>
+    <string name="audio_reciters_empty">No licensed recitations are available yet.</string>
+    <string name="audio_reciters_empty_detail">Ayah only ships recitations whose redistribution license is verified. Licensed catalogs will appear here with full attribution.</string>
+    <string name="audio_player_section">Playback</string>
+    <string name="audio_playback_unavailable">Playback is not available yet. Controls will activate when a licensed recitation catalog is added.</string>
+    <string name="audio_state_label">Status</string>
+    <string name="audio_state_idle">No audio prepared</string>
+    <string name="audio_state_loading">Preparing…</string>
+    <string name="audio_state_ready">Ready</string>
+    <string name="audio_state_playing">Playing</string>
+    <string name="audio_state_paused">Paused</string>
+    <string name="audio_state_buffering">Buffering…</string>
+    <string name="audio_state_ended">Finished</string>
+    <string name="audio_state_error">Error: %1$s</string>
+    <string name="audio_selected_reciter">Selected reciter</string>
+    <string name="audio_selected_surah">Selected surah</string>
+    <string name="audio_repeat">Repeat</string>
+    <string name="audio_play">Play</string>
+    <string name="audio_pause">Pause</string>
+    <string name="audio_previous">Previous track</string>
+    <string name="audio_next">Next track</string>
+    <string name="audio_seek">Seek</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_licenses">Licenses</string>
+    <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz/page layout data from the Madani mushaf via quran.com. Amiri typeface under SIL Open Font License 1.1. Full details in docs/QURAN_DATA.md.</string>
+</resources>

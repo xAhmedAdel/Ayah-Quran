@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+local.properties
+
+# Android build & profiling artifacts
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin/Native (not used, but safe to exclude)
+.kotlin/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Release signing
+keystore/
+*.keystore
+*.jks
+keystore.properties
