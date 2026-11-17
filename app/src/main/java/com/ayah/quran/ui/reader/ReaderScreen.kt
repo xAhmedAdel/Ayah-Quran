@@ -6,55 +6,47 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.AyahNumbering
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.ui.reader.MushafText
+import com.ayah.quran.ui.reader.MushafAyahData
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.drop
 
 /**
- * Full-screen surah reader.
- *
- * Arabic rendering requirements (spec §6.6): proper shaping and RTL come
- * from the platform text stack — Compose applies HarfBuzz shaping; the
- * paragraph direction is explicitly RTL and the text is never reversed or
- * otherwise transformed. Amiri supplies Arabic display typography with a
- * generous line height so diacritics and Quranic marks never clip.
+ * Mushaf-style surah reader: continuous Quran text in a flowing paragraph
+ * with inline ayah numbers, tap-to-highlight, and adjustable font size.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,29 +57,13 @@ fun ReaderScreen(
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val listState = rememberLazyListState()
+    var showFontControls by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
-    // Restore a target ayah (from a bookmark or Continue Reading) once the
-    // surah content is available. Item 0 is the surah header, so ayah N sits
-    // at list index N.
     LaunchedEffect(state.ayahs, viewModel.targetAyah) {
         if (state.ayahs.isNotEmpty() && viewModel.targetAyah in 1..state.ayahs.size) {
-            listState.scrollToItem(viewModel.targetAyah)
+            scrollState.scrollTo(viewModel.targetAyah * 40)
         }
-    }
-
-    // Persist reading progress while scrolling, debounced to avoid a write
-    // per frame during flings.
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .drop(1)
-            .collectLatest { index ->
-                delay(READING_SAVE_DEBOUNCE_MS)
-                val visibleAyah = if (index == 0) 1 else index
-                if (visibleAyah <= state.ayahs.size) {
-                    viewModel.onVisibleAyahChanged(visibleAyah)
-                }
-            }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -109,6 +85,12 @@ fun ReaderScreen(
                 }
             },
             actions = {
+                IconButton(onClick = { showFontControls = !showFontControls }) {
+                    Icon(
+                        Icons.Outlined.TextFields,
+                        contentDescription = "Font size",
+                    )
+                }
                 IconButton(
                     onClick = { onNavigateSurah(viewModel.surahId - 1) },
                     enabled = viewModel.surahId > 1,
@@ -151,25 +133,49 @@ fun ReaderScreen(
                 textAlign = TextAlign.Center,
             )
 
-            else -> LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
+            else -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = AyahSpacing.m),
+                verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
             ) {
-                item(key = "header") {
-                    SurahHeader(state = state)
-                }
+                SurahHeader(state = state)
 
-                items(
-                    count = state.ayahs.size,
-                    key = { index -> state.ayahs[index].ayahNumber },
-                ) { index ->
-                    val readerAyah = state.ayahs[index]
-                    AyahRow(
-                        ayah = readerAyah,
-                        onToggleBookmark = { viewModel.toggleBookmark(readerAyah.ayahNumber) },
-                        observeIsBookmarked = viewModel::observeIsBookmarked,
+                if (showFontControls) {
+                    FontSizeControls(
+                        fontScale = state.fontScale,
+                        onScaleChanged = viewModel::setFontScale,
                     )
                 }
+
+                state.bismillahHeader?.let { bismillah ->
+                    Text(
+                        text = bismillah,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontFamily = QuranTextFontFamily,
+                            fontSize = 24.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AyahSpacing.l),
+                    )
+                }
+
+                MushafText(
+                    ayahs = state.ayahs.map {
+                        MushafAyahData(it.ayahNumber, it.displayText)
+                    },
+                    highlightAyahNumber = state.selectedAyah,
+                    fontSize = (state.fontScale * 26).sp,
+                    onAyahTap = viewModel::onAyahTap,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AyahSpacing.l, vertical = AyahSpacing.l),
+                )
             }
         }
     }
@@ -178,7 +184,7 @@ fun ReaderScreen(
 @Composable
 private fun SurahHeader(state: ReaderUiState, modifier: Modifier = Modifier) {
     val surah = state.surah ?: return
-    AyahCard(modifier = modifier.padding(AyahSpacing.m)) {
+    AyahCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -190,7 +196,6 @@ private fun SurahHeader(state: ReaderUiState, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontFamily = QuranTextFontFamily,
                     fontSize = 34.sp,
-                    textDirection = TextDirection.Rtl,
                 ),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.primary,
@@ -219,89 +224,56 @@ private fun SurahHeader(state: ReaderUiState, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = AyahSpacing.s),
             )
-
-            state.bismillahHeader?.let { bismillah ->
-                Text(
-                    text = bismillah,
-                    style = QuranTextStyle(fontSize = 24.sp),
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = AyahSpacing.m),
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun AyahRow(
-    ayah: ReaderAyah,
-    onToggleBookmark: () -> Unit,
-    observeIsBookmarked: (Int) -> Flow<Boolean>,
-    modifier: Modifier = Modifier,
+private fun FontSizeControls(
+    fontScale: Float,
+    onScaleChanged: (Float) -> Unit,
 ) {
-    val isBookmarked by produceState(false, ayah.ayahNumber) {
-        observeIsBookmarked(ayah.ayahNumber).collect { value = it }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = AyahSpacing.m),
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
-        Row(
+    AyahCard {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.m),
-            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                .padding(AyahSpacing.m),
         ) {
-            Text(
-                text = ayah.displayText,
-                style = QuranTextStyle(fontSize = QURAN_TEXT_SIZE_SP),
-                textAlign = TextAlign.Start,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                IconToggleButton(
-                    checked = isBookmarked,
-                    onCheckedChange = { onToggleBookmark() },
-                ) {
-                    Icon(
-                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = stringResource(R.string.reader_bookmark),
-                        tint = if (isBookmarked) {
-                            MaterialTheme.colorScheme.secondary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
                 Text(
-                    text = stringResource(
-                        R.string.reader_ayah_number_format,
-                        AyahNumbering.toArabicIndic(ayah.ayahNumber),
-                    ),
-                    style = QuranTextStyle(fontSize = 16.sp),
-                    color = MaterialTheme.colorScheme.secondary,
+                    text = "A",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Slider(
+                    value = fontScale,
+                    onValueChange = onScaleChanged,
+                    valueRange = 0.5f..2.0f,
+                    steps = 14,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = AyahSpacing.m),
+                )
+                Text(
+                    text = "A",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            FilledIconButton(
+                onClick = { },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    Icons.Filled.Remove,
+                    contentDescription = "Close font size controls",
                 )
             }
         }
     }
 }
 
-/** Amiri + explicit RTL paragraph direction + tall line height for marks. */
-private fun QuranTextStyle(fontSize: androidx.compose.ui.unit.TextUnit): TextStyle =
-    TextStyle(
-        fontFamily = QuranTextFontFamily,
-        fontSize = fontSize,
-        lineHeight = fontSize * QURAN_TEXT_LINE_HEIGHT_FACTOR,
-        textDirection = TextDirection.Rtl,
-    )
-
-private const val READING_SAVE_DEBOUNCE_MS = 600L
-private val QURAN_TEXT_SIZE_SP = 26.sp
-private const val QURAN_TEXT_LINE_HEIGHT_FACTOR = 1.9f
+private const val READING_SAVE_DELAY_MS = 600L

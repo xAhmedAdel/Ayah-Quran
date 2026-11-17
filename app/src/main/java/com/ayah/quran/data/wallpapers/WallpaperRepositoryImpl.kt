@@ -94,17 +94,20 @@ class WallpaperRepositoryImpl @Inject constructor(
         }
 
         try {
-            // Each successful setBitmap call confirms one destination.
-            // Nothing is reported as success before ALL requested flags
-            // were accepted by the system.
-            if (destinations != WallpaperDestination.LOCK) {
-                manager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-                Log.i(TAG, "wallpaper applied to FLAG_SYSTEM (${ayah.surahId}:${ayah.ayahNumber})")
+            // Use a SINGLE setBitmap call with combined flags for BOTH mode.
+            // Calling setBitmap twice (once per flag) causes the second call
+            // to replace the first on some Android versions / OEM skins,
+            // resulting in only one destination being updated.
+            // allowBackup=false: the wallpaper is re-rendered on restore,
+            // so backing up the raw bitmap is unnecessary.
+            val which = when (destinations) {
+                WallpaperDestination.SYSTEM -> WallpaperManager.FLAG_SYSTEM
+                WallpaperDestination.LOCK -> WallpaperManager.FLAG_LOCK
+                WallpaperDestination.BOTH ->
+                    WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
             }
-            if (destinations != WallpaperDestination.SYSTEM) {
-                manager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
-                Log.i(TAG, "wallpaper applied to FLAG_LOCK (${ayah.surahId}:${ayah.ayahNumber})")
-            }
+            manager.setBitmap(bitmap, null, false, which)
+            Log.i(TAG, "wallpaper applied to $which (${ayah.surahId}:${ayah.ayahNumber})")
             recordHistory(ayah.surahId, ayah.ayahNumber, template.id, destinations, WallpaperApplyStatus.SUCCESS, null)
             WallpaperApplyStatus.SUCCESS
         } catch (e: IOException) {
@@ -112,7 +115,8 @@ class WallpaperRepositoryImpl @Inject constructor(
             recordHistory(ayah.surahId, ayah.ayahNumber, template.id, destinations, WallpaperApplyStatus.FAILED, e.message)
             WallpaperApplyStatus.FAILED
         } finally {
-            bitmap.recycle()
+            // Do NOT recycle immediately: Media3/lock-screen may process the
+            // bitmap asynchronously on some devices. GC will reclaim it.
         }
     }
 

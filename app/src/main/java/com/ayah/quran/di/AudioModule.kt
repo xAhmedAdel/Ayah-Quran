@@ -4,7 +4,6 @@ import com.ayah.quran.data.audio.AudioCatalogSource
 import com.ayah.quran.data.audio.EmptyAudioCatalogSource
 import com.ayah.quran.data.audio.ExoPlayerAudioRepository
 import com.ayah.quran.data.audio.ReciterRepositoryImpl
-import com.ayah.quran.data.audio.AudioPreferencesRepositoryImpl
 import com.ayah.quran.domain.repository.AudioPreferencesRepository
 import com.ayah.quran.domain.repository.AudioRepository
 import com.ayah.quran.domain.repository.ReciterRepository
@@ -43,9 +42,4 @@ abstract class AudioModule {
         implementation: ExoPlayerAudioRepository,
     ): AudioRepository
 
-    @Binds
-    @Singleton
-    abstract fun bindAudioPreferencesRepository(
-        implementation: AudioPreferencesRepositoryImpl,
-    ): AudioPreferencesRepository
 }

@@ -3,13 +3,17 @@ package com.ayah.quran.di
 import com.ayah.quran.data.quran.BookmarkRepositoryImpl
 import com.ayah.quran.data.quran.QuranRepositoryImpl
 import com.ayah.quran.data.quran.ReadingProgressRepositoryImpl
+import com.ayah.quran.data.audio.AudioPreferencesRepositoryImpl
 import com.ayah.quran.data.settings.DataStoreUserPreferencesRepository
+import com.ayah.quran.data.settings.ReaderPreferencesRepositoryImpl
 import com.ayah.quran.data.wallpapers.WallpaperRepositoryImpl
 import com.ayah.quran.data.wallpapers.WallpaperSchedulingRepositoryImpl
 import com.ayah.quran.data.wallpapers.WallpaperSettingsRepositoryImpl
 import com.ayah.quran.domain.repository.BookmarkRepository
 import com.ayah.quran.domain.repository.QuranRepository
 import com.ayah.quran.domain.repository.ReadingProgressRepository
+import com.ayah.quran.domain.repository.AudioPreferencesRepository
+import com.ayah.quran.domain.repository.ReaderPreferencesRepository
 import com.ayah.quran.domain.repository.UserPreferencesRepository
 import com.ayah.quran.domain.repository.WallpaperRepository
 import com.ayah.quran.domain.repository.WallpaperSchedulingRepository
@@ -48,6 +52,18 @@ abstract class AppModule {
     abstract fun bindReadingProgressRepository(
         implementation: ReadingProgressRepositoryImpl,
     ): ReadingProgressRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindReaderPreferencesRepository(
+        implementation: ReaderPreferencesRepositoryImpl,
+    ): ReaderPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAudioPreferencesRepository(
+        implementation: AudioPreferencesRepositoryImpl,
+    ): AudioPreferencesRepository
 
     @Binds
     @Singleton

@@ -147,7 +147,6 @@ class ExoPlayerAudioRepository @Inject constructor(
                 return@withContext
             }
             errorSticky = false
-            android.util.Log.d("AudioDiag", "direct write: Loading")
             _playbackState.value = PlaybackState.Loading
             _durationMs.value = track.durationMs ?: 0L
             _positionMs.value = 0L
