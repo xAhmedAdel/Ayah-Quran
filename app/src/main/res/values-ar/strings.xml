@@ -28,6 +28,20 @@
     <string name="surah_revelation_medinan">مدنية</string>
     <string name="surah_meta_format">%1$s · %2$d آية</string>
     <string name="reader_meta_format">%1$s · %2$d آية · الجزء %3$s · الصفحات %4$s–%5$s</string>
+    <string name="reader_font_size_cd">حجم الخط</string>
+    <string name="reader_close_font_controls_cd">إغلاق أدوات حجم الخط</string>
+
+    <!-- Mushaf (authentic 604-page mode) -->
+    <string name="mushaf_page_indicator">صفحة %1$d من %2$d</string>
+    <string name="mushaf_prev_page">الصفحة السابقة</string>
+    <string name="mushaf_next_page">الصفحة التالية</string>
+    <string name="mushaf_page_jump_title">الانتقال إلى صفحة</string>
+    <string name="mushaf_page_jump_hint">رقم الصفحة</string>
+    <string name="mushaf_invalid_page">أدخل رقم صفحة بين %1$d و %2$d</string>
+    <string name="mushaf_go">انتقال</string>
+    <string name="mushaf_page_unavailable">هذه الصفحة غير متاحة.</string>
+    <string name="mushaf_mode_cd">وضع المصحف (٦٠٤ صفحة بأصولها)</string>
+    <string name="continuous_mode_cd">وضع النص المتغير</string>
     <string name="reader_prev_surah">السورة السابقة</string>
     <string name="reader_next_surah">السورة التالية</string>
     <string name="reader_back">رجوع</string>

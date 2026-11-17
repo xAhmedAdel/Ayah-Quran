@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Remove
@@ -47,14 +48,16 @@ import com.ayah.quran.ui.reader.MushafAyahData
 import kotlinx.coroutines.delay
 
 /**
- * Mushaf-style surah reader: continuous Quran text in a flowing paragraph
+ * Adjustable-text surah reader: continuous Quran text in a flowing paragraph
  * with inline ayah numbers, tap-to-highlight, and adjustable font size.
+ * The top bar offers a switch to the authentic 604-page mushaf mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(
     onBack: () -> Unit,
     onNavigateSurah: (Int) -> Unit,
+    onSwitchToMushaf: (surahId: Int, ayah: Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
@@ -90,7 +93,17 @@ fun ReaderScreen(
                 IconButton(onClick = { showFontControls = !showFontControls }) {
                     Icon(
                         Icons.Outlined.TextFields,
-                        contentDescription = "Font size",
+                        contentDescription = stringResource(R.string.reader_font_size_cd),
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        onSwitchToMushaf(viewModel.surahId, viewModel.targetAyah.coerceAtLeast(1))
+                    },
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.MenuBook,
+                        contentDescription = stringResource(R.string.mushaf_mode_cd),
                     )
                 }
                 IconButton(
@@ -169,11 +182,12 @@ fun ReaderScreen(
 
                 MushafText(
                     ayahs = state.ayahs.map {
-                        MushafAyahData(it.ayahNumber, it.displayText)
+                        MushafAyahData(surahId = viewModel.surahId, ayahNumber = it.ayahNumber, displayText = it.displayText)
                     },
+                    highlightSurahId = viewModel.surahId,
                     highlightAyahNumber = state.selectedAyah,
                     fontSize = (state.fontScale * 26).sp,
-                    onAyahTap = viewModel::onAyahTap,
+                    onAyahTap = { range -> viewModel.onAyahTap(range.ayahNumber) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = AyahSpacing.l, vertical = AyahSpacing.l),
@@ -271,7 +285,7 @@ private fun FontSizeControls(
             ) {
                 Icon(
                     Icons.Filled.Remove,
-                    contentDescription = "Close font size controls",
+                    contentDescription = stringResource(R.string.reader_close_font_controls_cd),
                 )
             }
         }

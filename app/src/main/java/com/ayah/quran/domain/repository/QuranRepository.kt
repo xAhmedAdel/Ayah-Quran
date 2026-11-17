@@ -30,4 +30,17 @@ interface QuranRepository {
     fun observeAyahs(surahId: Int): Flow<List<Ayah>>
 
     suspend fun getAyah(surahId: Int, ayahNumber: Int): Ayah?
+
+    /**
+     * All ayahs lying on one Madinah mushaf page (1..604), in canonical
+     * order. The page boundaries come from the verified Madani mapping —
+     * never from arbitrary splitting.
+     */
+    suspend fun ayahsOnPage(page: Int): List<Ayah>
+
+    /** The mushaf page where [surahId]'s first ayah begins, or null. */
+    suspend fun pageForSurahStart(surahId: Int): Int?
+
+    /** The mushaf page containing [surahId]:[ayahNumber], or null. */
+    suspend fun pageForAyah(surahId: Int, ayahNumber: Int): Int?
 }

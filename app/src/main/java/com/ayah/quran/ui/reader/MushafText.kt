@@ -27,12 +27,15 @@ import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
 
 /** One ayah for the mushaf text builder. */
 data class MushafAyahData(
+    /** Surah the ayah belongs to (0 when the caller tracks it elsewhere). */
+    val surahId: Int = 0,
     val ayahNumber: Int,
     val displayText: String,
 )
 
 /** Character range of one ayah within the annotated string. */
 data class MushafAyahRange(
+    val surahId: Int,
     val ayahNumber: Int,
     val start: Int,
     val end: Int, // exclusive
@@ -51,6 +54,7 @@ data class MushafAyahRange(
 fun buildMushafString(
     ayahs: List<MushafAyahData>,
     highlightColor: Color,
+    selectedSurahId: Int,
     selectedAyahNumber: Int?,
     textColor: Color,
     markerColor: Color,
@@ -74,41 +78,47 @@ fun buildMushafString(
             addStyle(SpanStyle(color = textColor, fontSize = fontSize), textStart, textEnd)
             addStyle(SpanStyle(color = markerColor, fontSize = markerSize), textEnd, markerEnd)
 
-            if (ayah.ayahNumber == selectedAyahNumber) {
+            if (ayah.surahId == selectedSurahId && ayah.ayahNumber == selectedAyahNumber) {
                 addStyle(SpanStyle(background = highlightColor), textStart, markerEnd)
             }
 
-            ranges.add(MushafAyahRange(ayah.ayahNumber, textStart, markerEnd))
+            ranges.add(MushafAyahRange(ayah.surahId, ayah.ayahNumber, textStart, markerEnd))
         }
     }
     return text to ranges
 }
 
 /** Finds the ayah number containing [offset], or null. */
-fun findAyahAtOffset(offset: Int, ranges: List<MushafAyahRange>): Int? =
-    ranges.firstOrNull { offset >= it.start && offset < it.end }?.ayahNumber
+fun findAyahAtOffset(offset: Int, ranges: List<MushafAyahRange>): MushafAyahRange? =
+    ranges.firstOrNull { offset >= it.start && offset < it.end }
 
 /**
  * Continuous Mushaf-style Quran text with tap-to-select per ayah.
  *
  * RTL, Amiri typeface, and full diacritics are preserved by the platform
- * text stack. Rebuilds the AnnotatedString when [highlightAyahNumber] or
- * [fontSize] changes (highlight/size only — text content is stable).
+ * text stack. Rebuilds the AnnotatedString when the highlight or [fontSize]
+ * changes (highlight/size only — text content is stable).
  */
 @Composable
 fun MushafText(
     ayahs: List<MushafAyahData>,
+    highlightSurahId: Int,
     highlightAyahNumber: Int?,
     fontSize: TextUnit,
-    onAyahTap: (Int) -> Unit,
+    onAyahTap: (MushafAyahRange) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val highlightColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
     val markerColor = MaterialTheme.colorScheme.secondary
     val textColor = MaterialTheme.colorScheme.onSurface
 
-    val (annotatedString, ranges) = remember(ayahs, highlightAyahNumber, highlightColor, markerColor, textColor, fontSize) {
-        buildMushafString(ayahs, highlightColor, highlightAyahNumber, textColor, markerColor, fontSize)
+    val (annotatedString, ranges) = remember(
+        ayahs, highlightSurahId, highlightAyahNumber, highlightColor, markerColor, textColor, fontSize,
+    ) {
+        buildMushafString(
+            ayahs, highlightColor, highlightSurahId, highlightAyahNumber,
+            textColor, markerColor, fontSize,
+        )
     }
 
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -128,9 +138,7 @@ fun MushafText(
                     detectTapGestures { position ->
                         layoutResult?.let { layout ->
                             val charOffset = layout.getOffsetForPosition(position)
-                            findAyahAtOffset(charOffset, ranges)?.let { ayahNumber ->
-                                onAyahTap(ayahNumber)
-                            }
+                            findAyahAtOffset(charOffset, ranges)?.let(onAyahTap)
                         }
                     }
                 },

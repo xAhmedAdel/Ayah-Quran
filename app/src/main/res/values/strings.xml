@@ -36,6 +36,20 @@
     <string name="reader_bookmark">Bookmark this ayah</string>
     <string name="reader_loading">Loading surah…</string>
     <string name="reader_surah_not_found">Surah not found.</string>
+    <string name="reader_font_size_cd">Font size</string>
+    <string name="reader_close_font_controls_cd">Close font size controls</string>
+
+    <!-- Mushaf (authentic 604-page mode) -->
+    <string name="mushaf_page_indicator">Page %1$d of %2$d</string>
+    <string name="mushaf_prev_page">Previous page</string>
+    <string name="mushaf_next_page">Next page</string>
+    <string name="mushaf_page_jump_title">Go to page</string>
+    <string name="mushaf_page_jump_hint">Page number</string>
+    <string name="mushaf_invalid_page">Enter a page number between %1$d and %2$d</string>
+    <string name="mushaf_go">Go</string>
+    <string name="mushaf_page_unavailable">This page is unavailable.</string>
+    <string name="mushaf_mode_cd">Mushaf mode (authentic 604-page layout)</string>
+    <string name="continuous_mode_cd">Adjustable text mode</string>
 
     <!-- Bookmarks -->
     <string name="bookmarks_title">Bookmarks</string>

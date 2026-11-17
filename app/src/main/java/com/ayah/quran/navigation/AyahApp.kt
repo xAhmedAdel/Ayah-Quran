@@ -25,22 +25,35 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ayah.quran.core.designsystem.motion.MotionDurations
 import com.ayah.quran.core.designsystem.motion.rememberMotionEnabled
+import com.ayah.quran.domain.model.ReadingMode
 import com.ayah.quran.ui.audio.AudioScreen
 import com.ayah.quran.ui.bookmarks.BookmarksScreen
 import com.ayah.quran.ui.home.HomeScreen
 import com.ayah.quran.ui.quran.QuranScreen
+import com.ayah.quran.ui.reader.MushafPageReaderScreen
 import com.ayah.quran.ui.reader.ReaderScreen
 import com.ayah.quran.ui.settings.SettingsScreen
+import com.ayah.quran.ui.main.MainViewModel
 import com.ayah.quran.ui.wallpapers.FullscreenPreviewScreen
 import com.ayah.quran.ui.wallpapers.WallpapersScreen
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 object Routes {
     const val READER = "reader/{surahId}?ayah={ayah}"
+    const val MUSHAF = "mushaf?surahId={surahId}&page={page}&ayah={ayah}"
     const val BOOKMARKS = "bookmarks"
     const val FULLSCREEN_PREVIEW = "preview/{surahId}/{ayahNumber}"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
         "reader/$surahId" + (ayahNumber?.let { "?ayah=$it" } ?: "")
+
+    /**
+     * The authentic 604-page mushaf reader. Pass either [surahId] (+ optional
+     * [ayahNumber]) or an explicit [page]; the reader resolves the rest.
+     */
+    fun mushaf(surahId: Int = 0, page: Int = 0, ayahNumber: Int = 0): String =
+        "mushaf?surahId=$surahId&page=$page&ayah=$ayahNumber"
 
     fun fullscreenPreview(surahId: Int, ayahNumber: Int): String =
         "preview/$surahId/$ayahNumber"
@@ -61,6 +74,17 @@ fun AyahApp(modifier: Modifier = Modifier) {
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = TopLevelDestination.entries.any { it.route == currentRoute }
     val motionEnabled = rememberMotionEnabled()
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val readingMode by mainViewModel.readingMode.collectAsStateWithLifecycle()
+
+    /** Reader route honoring the user's reading mode. */
+    fun openReadingPosition(surahId: Int, ayahNumber: Int?) {
+        if (readingMode == ReadingMode.MUSHAF) {
+            navController.navigate(Routes.mushaf(surahId = surahId, ayahNumber = ayahNumber ?: 0))
+        } else {
+            navController.navigate(Routes.reader(surahId, ayahNumber))
+        }
+    }
 
     /** Collapses a duration to zero when the system disables animations. */
     fun dur(millis: Int): Int = if (motionEnabled) millis else 0
@@ -112,7 +136,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
                 HomeScreen(
                     onOpenQuran = { navController.navigateToTopLevel(TopLevelDestination.QURAN.route) },
                     onContinueReading = { surahId, ayahNumber ->
-                        navController.navigate(Routes.reader(surahId, ayahNumber))
+                        openReadingPosition(surahId, ayahNumber)
                     },
                     onOpenBookmarks = { navController.navigate(Routes.BOOKMARKS) },
                     onOpenWallpapers = { navController.navigateToTopLevel(TopLevelDestination.WALLPAPERS.route) },
@@ -120,7 +144,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
             }
             composable(TopLevelDestination.QURAN.route) {
                 QuranScreen(
-                    onOpenSurah = { surahId -> navController.navigate(Routes.reader(surahId)) },
+                    onOpenSurah = { surahId -> openReadingPosition(surahId, null) },
                 )
             }
             composable(TopLevelDestination.WALLPAPERS.route) {
@@ -160,6 +184,50 @@ fun AyahApp(modifier: Modifier = Modifier) {
                             launchSingleTop = true
                         }
                     },
+                    onSwitchToMushaf = { surahId, ayah ->
+                        // Replace the current reader entry so back returns to
+                        // wherever we came from, not the other reader mode.
+                        val currentId = navController.currentBackStackEntry?.destination?.id
+                        navController.navigate(Routes.mushaf(surahId = surahId, ayahNumber = ayah)) {
+                            if (currentId != null) {
+                                popUpTo(currentId) { inclusive = true }
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+
+            composable(
+                route = Routes.MUSHAF,
+                arguments = listOf(
+                    navArgument("surahId") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("page") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("ayah") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) {
+                MushafPageReaderScreen(
+                    onBack = { navController.popBackStack() },
+                    onSwitchToContinuous = { surahId, ayah ->
+                        // Replace the current entry so back returns to
+                        // wherever we came from, not the other reader mode.
+                        val currentId = navController.currentBackStackEntry?.destination?.id
+                        navController.navigate(Routes.reader(surahId, ayah)) {
+                            if (currentId != null) {
+                                popUpTo(currentId) { inclusive = true }
+                            }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 
@@ -167,7 +235,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
                 BookmarksScreen(
                     onBack = { navController.popBackStack() },
                     onOpenAyah = { surahId, ayahNumber ->
-                        navController.navigate(Routes.reader(surahId, ayahNumber))
+                        openReadingPosition(surahId, ayahNumber)
                     },
                 )
             }

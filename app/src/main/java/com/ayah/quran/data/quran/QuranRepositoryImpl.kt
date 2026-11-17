@@ -44,6 +44,15 @@ class QuranRepositoryImpl @Inject constructor(
     override suspend fun getAyah(surahId: Int, ayahNumber: Int): Ayah? =
         ayahDao.getAyah(surahId, ayahNumber)?.toDomain()
 
+    override suspend fun ayahsOnPage(page: Int): List<Ayah> =
+        ayahDao.ayahsOnPage(page).map { it.toDomain() }
+
+    override suspend fun pageForSurahStart(surahId: Int): Int? =
+        ayahDao.firstPageOfSurah(surahId)
+
+    override suspend fun pageForAyah(surahId: Int, ayahNumber: Int): Int? =
+        ayahDao.pageForAyah(surahId, ayahNumber)
+
     private fun SurahEntity.toDomain() = Surah(
         id = id,
         nameArabic = nameArabic,

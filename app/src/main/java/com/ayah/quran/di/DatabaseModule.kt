@@ -22,9 +22,10 @@ object DatabaseModule {
     @Singleton
     fun provideAyahDatabase(@ApplicationContext context: Context): AyahDatabase =
         Room.databaseBuilder(context, AyahDatabase::class.java, AyahDatabase.NAME)
-            // Pre-release only: schema is still evolving (see AyahDatabase
-            // version history); no user database from an older version exists.
-            .fallbackToDestructiveMigration()
+            // NO destructive fallback: the beta is released, so user data
+            // (bookmarks, reading progress, wallpaper history) must survive
+            // schema changes. Future schema bumps require explicit
+            // Migration objects registered via .addMigrations(...).
             .build()
 
     @Provides

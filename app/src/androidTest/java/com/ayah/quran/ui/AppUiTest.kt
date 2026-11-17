@@ -104,10 +104,15 @@ class AppUiTest {
     @Test
     fun continueReadingTapOpensReaderAtSavedPosition_whenPositionExists() {
         // Open the Quran tab and Al-Faatiha to create a reading position.
+        // Default reading mode is the authentic 604-page mushaf, so the list
+        // opens the mushaf page reader.
         composeRule.onAllNodesWithText(s(R.string.nav_quran)).onFirst().performClick()
         waitForText(faatiha())
         clickWithRetry(faatiha())
-        waitForText(s(R.string.reader_surah_format, faatiha()), timeoutMs = 15_000)
+        waitForText(
+            composeRule.activity.getString(R.string.mushaf_page_indicator, 1, 604),
+            timeoutMs = 15_000,
+        )
 
         // The reader hides the bottom bar (immersive) — navigate back first.
         androidx.test.espresso.Espresso.pressBack()

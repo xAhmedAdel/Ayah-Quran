@@ -39,6 +39,31 @@ interface AyahDao {
     @Query("SELECT id FROM ayahs WHERE id BETWEEN :fromId AND :toId ORDER BY id ASC")
     suspend fun globalIdsInRange(fromId: Long, toId: Long): List<Long>
 
+    /** All ayahs on one Madinah mushaf page, in canonical order. */
+    @Query("SELECT * FROM ayahs WHERE page = :page ORDER BY id ASC")
+    suspend fun ayahsOnPage(page: Int): List<AyahEntity>
+
+    /** The mushaf page containing a specific ayah. */
+    @Query("SELECT page FROM ayahs WHERE surahId = :surahId AND ayahNumber = :ayahNumber")
+    suspend fun pageForAyah(surahId: Int, ayahNumber: Int): Int?
+
+    /** The first mushaf page a surah appears on. */
+    @Query("SELECT MIN(page) FROM ayahs WHERE surahId = :surahId")
+    suspend fun firstPageOfSurah(surahId: Int): Int?
+
+    /** Whole-mushaf page statistics (integrity tests). */
+    @Query(
+        "SELECT MIN(page) AS minPage, MAX(page) AS maxPage, " +
+            "COUNT(DISTINCT page) AS pageCount FROM ayahs",
+    )
+    suspend fun pageStats(): PageStats
+
+    data class PageStats(
+        val minPage: Int?,
+        val maxPage: Int?,
+        val pageCount: Int,
+    )
+
     /** Used by the Phase 2 import; REPLACE makes re-imports idempotent. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(ayahs: List<AyahEntity>)
