@@ -7,10 +7,10 @@ import org.junit.Test
 class TopLevelDestinationTest {
 
     @Test
-    fun `exposes exactly the five product sections in spec order`() {
+    fun `exposes exactly the six product sections in order`() {
         val names = TopLevelDestination.entries.map { it.name }
         assertEquals(
-            listOf("HOME", "QURAN", "WALLPAPERS", "AUDIO", "SETTINGS"),
+            listOf("HOME", "QURAN", "PRAYER", "WALLPAPERS", "AUDIO", "SETTINGS"),
             names,
         )
     }

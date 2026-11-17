@@ -6,6 +6,24 @@
          SET_WALLPAPER is a normal permission: granted at install, no runtime prompt. -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
+    <!-- Prayer times & adhan (Phase 12). Each permission maps to a user-facing
+         feature; the calculation itself is fully offline (no INTERNET needed).
+         ACCESS_COARSE_LOCATION: one-shot fix ONLY when the user enables
+         automatic location; manual city selection needs no permission.
+         SCHEDULE_EXACT_ALARM: prayer-time accuracy; degrades to a ±10 min
+         window when the user/OS denies it (guided in Advanced settings).
+         POST_NOTIFICATIONS (API 33+ runtime): prayer-time notifications.
+         RECEIVE_BOOT_COMPLETED + WAKE_LOCK: re-arm alarms after reboot and
+         keep playback alive; FOREGROUND_SERVICE_MEDIA_PLAYBACK: adhan audio
+         while the app is in the background. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <application
         android:name=".AyahApplication"
         android:allowBackup="true"
@@ -27,6 +45,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Prayer times (Phase 12): exact-alarm receiver, system-event
+             reconciliation, and background adhan playback. -->
+        <receiver
+            android:name=".prayer.PrayerAlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".prayer.PrayerSystemReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <service
+            android:name=".prayer.AdhanPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- WorkManager is initialized on demand (Configuration.Provider on
              AyahApplication) so @HiltWorker factories are used. -->

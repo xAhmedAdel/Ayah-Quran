@@ -132,11 +132,15 @@ dependencies {
     // ---- Audio foundation (Media3/ExoPlayer, Phase 5) ----
     implementation(libs.androidx.media3.exoplayer)
 
+    // ---- Prayer times (Phase 12) — adhan-java, MIT, fully offline ----
+    implementation("com.batoulapps.adhan:adhan:1.2.1")
+
     // ---- Coroutines ----
     implementation(libs.kotlinx.coroutines.android)
 
     // ---- Unit tests ----
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
