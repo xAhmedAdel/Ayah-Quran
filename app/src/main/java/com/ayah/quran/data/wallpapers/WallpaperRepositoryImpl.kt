@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import com.ayah.quran.core.database.dao.AyahDao
 import com.ayah.quran.core.database.dao.SelectionHistoryDao
@@ -25,6 +26,7 @@ import com.ayah.quran.domain.model.WallpaperApplyStatus
 import com.ayah.quran.domain.model.WallpaperDestination
 import com.ayah.quran.domain.model.WallpaperHistoryEntry
 import com.ayah.quran.domain.repository.WallpaperRepository
+import com.ayah.quran.domain.repository.WallpaperSettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -35,16 +37,6 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Renders wallpapers with [WallpaperRenderer] and applies them through the
- * system [WallpaperManager].
- *
- * Reliability contract: SUCCESS is recorded ONLY after WallpaperManager
- * accepted the bitmap for every requested destination; any exception is
- * recorded as FAILED with its reason. Bitmaps are handed to WallpaperManager
- * through a cache file stream (the memory-friendly path recommended by the
- * platform) and recycled after use.
- */
 @Singleton
 class WallpaperRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -53,7 +45,7 @@ class WallpaperRepositoryImpl @Inject constructor(
     private val surahDao: SurahDao,
     private val wallpaperHistoryDao: WallpaperHistoryDao,
     private val selectionHistoryDao: SelectionHistoryDao,
-    private val settingsRepository: com.ayah.quran.domain.repository.WallpaperSettingsRepository,
+    private val settingsRepository: WallpaperSettingsRepository,
     private val dataStore: DataStore<Preferences>,
 ) : WallpaperRepository {
 
@@ -65,10 +57,6 @@ class WallpaperRepositoryImpl @Inject constructor(
         verticalPosition: TextVerticalPosition,
     ): WallpaperApplyStatus = withContext(Dispatchers.Default) {
         val manager = WallpaperManager.getInstance(context)
-        // Render at SCREEN dimensions, not WallpaperManager.desiredMinimum*:
-        // desired* is the scrollable-wallpaper canvas (often 2x width) which
-        // the launcher crops, cutting the centered verse. The launcher scales
-        // a screen-sized bitmap to cover the screen exactly.
         val metrics = context.resources.displayMetrics
         val width = metrics.widthPixels
             .coerceIn(MIN_WALLPAPER_WIDTH, WallpaperRenderer.MAX_SIDE_PX)
@@ -94,12 +82,6 @@ class WallpaperRepositoryImpl @Inject constructor(
         }
 
         try {
-            // Use a SINGLE setBitmap call with combined flags for BOTH mode.
-            // Calling setBitmap twice (once per flag) causes the second call
-            // to replace the first on some Android versions / OEM skins,
-            // resulting in only one destination being updated.
-            // allowBackup=false: the wallpaper is re-rendered on restore,
-            // so backing up the raw bitmap is unnecessary.
             val which = when (destinations) {
                 WallpaperDestination.SYSTEM -> WallpaperManager.FLAG_SYSTEM
                 WallpaperDestination.LOCK -> WallpaperManager.FLAG_LOCK
@@ -143,7 +125,15 @@ class WallpaperRepositoryImpl @Inject constructor(
     }
 
     override fun observeHistory(): Flow<List<WallpaperHistoryEntry>> =
-        wallpaperHistoryDao.observeAll().map { entities -> entities.map { it.toDomainEntry() } }
+        wallpaperHistoryDao.observeAll().map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun deleteHistoryEntry(id: Long) {
+        wallpaperHistoryDao.deleteById(id)
+    }
+
+    override suspend fun clearHistory() {
+        wallpaperHistoryDao.clearAll()
+    }
 
     override suspend fun reapplyFromHistory(entry: WallpaperHistoryEntry): WallpaperApplyStatus {
         val ayahEntity = ayahDao.getAyah(entry.surahId, entry.ayahNumber) ?: run {
@@ -158,6 +148,49 @@ class WallpaperRepositoryImpl @Inject constructor(
             fontScale = settings.fontScale,
             verticalPosition = settings.verticalPosition,
         )
+    }
+
+    override suspend fun loadAyahByGlobalId(globalId: Long): Ayah? =
+        ayahDao.getAyahById(globalId)?.toDomain()
+
+    override suspend fun loadAyah(surahId: Int, ayahNumber: Int): Ayah? =
+        ayahDao.getAyah(surahId, ayahNumber)?.toDomain()
+
+    override suspend fun surahGlobalIdRange(surahId: Int): Pair<Long, Long>? =
+        ayahDao.surahGlobalIdRange(surahId)?.let { it.minId to it.maxId }
+
+    override suspend fun allGlobalIds(): List<Long> = ayahDao.globalIdsInRange(1L, 6236L)
+
+    override suspend fun screenDimensions(): Pair<Int, Int> {
+        val metrics = context.resources.displayMetrics
+        return metrics.widthPixels to metrics.heightPixels
+    }
+
+    override suspend fun surahName(surahId: Int): String? = surahDao.getSurah(surahId)?.nameTransliterated
+
+    override val selectedAyahIds: Flow<Set<String>>
+        get() = dataStore.data.map { prefs ->
+            prefs[SELECTED_AYAHS_KEY] ?: emptySet()
+        }
+
+    override suspend fun addSelectedAyah(surahId: Int, ayahNumber: Int) {
+        dataStore.edit { prefs ->
+            val current = prefs[SELECTED_AYAHS_KEY] ?: emptySet()
+            prefs[SELECTED_AYAHS_KEY] = current + "$surahId:$ayahNumber"
+        }
+    }
+
+    override suspend fun removeSelectedAyah(surahId: Int, ayahNumber: Int) {
+        dataStore.edit { prefs ->
+            val current = prefs[SELECTED_AYAHS_KEY] ?: emptySet()
+            prefs[SELECTED_AYAHS_KEY] = current - "$surahId:$ayahNumber"
+        }
+    }
+
+    override suspend fun clearSelectedAyahs() {
+        dataStore.edit { prefs ->
+            prefs.remove(SELECTED_AYAHS_KEY)
+        }
     }
 
     override suspend fun recordSelection(surahId: Int, ayahNumber: Int, mode: SelectionMode) {
@@ -184,38 +217,27 @@ class WallpaperRepositoryImpl @Inject constructor(
         dataStore.edit { it[SEQUENTIAL_CURSOR_KEY] = cursor }
     }
 
-    /** Loads an ayah from the verified dataset by reference (never fabricated). */
-    override suspend fun loadAyah(surahId: Int, ayahNumber: Int): Ayah? =
-        ayahDao.getAyah(surahId, ayahNumber)?.toDomain()
+    private fun AyahEntity.toDomain() = Ayah(
+        id = id,
+        surahId = surahId,
+        ayahNumber = ayahNumber,
+        textUthmani = textUthmani,
+        juz = juz,
+        page = page,
+    )
 
-    /** Loads one verse by its canonical global id (1..6236). */
-    override suspend fun loadAyahByGlobalId(globalId: Long): Ayah? =
-        ayahDao.getAyahById(globalId)?.toDomain()
-
-    override suspend fun surahGlobalIdRange(surahId: Int): Pair<Long, Long>? =
-        ayahDao.surahGlobalIdRange(surahId)?.let { it.minId to it.maxId }
-
-    override suspend fun allGlobalIds(): List<Long> = ayahDao.globalIdsInRange(1L, 6236L)
-
-    override suspend fun screenDimensions(): Pair<Int, Int> {
-        val metrics = context.resources.displayMetrics
-        return metrics.widthPixels to metrics.heightPixels
-    }
-
-    override suspend fun surahName(surahId: Int): String? = surahDao.getSurah(surahId)?.nameTransliterated
-
-    private suspend fun referenceLabel(surahId: Int, ayahNumber: Int): String {
-        val name = surahDao.getSurah(surahId)?.nameTransliterated ?: "Surah $surahId"
-        return "$name · $surahId:$ayahNumber"
-    }
-
-    override suspend fun deleteHistoryEntry(id: Long) {
-        wallpaperHistoryDao.deleteById(id)
-    }
-
-    override suspend fun clearHistory() {
-        wallpaperHistoryDao.clearAll()
-    }
+    private fun WallpaperHistoryEntity.toDomain() = WallpaperHistoryEntry(
+        id = id,
+        surahId = surahId,
+        ayahNumber = ayahNumber,
+        templateId = templateId,
+        destinations = WallpaperDestination.entries.firstOrNull { it.name == destinations }
+            ?: WallpaperDestination.BOTH,
+        appliedAtMillis = appliedAt,
+        status = WallpaperApplyStatus.entries.firstOrNull { it.name == status }
+            ?: WallpaperApplyStatus.FAILED,
+        failureReason = failureReason,
+    )
 
     private suspend fun recordHistory(
         surahId: Int,
@@ -236,41 +258,22 @@ class WallpaperRepositoryImpl @Inject constructor(
                 failureReason = failureReason,
             ),
         )
-        // Bounded retention: keep the newest 100 attempts.
         wallpaperHistoryDao.trimTo(HISTORY_RETENTION)
     }
 
-    private fun WallpaperHistoryEntity.toDomainEntry() = WallpaperHistoryEntry(
-        id = id,
-        surahId = surahId,
-        ayahNumber = ayahNumber,
-        templateId = templateId,
-        destinations = WallpaperDestination.entries.firstOrNull { it.name == destinations }
-            ?: WallpaperDestination.BOTH,
-        appliedAtMillis = appliedAt,
-        status = WallpaperApplyStatus.entries.firstOrNull { it.name == status }
-            ?: WallpaperApplyStatus.FAILED,
-        failureReason = failureReason,
-    )
-
-    private fun AyahEntity.toDomain() = Ayah(
-        id = id,
-        surahId = surahId,
-        ayahNumber = ayahNumber,
-        textUthmani = textUthmani,
-        juz = juz,
-        page = page,
-    )
+    private suspend fun referenceLabel(surahId: Int, ayahNumber: Int): String {
+        val name = surahDao.getSurah(surahId)?.nameTransliterated ?: "Surah $surahId"
+        return "$name · $surahId:$ayahNumber"
+    }
 
     companion object {
         private const val TAG = "WallpaperRepository"
         private const val MIN_WALLPAPER_WIDTH = 720
         private const val MIN_WALLPAPER_HEIGHT = 1280
         private const val RECENT_WINDOW_KEEP = 100
-
-        /** Bounded history retention (newest attempts kept). */
         const val HISTORY_RETENTION = 100
 
         val SEQUENTIAL_CURSOR_KEY = longPreferencesKey("wallpaper_sequential_cursor")
+        val SELECTED_AYAHS_KEY = stringSetPreferencesKey("wallpaper_selected_ayahs")
     }
 }

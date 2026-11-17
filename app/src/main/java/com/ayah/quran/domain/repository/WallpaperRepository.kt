@@ -1,6 +1,7 @@
 package com.ayah.quran.domain.repository
 
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
+import com.ayah.quran.domain.model.Ayah
 import com.ayah.quran.domain.model.SelectionMode
 import com.ayah.quran.domain.model.WallpaperApplyStatus
 import com.ayah.quran.domain.model.WallpaperDestination
@@ -21,7 +22,7 @@ interface WallpaperRepository {
      * actually accepted.
      */
     suspend fun applyWallpaper(
-        ayah: com.ayah.quran.domain.model.Ayah,
+        ayah: Ayah,
         template: WallpaperTemplate,
         destinations: WallpaperDestination,
         fontScale: Float,
@@ -52,10 +53,10 @@ interface WallpaperRepository {
     suspend fun reapplyFromHistory(entry: WallpaperHistoryEntry): WallpaperApplyStatus
 
     /** Loads one verse from the verified dataset by global id, or null. */
-    suspend fun loadAyahByGlobalId(globalId: Long): com.ayah.quran.domain.model.Ayah?
+    suspend fun loadAyahByGlobalId(globalId: Long): Ayah?
 
     /** Loads one verse from the verified dataset by reference, or null. */
-    suspend fun loadAyah(surahId: Int, ayahNumber: Int): com.ayah.quran.domain.model.Ayah?
+    suspend fun loadAyah(surahId: Int, ayahNumber: Int): Ayah?
 
     /** The [surahId]'s global-id range (contiguous), or null if unknown. */
     suspend fun surahGlobalIdRange(surahId: Int): Pair<Long, Long>?
@@ -72,8 +73,20 @@ interface WallpaperRepository {
     /** Records a selection for recent-ayah avoidance. */
     suspend fun recordSelection(surahId: Int, ayahNumber: Int, mode: SelectionMode)
 
-    /** The most recent [limit] selected verse references (global ids). */
+    /** The most recent [limit] selected verse global IDs for avoidance. */
     suspend fun recentSelections(limit: Int = RECENT_AVOIDANCE_WINDOW): Set<Long>
+
+    /** The user's selected ayah IDs ("surah:ayah" composite format). */
+    val selectedAyahIds: Flow<Set<String>>
+
+    /** Adds an ayah to the user's selection. No-op if already present. */
+    suspend fun addSelectedAyah(surahId: Int, ayahNumber: Int)
+
+    /** Removes an ayah from the user's selection. No-op if not present. */
+    suspend fun removeSelectedAyah(surahId: Int, ayahNumber: Int)
+
+    /** Clears all user-selected ayahs. */
+    suspend fun clearSelectedAyahs()
 
     /** Persistent sequential cursor for SEQUENTIAL mode. */
     suspend fun sequentialCursor(): Long

@@ -6,6 +6,11 @@ import com.ayah.quran.domain.model.TextVerticalPosition
 import com.ayah.quran.domain.model.WallpaperDestination
 import kotlinx.coroutines.flow.Flow
 
+/** User's selected ayahs for wallpaper rotation ("surah:ayah" composite ids). */
+data class SelectedAyahs(
+    val ayahIds: Set<String> = emptySet(),
+)
+
 /** User-configurable wallpaper preferences, persisted in DataStore. */
 data class WallpaperSettings(
     val autoUpdateEnabled: Boolean = false,
@@ -28,4 +33,16 @@ interface WallpaperSettingsRepository {
 
     /** Atomically applies a transformation to the stored settings. */
     suspend fun update(transform: (WallpaperSettings) -> WallpaperSettings)
+
+    /** The user's selected ayah IDs ("surah:ayah" composite format). */
+    val selectedAyahIds: Flow<Set<String>>
+
+    /** Adds an ayah to the user's selection. No-op if already present. */
+    suspend fun addSelectedAyah(surahId: Int, ayahNumber: Int)
+
+    /** Removes an ayah from the user's selection. No-op if not present. */
+    suspend fun removeSelectedAyah(surahId: Int, ayahNumber: Int)
+
+    /** Clears all selected ayahs. */
+    suspend fun clearSelectedAyahs()
 }

@@ -345,11 +345,10 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
         modifier = Modifier.fillMaxWidth(),
     ) {
         listOf(
-            SelectionMode.RANDOM to SelectionModeLabel.RANDOM,
-            SelectionMode.SEQUENTIAL to SelectionModeLabel.SEQUENTIAL,
-            SelectionMode.DAILY to SelectionModeLabel.DAILY,
-            SelectionMode.SURAH to SelectionModeLabel.SURAH,
-            SelectionMode.AYAH to SelectionModeLabel.AYAH,
+            SelectionMode.RANDOM to "Random",
+            SelectionMode.RANDOM_FROM_SELECTION to "From Selection",
+            SelectionMode.SEQUENTIAL_FROM_SELECTION to "Sequential",
+            SelectionMode.DAILY to "Daily",
         ).forEach { (mode, label) ->
             FilterChip(
                 selected = state.settings.selectionMode == mode,
@@ -358,15 +357,6 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
             )
         }
     }
-}
-
-/** Selection-mode display labels (kept as constants for the FlowRow mapping). */
-private object SelectionModeLabel {
-    const val RANDOM = "Random"
-    const val SEQUENTIAL = "Sequential"
-    const val DAILY = "Daily"
-    const val SURAH = "Surah"
-    const val AYAH = "Ayah"
 }
 
 @Composable

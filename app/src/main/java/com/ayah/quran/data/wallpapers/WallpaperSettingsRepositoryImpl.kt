@@ -4,9 +4,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
 import com.ayah.quran.domain.model.SelectionMode
 import com.ayah.quran.domain.model.TextVerticalPosition
@@ -20,10 +22,6 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * DataStore-backed [WallpaperSettingsRepository]. Shares the app's single
- * preferences file with user preferences; keys are distinct.
- */
 @Singleton
 class WallpaperSettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
@@ -32,7 +30,7 @@ class WallpaperSettingsRepositoryImpl @Inject constructor(
     override val settings: Flow<WallpaperSettings> = dataStore.data
         .catch { throwable ->
             if (throwable is IOException) {
-                emit(androidx.datastore.preferences.core.emptyPreferences())
+                emit(emptyPreferences())
             } else {
                 throw throwable
             }
@@ -53,17 +51,7 @@ class WallpaperSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun update(transform: (WallpaperSettings) -> WallpaperSettings) {
         dataStore.edit { prefs ->
-            val current = WallpaperSettings(
-                autoUpdateEnabled = prefs[KEY_AUTO_ENABLED] ?: false,
-                intervalMinutes = prefs[KEY_INTERVAL_MINUTES] ?: 60,
-                destinations = enumOrDefault(prefs[KEY_DESTINATIONS], WallpaperDestination.BOTH),
-                templateId = prefs[KEY_TEMPLATE_ID] ?: WallpaperTemplate.EMERALD_LUXURY_ID,
-                fontScale = prefs[KEY_FONT_SCALE] ?: 1.0f,
-                verticalPosition = enumOrDefault(prefs[KEY_VERTICAL_POSITION], TextVerticalPosition.CENTER),
-                selectionMode = enumOrDefault(prefs[KEY_SELECTION_MODE], SelectionMode.RANDOM),
-                fixedSurahId = prefs[KEY_FIXED_SURAH_ID] ?: 1,
-                fixedAyahNumber = prefs[KEY_FIXED_AYAH_NUMBER] ?: 1,
-            )
+            val current = readSettings(prefs)
             val updated = transform(current)
             prefs[KEY_AUTO_ENABLED] = updated.autoUpdateEnabled
             prefs[KEY_INTERVAL_MINUTES] = updated.intervalMinutes
@@ -76,6 +64,46 @@ class WallpaperSettingsRepositoryImpl @Inject constructor(
             prefs[KEY_FIXED_AYAH_NUMBER] = updated.fixedAyahNumber
         }
     }
+
+    override val selectedAyahIds: Flow<Set<String>>
+        get() = dataStore.data
+            .catch { throwable ->
+                if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+            }
+            .map { prefs -> prefs[KEY_SELECTED_AYAHS] ?: emptySet() }
+
+    override suspend fun addSelectedAyah(surahId: Int, ayahNumber: Int) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_SELECTED_AYAHS] ?: emptySet()
+            prefs[KEY_SELECTED_AYAHS] = current + "$surahId:$ayahNumber"
+        }
+    }
+
+    override suspend fun removeSelectedAyah(surahId: Int, ayahNumber: Int) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_SELECTED_AYAHS] ?: emptySet()
+            prefs[KEY_SELECTED_AYAHS] = current - "$surahId:$ayahNumber"
+        }
+    }
+
+    override suspend fun clearSelectedAyahs() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_SELECTED_AYAHS)
+        }
+    }
+
+    private fun readSettings(prefs: Preferences): WallpaperSettings =
+        WallpaperSettings(
+            autoUpdateEnabled = prefs[KEY_AUTO_ENABLED] ?: false,
+            intervalMinutes = prefs[KEY_INTERVAL_MINUTES] ?: 60,
+            destinations = enumOrDefault(prefs[KEY_DESTINATIONS], WallpaperDestination.BOTH),
+            templateId = prefs[KEY_TEMPLATE_ID] ?: WallpaperTemplate.EMERALD_LUXURY_ID,
+            fontScale = prefs[KEY_FONT_SCALE] ?: 1.0f,
+            verticalPosition = enumOrDefault(prefs[KEY_VERTICAL_POSITION], TextVerticalPosition.CENTER),
+            selectionMode = enumOrDefault(prefs[KEY_SELECTION_MODE], SelectionMode.RANDOM),
+            fixedSurahId = prefs[KEY_FIXED_SURAH_ID] ?: 1,
+            fixedAyahNumber = prefs[KEY_FIXED_AYAH_NUMBER] ?: 1,
+        )
 
     private inline fun <reified T : Enum<T>> enumOrDefault(raw: String?, default: T): T =
         raw?.let { value -> enumValues<T>().firstOrNull { it.name == value } } ?: default
@@ -90,5 +118,6 @@ class WallpaperSettingsRepositoryImpl @Inject constructor(
         val KEY_SELECTION_MODE = stringPreferencesKey("wallpaper_selection_mode")
         val KEY_FIXED_SURAH_ID = intPreferencesKey("wallpaper_fixed_surah_id")
         val KEY_FIXED_AYAH_NUMBER = intPreferencesKey("wallpaper_fixed_ayah_number")
+        val KEY_SELECTED_AYAHS = stringSetPreferencesKey("wallpaper_selected_ayahs")
     }
 }

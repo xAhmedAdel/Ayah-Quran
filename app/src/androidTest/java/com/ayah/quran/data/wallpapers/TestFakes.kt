@@ -17,6 +17,14 @@ internal class FakeSettingsRepository : WallpaperSettingsRepository {
     override suspend fun update(transform: (WallpaperSettings) -> WallpaperSettings) {
         state.value = transform(state.value)
     }
+
+    override val selectedAyahIds: Flow<Set<String>> = MutableStateFlow(emptySet<String>())
+
+    override suspend fun addSelectedAyah(surahId: Int, ayahNumber: Int) { /* no-op */ }
+
+    override suspend fun removeSelectedAyah(surahId: Int, ayahNumber: Int) { /* no-op */ }
+
+    override suspend fun clearSelectedAyahs() { /* no-op */ }
 }
 
 /** In-memory DataStore fake (only the sequential cursor uses it). */
