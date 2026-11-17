@@ -91,7 +91,6 @@
     <!-- Wallpapers -->
     <string name="wallpapers_title">Wallpapers</string>
     <string name="wallpapers_preview_caption">Preview</string>
-    <string name="wallpapers_engine_pending">The wallpaper engine (rendering, templates, automatic scheduling) is the next development phase. Controls will activate when it ships.</string>
     <string name="wallpapers_apply_home">Home screen</string>
     <string name="wallpapers_apply_lock">Lock screen</string>
     <string name="wallpapers_apply_both">Both</string>
@@ -113,6 +112,14 @@
     <string name="wallpapers_position_bottom">Bottom</string>
     <string name="wallpapers_verse_source">Verse</string>
     <string name="wallpapers_shuffle_verse">Shuffle verse</string>
+    <string name="wallpapers_selection_mode">Ayah selection mode</string>
+    <string name="wallpapers_selection_random">Random</string>
+    <string name="wallpapers_selection_from_selection">From selection</string>
+    <string name="wallpapers_selection_sequential">Sequential</string>
+    <string name="wallpapers_selection_daily">Daily</string>
+    <string name="wallpapers_dest_home">Home</string>
+    <string name="wallpapers_dest_lock">Lock</string>
+    <string name="wallpapers_dest_both">Both</string>
     <string name="wallpapers_pick_surah">Surah</string>
     <string name="wallpapers_pick_ayah">Ayah</string>
     <string name="wallpapers_ayah_number_error">Enter an ayah number between 1 and %1$d</string>

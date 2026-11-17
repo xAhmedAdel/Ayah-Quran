@@ -53,6 +53,11 @@ val AyahLightColors = lightColorScheme(
     outline = OutlineLight,
     outlineVariant = Color(0xFFCBCFC9),
     surfaceTint = Emerald,
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFBF7ED),
+    surfaceContainer = Color(0xFFF5F1E6),
+    surfaceContainerHigh = Color(0xFFEFEBDF),
+    surfaceContainerHighest = Color(0xFFEAE5D6),
 )
 
 /** Dark scheme, anchored on the spec's Ink background and Gold accent. */
@@ -76,4 +81,12 @@ val AyahDarkColors = darkColorScheme(
     outline = OutlineDark,
     outlineVariant = Color(0xFF3A423D),
     surfaceTint = Gold,
+    // Green-tinted Ink tones — without these, M3 falls back to neutral gray
+    // defaults for filled Cards, chips and the NavigationBar, which breaks
+    // the brand palette in dark mode.
+    surfaceContainerLowest = Color(0xFF0D1310),
+    surfaceContainerLow = Color(0xFF161D19),
+    surfaceContainer = Color(0xFF1A211D),
+    surfaceContainerHigh = Color(0xFF202824),
+    surfaceContainerHighest = Color(0xFF262E29),
 )

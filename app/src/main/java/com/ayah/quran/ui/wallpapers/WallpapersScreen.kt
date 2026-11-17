@@ -65,10 +65,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
+import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.ConfirmDialog
 import com.ayah.quran.core.designsystem.component.SectionCard
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.core.locale.localizedDisplayName
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
 import com.ayah.quran.domain.model.SelectionMode
 import com.ayah.quran.domain.model.TextVerticalPosition
@@ -126,7 +128,7 @@ private fun PreviewCard(
     viewModel: WallpapersViewModel,
     onOpenFullscreen: (surahId: Int, ayahNumber: Int) -> Unit,
 ) {
-    Card(shape = RoundedCornerShape(24.dp)) {
+    AyahCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -277,7 +279,8 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
             modifier = Modifier.weight(2f),
         ) {
             OutlinedTextField(
-                value = "${selectedSurah?.id ?: 1} · ${selectedSurah?.nameTransliterated ?: ""}",
+                value = "${selectedSurah?.id ?: 1} · " +
+                    (selectedSurah?.localizedDisplayName() ?: ""),
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(stringResource(R.string.wallpapers_pick_surah)) },
@@ -293,7 +296,7 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
                 ) {
                     items(state.surahs, key = { it.id }) { surah ->
                         androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("${surah.id} · ${surah.nameTransliterated}") },
+                            text = { Text("${surah.id} · ${surah.localizedDisplayName()}") },
                             onClick = {
                                 viewModel.setFixedVerse(surah.id, state.settings.fixedAyahNumber)
                                 surahMenuOpen = false
@@ -335,26 +338,30 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
     }
 
     Text(
-        text = stringResource(R.string.wallpapers_auto_updates),
+        text = stringResource(R.string.wallpapers_selection_mode),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
     )
-    // FlowRow wraps instead of clipping on narrow screens / large fonts.
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        listOf(
-            SelectionMode.RANDOM to "Random",
-            SelectionMode.RANDOM_FROM_SELECTION to "From Selection",
-            SelectionMode.SEQUENTIAL_FROM_SELECTION to "Sequential",
-            SelectionMode.DAILY to "Daily",
-        ).forEach { (mode, label) ->
-            FilterChip(
-                selected = state.settings.selectionMode == mode,
-                onClick = { viewModel.setSelectionMode(mode) },
-                label = { Text(label) },
-            )
+    // Uniform 2×2 grid: same width rhythm as the template chips, so no
+    // mix of small loose chips and full-width segmented rows.
+    listOf(
+        SelectionMode.RANDOM to R.string.wallpapers_selection_random,
+        SelectionMode.RANDOM_FROM_SELECTION to R.string.wallpapers_selection_from_selection,
+        SelectionMode.SEQUENTIAL_FROM_SELECTION to R.string.wallpapers_selection_sequential,
+        SelectionMode.DAILY to R.string.wallpapers_selection_daily,
+    ).chunked(2).forEach { rowModes ->
+        Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
+            rowModes.forEach { (mode, labelRes) ->
+                FilterChip(
+                    selected = state.settings.selectionMode == mode,
+                    onClick = { viewModel.setSelectionMode(mode) },
+                    label = { Text(stringResource(labelRes)) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (rowModes.size == 1) {
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+            }
         }
     }
 }
@@ -364,16 +371,16 @@ private fun ApplySection(state: WallpapersUiState, viewModel: WallpapersViewMode
     SectionCard(title = stringResource(R.string.wallpapers_apply_now)) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             val destinations = listOf(
-                WallpaperDestination.SYSTEM to stringResource(R.string.wallpapers_apply_home),
-                WallpaperDestination.LOCK to stringResource(R.string.wallpapers_apply_lock),
-                WallpaperDestination.BOTH to stringResource(R.string.wallpapers_apply_both),
+                WallpaperDestination.SYSTEM to R.string.wallpapers_dest_home,
+                WallpaperDestination.LOCK to R.string.wallpapers_dest_lock,
+                WallpaperDestination.BOTH to R.string.wallpapers_dest_both,
             )
-            destinations.forEachIndexed { index, (destination, label) ->
+            destinations.forEachIndexed { index, (destination, labelRes) ->
                 SegmentedButton(
                     selected = state.settings.destinations == destination,
                     onClick = { viewModel.setDestinations(destination) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = destinations.size),
-                    label = { Text(label) },
+                    label = { Text(stringResource(labelRes), maxLines = 1) },
                 )
             }
         }
@@ -630,7 +637,7 @@ private fun HistoryRow(
             Text(
                 text = stringResource(
                     R.string.wallpapers_history_ayah_format,
-                    entry.templateName,
+                    stringResource(labelResForId(entry.templateId)),
                     entry.surahId,
                     entry.ayahNumber,
                 ),

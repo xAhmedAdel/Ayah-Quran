@@ -108,6 +108,14 @@
     <string name="wallpapers_position_bottom">أسفل</string>
     <string name="wallpapers_verse_source">الآية</string>
     <string name="wallpapers_shuffle_verse">آية عشوائية</string>
+    <string name="wallpapers_selection_mode">طريقة اختيار الآية</string>
+    <string name="wallpapers_selection_random">عشوائي</string>
+    <string name="wallpapers_selection_from_selection">من المحددة</string>
+    <string name="wallpapers_selection_sequential">تسلسلي</string>
+    <string name="wallpapers_selection_daily">يومي</string>
+    <string name="wallpapers_dest_home">الرئيسية</string>
+    <string name="wallpapers_dest_lock">القفل</string>
+    <string name="wallpapers_dest_both">كلاهما</string>
     <string name="wallpapers_pick_surah">سورة</string>
     <string name="wallpapers_pick_ayah">آية</string>
     <string name="wallpapers_ayah_number_error">أدخل رقم آية بين ١ و %1$d</string>
