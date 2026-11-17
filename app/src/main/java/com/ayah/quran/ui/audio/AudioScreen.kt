@@ -177,9 +177,9 @@ fun AudioScreen(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
                         listOf(
-                            RepeatMode.OFF to "Off",
-                            RepeatMode.REPEAT_ONE to "One",
-                            RepeatMode.REPEAT_ALL to "All",
+                            RepeatMode.OFF to stringResource(R.string.audio_repeat_off),
+                            RepeatMode.REPEAT_ONE to stringResource(R.string.audio_repeat_one),
+                            RepeatMode.REPEAT_ALL to stringResource(R.string.audio_repeat_all),
                         ).forEach { (mode, label) ->
                             FilterChip(
                                 selected = playback.repeatMode == mode,

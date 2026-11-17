@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">آية</string>
+    <string name="app_tagline">آية في كل لحظة</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_quran">القرآن</string>
+    <string name="nav_wallpapers">الخلفيات</string>
+    <string name="nav_audio">الصوت</string>
+    <string name="nav_settings">الإعدادات</string>
+
+    <!-- Quran data import -->
+    <string name="import_preparing">جارٍ تحضير نص القرآن…</string>
+    <string name="import_progress_format">جارٍ استيراد نص القرآن المُتحقَّق منه… %1$d%%</string>
+    <string name="import_failed">فشل استيراد نص القرآن ولم يكتمل. لم يُعرض شيء بدلاً منه.</string>
+    <string name="import_retry">إعادة المحاولة</string>
+
+    <!-- Quran list -->
+    <string name="quran_title">القرآن</string>
+    <string name="quran_search_hint">ابحث عن سورة</string>
+    <string name="quran_search_no_results">لا توجد سورة مطابقة لـ \"%1$s\"</string>
+    <string name="quran_list_empty">قائمة السور فارغة. يجب ألا يحدث هذا بعد الاستيراد الناجح.</string>
+
+    <!-- Reader -->
+    <string name="reader_surah_format">سورة %1$s</string>
+    <string name="surah_revelation_meccan">مكية</string>
+    <string name="surah_revelation_medinan">مدنية</string>
+    <string name="surah_meta_format">%1$s · %2$d آية</string>
+    <string name="reader_meta_format">%1$s · %2$d آية · الجزء %3$s · الصفحات %4$s–%5$s</string>
+    <string name="reader_prev_surah">السورة السابقة</string>
+    <string name="reader_next_surah">السورة التالية</string>
+    <string name="reader_back">رجوع</string>
+    <string name="reader_bookmark">حفظ هذه الآية</string>
+    <string name="reader_loading">جارٍ تحميل السورة…</string>
+    <string name="reader_surah_not_found">لم يتم العثور على السورة.</string>
+
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">العلامات المرجعية</string>
+    <string name="bookmarks_empty">لا توجد علامات مرجعية بعد. انقر على أيقونة الحفظ بجانب أي آية في المصحف.</string>
+    <string name="bookmarks_back">رجوع</string>
+
+    <!-- Home -->
+    <string name="home_daily_ayah_title">آية اليوم</string>
+    <string name="home_daily_ayah_pending">آية اليوم ستتوفر مع مرحلة محرك الخلفيات.</string>
+    <string name="home_continue_reading_title">متابعة القراءة</string>
+    <string name="home_continue_reading_pending">افتح أي سورة وسيتم حفظ موضعك تلقائياً.</string>
+    <string name="home_continue_reading_format">سورة %1$s · الآية %2$d من %3$d</string>
+    <string name="home_continue_reading_progress">تقدم القراءة</string>
+    <string name="home_continue_reading_button">متابعة</string>
+    <string name="home_wallpaper_card_title">الخلفية الحالية</string>
+    <string name="home_wallpaper_template_format">%1$s · طُبِّقت %2$s</string>
+    <string name="home_wallpaper_automation_on">التحديث التلقائي مفعّل · كل %1$d دقيقة (تقريباً)</string>
+    <string name="home_wallpaper_card_none">لم يتم تطبيق خلفية بعد. أنشئ أول خلفية قرآنية من تبويب الخلفيات.</string>
+    <string name="home_wallpaper_automation_off">التحديث التلقائي متوقف</string>
+    <string name="home_open_quran">فتح القرآن</string>
+    <string name="home_open_bookmarks">العلامات المرجعية</string>
+    <string name="home_open_wallpapers">إعدادات الخلفيات</string>
+
+    <!-- Full-screen wallpaper preview -->
+    <string name="preview_close">إغلاق المعاينة</string>
+    <string name="preview_wallpaper_image">معاينة الخلفية بملء الشاشة</string>
+    <string name="preview_apply">تطبيق الخلفية</string>
+
+    <!-- History management -->
+    <string name="history_delete_entry">حذف السجل</string>
+    <string name="history_clear">مسح السجل</string>
+    <string name="history_clear_title">مسح سجل الخلفيات؟</string>
+    <string name="history_clear_message">سيتم إزالة جميع سجلات تطبيق الخلفيات. خلفية جهازك الحالية والعلامات المرجعية لن تتأثر.</string>
+    <string name="history_clear_confirm">مسح</string>
+    <string name="history_entry_deleted">تم حذف السجل</string>
+
+    <!-- Wallpapers -->
+    <string name="wallpapers_title">الخلفيات</string>
+    <string name="wallpapers_preview_caption">معاينة</string>
+    <string name="wallpapers_apply_home">الشاشة الرئيسية</string>
+    <string name="wallpapers_apply_lock">شاشة القفل</string>
+    <string name="wallpapers_apply_both">كلاهما</string>
+    <string name="wallpapers_auto_updates">التحديثات التلقائية</string>
+    <string name="wallpapers_interval">التغيير كل</string>
+    <string name="wallpapers_interval_minutes">%1$d دقيقة</string>
+    <string name="wallpapers_interval_hours">%1$d ساعة</string>
+    <string name="wallpapers_template_emerald_luxury">الفخامة الزمردية</string>
+    <string name="wallpapers_template_minimal_cream">كريمي بسيط</string>
+    <string name="wallpapers_template_midnight_gold">ذهب منتصف الليل</string>
+    <string name="wallpapers_template_islamic_architecture">العمارة الإسلامية</string>
+    <string name="wallpapers_template_geometric_art">فن هندسي</string>
+    <string name="wallpapers_apply_now">تطبيق الآن</string>
+    <string name="wallpapers_template_section">القالب</string>
+    <string name="wallpapers_text_section">نص الآية</string>
+    <string name="wallpapers_font_size">حجم الخط</string>
+    <string name="wallpapers_position_top">أعلى</string>
+    <string name="wallpapers_position_center">وسط</string>
+    <string name="wallpapers_position_bottom">أسفل</string>
+    <string name="wallpapers_verse_source">الآية</string>
+    <string name="wallpapers_shuffle_verse">آية عشوائية</string>
+    <string name="wallpapers_pick_surah">سورة</string>
+    <string name="wallpapers_pick_ayah">آية</string>
+    <string name="wallpapers_ayah_number_error">أدخل رقم آية بين ١ و %1$d</string>
+    <string name="wallpapers_apply_success">تم تطبيق الخلفية على %1$s.</string>
+    <string name="wallpapers_apply_failed">رفض النظام الخلفية. لم يتم تطبيق أي شيء. السبب: %1$s</string>
+    <string name="wallpapers_apply_working">جارٍ التطبيق…</string>
+    <string name="wallpapers_auto_every_format">كل %1$s (تقريبي)</string>
+    <string name="wallpapers_auto_off">التحديثات التلقائية متوقفة</string>
+    <string name="wallpapers_auto_hint">يجدول WorkManager التحديثات تقريبياً؛ التوقيت الدقيق غير مضمون ويعتمد على إعدادات البطارية في النظام.</string>
+    <string name="wallpapers_last_applied_never">لم يتم التطبيق بعد</string>
+    <string name="wallpapers_last_applied_format">آخر تطبيق: %1$s</string>
+    <string name="wallpapers_history_section">السجل</string>
+    <string name="wallpapers_history_empty">لم يتم تطبيق أي خلفيات بعد.</string>
+    <string name="wallpapers_history_reapply">إعادة التطبيق</string>
+    <string name="wallpapers_history_status_success">تم التطبيق</string>
+    <string name="wallpapers_history_status_failed">فشل</string>
+
+    <!-- Audio -->
+    <string name="audio_title">الصوت</string>
+    <string name="audio_header_tagline">التلاوات</string>
+    <string name="audio_reciters_section">القرّاء</string>
+    <string name="audio_reciters_empty">لا توجد تلاوات مرخّصة متاحة بعد.</string>
+    <string name="audio_reciters_empty_detail">لا يتضمن تطبيق آية إلا التلاوات التي تم التحقق من رخصة إعادة نشرها. ستظهر الفهارس المرخّصة هنا مع الإسناد الكامل.</string>
+    <string name="audio_player_section">التشغيل</string>
+    <string name="audio_playback_unavailable">التشغيل غير متاح بعد. ستُفعَّل أدوات التحكم عند إضافة فهرس تلاوات مرخّص.</string>
+    <string name="audio_state_label">الحالة</string>
+    <string name="audio_state_idle">لم يتم تحضير أي صوت</string>
+    <string name="audio_state_loading">جارٍ التحضير…</string>
+    <string name="audio_state_ready">جاهز</string>
+    <string name="audio_state_playing">قيد التشغيل</string>
+    <string name="audio_state_paused">متوقف مؤقتاً</string>
+    <string name="audio_state_buffering">جارٍ التحميل…</string>
+    <string name="audio_state_ended">انتهى</string>
+    <string name="audio_state_error">خطأ: %1$s</string>
+    <string name="audio_selected_reciter">القارئ المحدد</string>
+    <string name="audio_selected_surah">السورة المحددة</string>
+    <string name="audio_repeat">التكرار</string>
+    <string name="audio_repeat_off">بدون</string>
+    <string name="audio_repeat_one">مفرد</string>
+    <string name="audio_repeat_all">الكل</string>
+    <string name="audio_play">تشغيل</string>
+    <string name="audio_pause">إيقاف مؤقت</string>
+    <string name="audio_previous">المقطع السابق</string>
+    <string name="audio_next">المقطع التالي</string>
+    <string name="audio_seek">تنقّل</string>
+
+    <!-- Settings -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_appearance">المظهر</string>
+    <string name="settings_theme_system">توقّع النظام</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_dark">داكن</string>
+    <string name="settings_language">اللغة</string>
+    <!-- Language option labels are intentionally identical in every locale so
+         users can always find their language, whatever the app language is. -->
+    <string name="settings_language_arabic">العربية (Arabic)</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_about">حول</string>
+    <string name="settings_version">الإصدار</string>
+    <string name="settings_licenses">التراخيص</string>
+    <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي نسب المنسوب 3.0 — tanzil.net. بيانات الجزء والصفحة من المصحف المدني عبر quran.com. خط أميري تحت رخصة SIL للخطوط المفتوحة 1.1.</string>
+</resources>

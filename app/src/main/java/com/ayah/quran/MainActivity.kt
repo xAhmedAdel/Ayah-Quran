@@ -1,5 +1,6 @@
 package com.ayah.quran
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,6 +10,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.core.designsystem.theme.AyahTheme
+import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.navigation.AyahApp
 import com.ayah.quran.ui.main.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -18,6 +20,15 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    /**
+     * Wrapping here (not only in [AyahApplication]) means a language change
+     * persisted by Settings takes effect on the very next [recreate] call,
+     * without waiting for a full process restart.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()

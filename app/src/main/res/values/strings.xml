@@ -21,12 +21,14 @@
     <string name="quran_search_hint">Search surah</string>
     <string name="quran_search_no_results">No surah matches “%1$s”</string>
     <string name="quran_list_empty">The Surah list is empty. This should not happen after a successful import.</string>
-    <string name="surah_meta_format" translatable="false">%1$s · %2$d ayahs</string>
+    <string name="surah_revelation_meccan">Meccan</string>
+    <string name="surah_revelation_medinan">Medinan</string>
+    <string name="surah_meta_format">%1$s · %2$d ayahs</string>
     <string name="surah_number_format" translatable="false">%1$d</string>
 
     <!-- Reader -->
-    <string name="reader_surah_format" translatable="false">Surah %1$s</string>
-    <string name="reader_meta_format" translatable="false">%1$s · %2$d ayahs · Juz %3$s · Pages %4$s–%5$s</string>
+    <string name="reader_surah_format">Surah %1$s</string>
+    <string name="reader_meta_format">%1$s · %2$d ayahs · Juz %3$s · Pages %4$s–%5$s</string>
     <string name="reader_ayah_number_format" translatable="false">﴿%1$s﴾</string>
     <string name="reader_prev_surah">Previous surah</string>
     <string name="reader_next_surah">Next surah</string>
@@ -45,14 +47,15 @@
     <string name="home_daily_ayah_pending">The Daily Ayah arrives with the wallpaper engine phase.</string>
     <string name="home_continue_reading_title">Continue Reading</string>
     <string name="home_continue_reading_pending">Open any surah and your position will be saved automatically.</string>
-    <string name="home_continue_reading_format" translatable="false">Surah %1$s · Ayah %2$d of %3$d</string>
+    <string name="home_continue_reading_format">Surah %1$s · Ayah %2$d of %3$d</string>
     <string name="home_continue_reading_progress">Reading progress</string>
     <string name="home_continue_reading_button">Continue</string>
     <string name="home_wallpaper_card_title">Current wallpaper</string>
     <string name="home_wallpaper_card_none">No wallpaper applied yet. Create your first Quranic wallpaper from the Wallpapers tab.</string>
+    <!-- Surah reference "name · surah:ayah" is language-neutral; keep one form. -->
     <string name="home_wallpaper_ayah_format" translatable="false">%1$s · %2$d:%3$d</string>
-    <string name="home_wallpaper_template_format" translatable="false">%1$s · applied %2$s</string>
-    <string name="home_wallpaper_automation_on" translatable="false">Auto-updates on · every %1$d min (approx.)</string>
+    <string name="home_wallpaper_template_format">%1$s · applied %2$s</string>
+    <string name="home_wallpaper_automation_on">Auto-updates on · every %1$d min (approx.)</string>
     <string name="home_wallpaper_automation_off">Auto-updates off</string>
     <string name="home_open_quran">Open Quran</string>
     <string name="home_open_bookmarks">Bookmarks</string>
@@ -80,6 +83,13 @@
     <string name="wallpapers_apply_both">Both</string>
     <string name="wallpapers_auto_updates">Automatic updates</string>
     <string name="wallpapers_interval">Change every</string>
+    <string name="wallpapers_interval_minutes">%1$d min</string>
+    <string name="wallpapers_interval_hours">%1$d h</string>
+    <string name="wallpapers_template_emerald_luxury">Emerald Luxury</string>
+    <string name="wallpapers_template_minimal_cream">Minimal Cream</string>
+    <string name="wallpapers_template_midnight_gold">Midnight Gold</string>
+    <string name="wallpapers_template_islamic_architecture">Islamic Architecture</string>
+    <string name="wallpapers_template_geometric_art">Geometric Art</string>
     <string name="wallpapers_apply_now">Apply now</string>
     <string name="wallpapers_template_section">Template</string>
     <string name="wallpapers_text_section">Verse text</string>
@@ -127,6 +137,9 @@
     <string name="audio_selected_reciter">Selected reciter</string>
     <string name="audio_selected_surah">Selected surah</string>
     <string name="audio_repeat">Repeat</string>
+    <string name="audio_repeat_off">Off</string>
+    <string name="audio_repeat_one">One</string>
+    <string name="audio_repeat_all">All</string>
     <string name="audio_play">Play</string>
     <string name="audio_pause">Pause</string>
     <string name="audio_previous">Previous track</string>
@@ -139,6 +152,11 @@
     <string name="settings_theme_system">Follow system</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <!-- Language option labels are intentionally identical in every locale so
+         users can always find their language, whatever the app language is. -->
+    <string name="settings_language">Language</string>
+    <string name="settings_language_arabic">العربية (Arabic)</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version</string>
     <string name="settings_licenses">Licenses</string>

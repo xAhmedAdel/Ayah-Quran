@@ -1,5 +1,8 @@
 package com.ayah.quran.ui.settings
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,9 +16,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,11 +30,12 @@ import com.ayah.quran.R
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
+import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.domain.model.ThemeMode
 
 /**
- * Settings screen. Appearance is fully functional from Phase 1 (persisted
- * through DataStore); wallpaper and data sections join in later phases.
+ * Settings screen. Appearance (Phase 1) and app language (Phase 10) are fully
+ * functional; wallpaper and data sections join in later phases.
  */
 @Composable
 fun SettingsScreen(
@@ -37,6 +43,16 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val languageTag by viewModel.languageTag.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // A persisted language change applies on the next activity creation, so
+    // recreate immediately; attachBaseContext re-reads the tag synchronously.
+    LaunchedEffect(Unit) {
+        viewModel.languageApplied.collect {
+            (context.findActivity() as? Activity)?.recreate()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -67,6 +83,27 @@ fun SettingsScreen(
                     label = stringResource(R.string.settings_theme_dark),
                     selected = themeMode == ThemeMode.DARK,
                     onSelect = { viewModel.setThemeMode(ThemeMode.DARK) },
+                )
+            }
+        }
+
+        SectionHeader(text = stringResource(R.string.settings_language))
+
+        AyahCard {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.s),
+            ) {
+                LanguageOptionRow(
+                    label = stringResource(R.string.settings_language_arabic),
+                    selected = languageTag == AppLocale.ARABIC,
+                    onSelect = { viewModel.setLanguage(AppLocale.ARABIC) },
+                )
+                LanguageOptionRow(
+                    label = stringResource(R.string.settings_language_english),
+                    selected = languageTag == AppLocale.ENGLISH,
+                    onSelect = { viewModel.setLanguage(AppLocale.ENGLISH) },
                 )
             }
         }
@@ -136,6 +173,39 @@ private fun ThemeOptionRow(
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
+}
+
+@Composable
+private fun LanguageOptionRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, onClick = onSelect)
+            .padding(vertical = AyahSpacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** Unwraps [ContextWrapper]s until the owning activity, if any, is found. */
+private fun Context.findActivity(): Activity? {
+    var current: Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
 }
 
 @Composable

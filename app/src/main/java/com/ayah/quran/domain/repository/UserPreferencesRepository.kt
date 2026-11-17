@@ -16,4 +16,10 @@ interface UserPreferencesRepository {
 
     /** Persists [mode]; the [themeMode] flow emits the new value afterwards. */
     suspend fun setThemeMode(mode: ThemeMode)
+
+    /** The user's selected language tag ("ar", "en"), or null for system default. */
+    val languageTag: Flow<String?>
+
+    /** Persists the language tag; triggers activity recreation via the caller. */
+    suspend fun setLanguageTag(tag: String)
 }

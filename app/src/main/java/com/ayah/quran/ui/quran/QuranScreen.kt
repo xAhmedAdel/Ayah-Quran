@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ayah.quran.core.locale.localizedDisplayName
+import com.ayah.quran.core.locale.revelationLabel
 import com.ayah.quran.R
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.EmptyState
@@ -206,14 +208,14 @@ private fun SurahRow(
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = surah.nameTransliterated,
+                text = surah.localizedDisplayName(),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = stringResource(
                     R.string.surah_meta_format,
-                    surah.revelationType.name.lowercase().replaceFirstChar { it.uppercase() },
+                    stringResource(revelationLabel(surah.revelationType)),
                     surah.ayahCount,
                 ),
                 style = MaterialTheme.typography.bodySmall,

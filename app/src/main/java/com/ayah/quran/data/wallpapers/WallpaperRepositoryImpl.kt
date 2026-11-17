@@ -23,6 +23,7 @@ import com.ayah.quran.domain.model.Ayah
 import com.ayah.quran.domain.model.SelectionMode
 import com.ayah.quran.domain.model.TextVerticalPosition
 import com.ayah.quran.domain.model.WallpaperApplyStatus
+import com.ayah.quran.core.locale.localizedDisplayName
 import com.ayah.quran.domain.model.WallpaperDestination
 import com.ayah.quran.domain.model.WallpaperHistoryEntry
 import com.ayah.quran.domain.repository.WallpaperRepository
@@ -166,7 +167,8 @@ class WallpaperRepositoryImpl @Inject constructor(
         return metrics.widthPixels to metrics.heightPixels
     }
 
-    override suspend fun surahName(surahId: Int): String? = surahDao.getSurah(surahId)?.nameTransliterated
+    override suspend fun surahName(surahId: Int): String? =
+        surahDao.getSurah(surahId)?.localizedDisplayName()
 
     override val selectedAyahIds: Flow<Set<String>>
         get() = dataStore.data.map { prefs ->
@@ -262,7 +264,7 @@ class WallpaperRepositoryImpl @Inject constructor(
     }
 
     private suspend fun referenceLabel(surahId: Int, ayahNumber: Int): String {
-        val name = surahDao.getSurah(surahId)?.nameTransliterated ?: "Surah $surahId"
+        val name = surahDao.getSurah(surahId)?.localizedDisplayName() ?: "Surah $surahId"
         return "$name · $surahId:$ayahNumber"
     }
 

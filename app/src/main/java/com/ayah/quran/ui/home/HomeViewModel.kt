@@ -3,6 +3,7 @@ package com.ayah.quran.ui.home
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ayah.quran.core.locale.localizedDisplayName
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
 import com.ayah.quran.domain.model.ReadingPosition
 import com.ayah.quran.domain.model.WallpaperApplyStatus
@@ -26,7 +27,8 @@ import javax.inject.Inject
 /** The saved reading position enriched for display. */
 data class ContinueReadingState(
     val surahId: Int,
-    val surahNameTransliterated: String,
+    /** Localized presentation name (Arabic in the Arabic UI). */
+    val surahDisplayName: String,
     val ayahNumber: Int,
     val surahAyahCount: Int,
     /** Fraction (0..1) of the surah read — REAL data: ayah ÷ surah ayah count. */
@@ -36,10 +38,12 @@ data class ContinueReadingState(
 /** The most recent successfully applied wallpaper, with a rendered thumbnail. */
 data class WallpaperCardState(
     val thumbnail: Bitmap?,
-    val surahNameTransliterated: String,
+    /** Localized presentation name (Arabic in the Arabic UI). */
+    val surahDisplayName: String,
     val surahId: Int,
     val ayahNumber: Int,
-    val templateName: String,
+    /** Template id; the UI resolves the localized label. */
+    val templateId: String,
     val appliedAtMillis: Long,
 )
 
@@ -94,7 +98,7 @@ class HomeViewModel @Inject constructor(
         val surah = getSurah(position.surahId) ?: return null
         return ContinueReadingState(
             surahId = surah.id,
-            surahNameTransliterated = surah.nameTransliterated,
+            surahDisplayName = surah.localizedDisplayName(),
             ayahNumber = position.ayahNumber,
             surahAyahCount = surah.ayahCount,
             progressFraction = if (surah.ayahCount > 0) {
@@ -114,7 +118,7 @@ class HomeViewModel @Inject constructor(
         val thumbnail = ayah?.let {
             wallpaperRepository.renderPreview(
                 ayahText = it.textUthmani,
-                referenceLabel = "${surah?.nameTransliterated ?: it.surahId} · ${it.surahId}:${it.ayahNumber}",
+                referenceLabel = "${surah?.localizedDisplayName() ?: it.surahId} · ${it.surahId}:${it.ayahNumber}",
                 template = template,
                 widthPx = THUMBNAIL_WIDTH_PX,
                 heightPx = THUMBNAIL_HEIGHT_PX,
@@ -124,10 +128,10 @@ class HomeViewModel @Inject constructor(
         }
         return WallpaperCardState(
             thumbnail = thumbnail,
-            surahNameTransliterated = surah?.nameTransliterated ?: "Surah ${latest.surahId}",
+            surahDisplayName = surah?.localizedDisplayName() ?: "Surah ${latest.surahId}",
             surahId = latest.surahId,
             ayahNumber = latest.ayahNumber,
-            templateName = template.displayName,
+            templateId = template.id,
             appliedAtMillis = latest.appliedAtMillis,
         )
     }

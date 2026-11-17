@@ -1,8 +1,10 @@
 package com.ayah.quran
 
 import android.app.Application
+import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.quran.QuranImporter
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -25,6 +27,11 @@ class AyahApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(hiltWorkerFactory)
             .build()
+
+    /** Applies the persisted app language process-wide (defaults to Arabic). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
 
     override fun onCreate() {
         super.onCreate()

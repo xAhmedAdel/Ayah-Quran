@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ayah.quran.core.locale.localizedDisplayName
+import com.ayah.quran.core.locale.revelationLabel
 import com.ayah.quran.R
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
@@ -71,7 +73,7 @@ fun ReaderScreen(
             title = {
                 Text(
                     text = state.surah?.let { surah ->
-                        stringResource(R.string.reader_surah_format, surah.nameTransliterated)
+                        stringResource(R.string.reader_surah_format, surah.localizedDisplayName())
                     } ?: stringResource(R.string.quran_title),
                     style = MaterialTheme.typography.titleLarge,
                 )
@@ -201,7 +203,7 @@ private fun SurahHeader(state: ReaderUiState, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = stringResource(R.string.reader_surah_format, surah.nameTransliterated),
+                text = stringResource(R.string.reader_surah_format, surah.localizedDisplayName()),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = AyahSpacing.s),
@@ -214,7 +216,7 @@ private fun SurahHeader(state: ReaderUiState, modifier: Modifier = Modifier) {
             Text(
                 text = stringResource(
                     R.string.reader_meta_format,
-                    surah.revelationType.name.lowercase().replaceFirstChar { it.uppercase() },
+                    stringResource(revelationLabel(surah.revelationType)),
                     surah.ayahCount,
                     juzLabel,
                     state.firstPage,

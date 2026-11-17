@@ -211,7 +211,7 @@ private fun TemplateSection(state: WallpapersUiState, viewModel: WallpapersViewM
                     FilterChip(
                         selected = selectedId == template.id,
                         onClick = { viewModel.selectTemplate(template.id) },
-                        label = { Text(template.displayName) },
+                        label = { Text(stringResource(template.labelRes())) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -449,13 +449,21 @@ private fun ApplySection(state: WallpapersUiState, viewModel: WallpapersViewMode
     }
 }
 
+/** "30 min" below half a day, "12 h" / "24 h" above — both localized. */
+private fun intervalLabelRes(minutes: Int): Int =
+    if (minutes < 720) R.string.wallpapers_interval_minutes else R.string.wallpapers_interval_hours
+
+private fun intervalLabelValue(minutes: Int): Int =
+    if (minutes < 720) minutes else minutes / 60
+
 @Composable
 private fun AutomationSection(state: WallpapersUiState, viewModel: WallpapersViewModel) {
     SectionCard(title = stringResource(R.string.wallpapers_auto_updates)) {
         val statusText = if (state.scheduleStatus.isScheduled) {
+            val minutes = state.scheduleStatus.intervalMinutes ?: state.settings.intervalMinutes
             stringResource(
                 R.string.wallpapers_auto_every_format,
-                "${state.scheduleStatus.intervalMinutes ?: state.settings.intervalMinutes} min",
+                stringResource(intervalLabelRes(minutes), intervalLabelValue(minutes)),
             )
         } else {
             stringResource(R.string.wallpapers_auto_off)
@@ -484,7 +492,7 @@ private fun AutomationSection(state: WallpapersUiState, viewModel: WallpapersVie
                         selected = state.settings.intervalMinutes == minutes,
                         onClick = { viewModel.setInterval(minutes) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = intervals.size),
-                        label = { Text("$minutes m") },
+                        label = { Text(stringResource(R.string.wallpapers_interval_minutes, minutes)) },
                     )
                 }
             }
@@ -495,7 +503,7 @@ private fun AutomationSection(state: WallpapersUiState, viewModel: WallpapersVie
                         selected = state.settings.intervalMinutes == minutes,
                         onClick = { viewModel.setInterval(minutes) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = intervals.size),
-                        label = { Text("${minutes / 60} h") },
+                        label = { Text(stringResource(R.string.wallpapers_interval_hours, minutes / 60)) },
                     )
                 }
             }

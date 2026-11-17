@@ -44,6 +44,7 @@ import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.AyahWordmarkStyle
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.ui.wallpapers.labelResForId
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -173,7 +174,7 @@ private fun ContinueReadingCard(
                 Text(
                     text = stringResource(
                         R.string.home_continue_reading_format,
-                        reading.surahNameTransliterated,
+                        reading.surahDisplayName,
                         reading.ayahNumber,
                         reading.surahAyahCount,
                     ),
@@ -255,7 +256,7 @@ private fun WallpaperCard(
                     Text(
                         text = stringResource(
                             R.string.home_wallpaper_ayah_format,
-                            card.surahNameTransliterated,
+                            card.surahDisplayName,
                             card.surahId,
                             card.ayahNumber,
                         ),
@@ -265,7 +266,7 @@ private fun WallpaperCard(
                     Text(
                         text = stringResource(
                             R.string.home_wallpaper_template_format,
-                            card.templateName,
+                            stringResource(labelResForId(card.templateId)),
                             TIME_FORMAT.format(Instant.ofEpochMilli(card.appliedAtMillis).atZone(ZoneId.systemDefault())),
                         ),
                         style = MaterialTheme.typography.bodySmall,

@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ayah.quran.MainActivity
+import com.ayah.quran.R
+import com.ayah.quran.core.locale.AppLocale
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +19,11 @@ import org.junit.runner.RunWith
  * End-to-end Compose UI tests against the REAL app (real Hilt graph, real
  * database). They verify navigation, home sections, the five wallpaper
  * templates, history presence, and accessibility semantics.
+ *
+ * The app ships Arabic-first with an in-app language switch, so every
+ * assertion resolves strings through the locale-wrapped activity resources
+ * (and surah names through [AppLocale.isArabic]) instead of hardcoding one
+ * language.
  *
  * Tests tolerate any application state (fresh install or used) and wait for
  * the async Quran import where needed.
@@ -27,6 +34,18 @@ class AppUiTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    /** Resolves a resource through the app's locale-wrapped activity. */
+    private fun s(resId: Int): String = composeRule.activity.getString(resId)
+
+    /** Formats a resource with args, matching how Compose renders it. */
+    private fun s(resId: Int, vararg args: Any): String = composeRule.activity.getString(resId, *args)
+
+    /** The surah name exactly as the UI displays it in the current language. */
+    private fun surahName(arabic: String, transliterated: String): String =
+        if (AppLocale.isArabic) arabic else transliterated
+
+    private fun faatiha(): String = surahName("الفاتحة", "Al-Faatiha")
+
     private fun waitForText(text: String, timeoutMs: Long = 20_000) {
         composeRule.waitUntil(timeoutMillis = timeoutMs) {
             composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
@@ -35,49 +54,49 @@ class AppUiTest {
 
     @Test
     fun homeShowsBrandAndCoreSections() {
-        composeRule.onNodeWithText("Ayah").assertExists()
-        composeRule.onNodeWithText("Continue Reading").assertExists()
-        composeRule.onNodeWithText("Current wallpaper").assertExists()
+        composeRule.onNodeWithText(s(R.string.app_name)).assertExists()
+        composeRule.onNodeWithText(s(R.string.home_continue_reading_title)).assertExists()
+        composeRule.onNodeWithText(s(R.string.home_wallpaper_card_title)).assertExists()
         // Status must be communicated with text, not color alone.
-        val hasAutomationText = composeRule.onAllNodesWithText("Auto-updates off")
+        val hasOffStatus = composeRule.onAllNodesWithText(s(R.string.home_wallpaper_automation_off))
             .fetchSemanticsNodes().isNotEmpty()
-        assertTrue(
-            "automation status text missing",
-            hasAutomationText ||
-                composeRule.onAllNodesWithText("Auto-updates on", substring = true)
-                    .fetchSemanticsNodes().isNotEmpty(),
-        )
+        val hasOnStatus = listOf(30, 60, 180, 360, 720, 1440).any { minutes ->
+            composeRule.onAllNodesWithText(s(R.string.home_wallpaper_automation_on, minutes))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue("automation status text missing", hasOffStatus || hasOnStatus)
     }
 
     @Test
     fun bottomNavigationReachesQuranSurahList() {
-        composeRule.onAllNodesWithText("Quran").onFirst().performClick()
+        composeRule.onAllNodesWithText(s(R.string.nav_quran)).onFirst().performClick()
         // The surah list populates after the async import completes.
-        waitForText("Al-Faatiha")
-        composeRule.onNodeWithText("Search surah").assertExists()
+        waitForText(faatiha())
+        composeRule.onNodeWithText(s(R.string.quran_search_hint)).assertExists()
     }
 
     @Test
     fun wallpapersScreenShowsAllFiveTemplates() {
-        composeRule.onAllNodesWithText("Wallpapers").onFirst().performClick()
-        waitForText("Emerald Luxury")
-        composeRule.onNodeWithText("Minimal Cream").assertExists()
-        composeRule.onNodeWithText("Midnight Gold").assertExists()
-        composeRule.onNodeWithText("Islamic Architecture").assertExists()
-        composeRule.onNodeWithText("Geometric Art").assertExists()
+        composeRule.onAllNodesWithText(s(R.string.nav_wallpapers)).onFirst().performClick()
+        waitForText(s(R.string.wallpapers_template_emerald_luxury))
+        composeRule.onNodeWithText(s(R.string.wallpapers_template_minimal_cream)).assertExists()
+        composeRule.onNodeWithText(s(R.string.wallpapers_template_midnight_gold)).assertExists()
+        composeRule.onNodeWithText(s(R.string.wallpapers_template_islamic_architecture)).assertExists()
+        composeRule.onNodeWithText(s(R.string.wallpapers_template_geometric_art)).assertExists()
     }
 
     @Test
     fun wallpapersScreenShowsHistorySection() {
-        composeRule.onAllNodesWithText("Wallpapers").onFirst().performClick()
-        waitForText("History")
+        composeRule.onAllNodesWithText(s(R.string.nav_wallpapers)).onFirst().performClick()
+        waitForText(s(R.string.wallpapers_history_section))
         // Honest empty state OR populated rows — never fabricated content.
-        val emptyShown = composeRule.onAllNodesWithText("No wallpapers have been applied yet.")
+        val emptyShown = composeRule.onAllNodesWithText(s(R.string.wallpapers_history_empty))
             .fetchSemanticsNodes().isNotEmpty()
         if (!emptyShown) {
             assertTrue(
                 "history rows must expose Reapply actions",
-                composeRule.onAllNodesWithText("Reapply").fetchSemanticsNodes().isNotEmpty(),
+                composeRule.onAllNodesWithText(s(R.string.wallpapers_history_reapply))
+                    .fetchSemanticsNodes().isNotEmpty(),
             )
         }
     }
@@ -85,19 +104,19 @@ class AppUiTest {
     @Test
     fun continueReadingTapOpensReaderAtSavedPosition_whenPositionExists() {
         // Open the Quran tab and Al-Faatiha to create a reading position.
-        composeRule.onAllNodesWithText("Quran").onFirst().performClick()
-        waitForText("Al-Faatiha")
-        clickWithRetry("Al-Faatiha")
-        waitForText("Surah Al-Faatiha", timeoutMs = 15_000)
+        composeRule.onAllNodesWithText(s(R.string.nav_quran)).onFirst().performClick()
+        waitForText(faatiha())
+        clickWithRetry(faatiha())
+        waitForText(s(R.string.reader_surah_format, faatiha()), timeoutMs = 15_000)
 
         // The reader hides the bottom bar (immersive) — navigate back first.
         androidx.test.espresso.Espresso.pressBack()
         composeRule.waitForIdle()
 
         // Home: Continue Reading must now offer the saved position.
-        composeRule.onAllNodesWithText("Home").onFirst().performClick()
-        waitForText("Surah Al-Faatiha · Ayah 1 of 7")
-        composeRule.onNodeWithText("Continue").assertExists()
+        composeRule.onAllNodesWithText(s(R.string.nav_home)).onFirst().performClick()
+        waitForText(s(R.string.home_continue_reading_format, faatiha(), 1, 7))
+        composeRule.onNodeWithText(s(R.string.home_continue_reading_button)).assertExists()
     }
 
     /** Touch injection can fail on a mid-transition frame; retry up to 3×. */
@@ -120,8 +139,14 @@ class AppUiTest {
     fun bottomNavigationBarIconsExposeContentDescriptions() {
         // Accessibility: each nav item exposes its label to TalkBack. The
         // item merges descendants, so the unmerged tree is queried.
-        listOf("Home", "Quran", "Wallpapers", "Audio", "Settings").forEach { label ->
-            composeRule.onNodeWithContentDescription(label, useUnmergedTree = true).assertExists()
+        listOf(
+            R.string.nav_home,
+            R.string.nav_quran,
+            R.string.nav_wallpapers,
+            R.string.nav_audio,
+            R.string.nav_settings,
+        ).forEach { resId ->
+            composeRule.onNodeWithContentDescription(s(resId), useUnmergedTree = true).assertExists()
         }
     }
 
