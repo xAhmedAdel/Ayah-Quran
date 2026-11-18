@@ -60,6 +60,7 @@ class AdhanPlaybackService : android.app.Service() {
             }
         }
 
+        val isTest = intent?.getBooleanExtra(EXTRA_TEST, false) ?: false
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER) ?: Prayer.FAJR.name
         val prayer = runCatching { Prayer.valueOf(prayerName) }.getOrDefault(Prayer.FAJR)
         val prefs = runBlocking { preferencesRepository.preferences.first() }
@@ -78,7 +79,7 @@ class AdhanPlaybackService : android.app.Service() {
                 }
         } ?: prefs.customAdhanAudioUri
 
-        startInForeground(prayer)
+        startInForeground(prayer, isTest)
 
         if (audioUri == null) {
             // No resolvable audio: honest fallback to a notification, no
@@ -150,7 +151,7 @@ class AdhanPlaybackService : android.app.Service() {
 
     override fun onBind(intent: Intent?): android.os.IBinder? = null
 
-    private fun startInForeground(prayer: Prayer): Notification {
+    private fun startInForeground(prayer: Prayer, isTest: Boolean): Notification {
         notifications.createChannels()
         val stopIntent = PendingIntent.getService(
             this,
@@ -164,10 +165,15 @@ class AdhanPlaybackService : android.app.Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val titleSuffix = if (isTest) {
+            " " + getString(R.string.prayer_test_suffix)
+        } else {
+            ""
+        }
         val notification = NotificationCompat.Builder(this, PrayerNotifications.CHANNEL_PLAYBACK)
             .setSmallIcon(R.drawable.ic_prayer_notification)
             .setContentTitle(
-                getString(R.string.prayer_notification_title, notifications.prayerName(prayer)),
+                getString(R.string.prayer_notification_title, notifications.prayerName(prayer)) + titleSuffix,
             )
             .setContentText(getString(R.string.prayer_playback_notification_text))
             .setOngoing(true)
@@ -204,6 +210,7 @@ class AdhanPlaybackService : android.app.Service() {
 
     companion object {
         const val EXTRA_PRAYER = "prayer"
+        const val EXTRA_TEST = "test"
         const val ACTION_STOP = "com.ayah.quran.prayer.STOP_ADHAN"
     }
 }

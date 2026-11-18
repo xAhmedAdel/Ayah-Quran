@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.ayah.quran.R
 import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.Prayer
+import com.ayah.quran.domain.model.prayer.PrayerNotificationsChannels
 import com.ayah.quran.domain.repository.prayer.PrayerPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -32,14 +33,14 @@ class PrayerNotifications @Inject constructor(
         val manager = NotificationManagerCompat.from(context)
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_PLAYBACK,
+                PrayerNotificationsChannels.PLAYBACK,
                 context.getString(R.string.prayer_channel_playback),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply { setSound(null, null) },
         )
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_ALERT,
+                PrayerNotificationsChannels.ALERT,
                 context.getString(R.string.prayer_channel_alert),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
@@ -50,7 +51,7 @@ class PrayerNotifications @Inject constructor(
         )
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_SILENT,
+                PrayerNotificationsChannels.SILENT,
                 context.getString(R.string.prayer_channel_silent),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply { setSound(null, null); enableVibration(false) },
@@ -78,6 +79,38 @@ class PrayerNotifications @Inject constructor(
             .build()
     }
 
+    /** Clear-labeled TEST notification on the SAME alert channel. */
+    fun postTest() {
+        createChannels()
+        if (!canNotify()) return
+        val notification = NotificationCompat.Builder(context, PrayerNotificationsChannels.ALERT)
+            .setSmallIcon(R.drawable.ic_prayer_notification)
+            .setContentTitle(context.getString(R.string.prayer_test_notification_title))
+            .setContentText(context.getString(R.string.prayer_test_notification_body))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_TEST, notification)
+    }
+
+    /** Diagnostic-labeled notification on the SAME channel a real prayer uses. */
+    fun postDiagnostic(mode: AdhanMode) {
+        createChannels()
+        if (!canNotify()) return
+        val channelId = when (mode) {
+            AdhanMode.NOTIFICATION_SOUND -> PrayerNotificationsChannels.ALERT
+            else -> PrayerNotificationsChannels.SILENT
+        }
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_prayer_notification)
+            .setContentTitle(context.getString(R.string.prayer_diagnostic_alarm_title))
+            .setContentText(context.getString(R.string.prayer_diagnostic_alarm_body))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_DIAGNOSTIC, notification)
+    }
+
     fun post(prayer: Prayer, mode: AdhanMode) {
         if (!canNotify()) return
         createChannels()
@@ -103,11 +136,13 @@ class PrayerNotifications @Inject constructor(
     )
 
     companion object {
-        const val CHANNEL_PLAYBACK = "prayer_adhan_playback"
-        const val CHANNEL_ALERT = "prayer_time_alert"
-        const val CHANNEL_SILENT = "prayer_time_silent"
+        val CHANNEL_PLAYBACK = PrayerNotificationsChannels.PLAYBACK
+        val CHANNEL_ALERT = PrayerNotificationsChannels.ALERT
+        val CHANNEL_SILENT = PrayerNotificationsChannels.SILENT
         const val NOTIFICATION_ID_PRAYER = 6001
         const val NOTIFICATION_ID_PLAYBACK = 6002
+        const val NOTIFICATION_ID_TEST = 6010
+        const val NOTIFICATION_ID_DIAGNOSTIC = 6011
     }
 }
 

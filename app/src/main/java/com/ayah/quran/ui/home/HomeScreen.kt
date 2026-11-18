@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -65,6 +67,9 @@ fun HomeScreen(
     onOpenBookmarks: () -> Unit,
     onOpenWallpapers: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Phase 14: true until the permissions onboarding is finished/skipped. */
+    showPrayerOnboardingCard: Boolean = false,
+    onOpenPrayerOnboarding: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -76,6 +81,37 @@ fun HomeScreen(
             .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.l),
         verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
     ) {
+        // Phase 14: permissions onboarding entry (until finished/skipped).
+        if (showPrayerOnboardingCard) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(AyahSpacing.m),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
+                    Text(
+                        text = stringResource(R.string.prayer_onboarding_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource(R.string.prayer_onboarding_home_card_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    FilledTonalButton(onClick = onOpenPrayerOnboarding) {
+                        Text(stringResource(R.string.prayer_onboarding_home_card_action))
+                    }
+                }
+            }
+        }
+
         // Brand hero.
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

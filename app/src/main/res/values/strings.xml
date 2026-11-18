@@ -271,4 +271,57 @@
     <string name="prayer_voice_user_file_desc">Audio selected from your device storage</string>
     <string name="prayer_voice_select">Select</string>
     <string name="prayer_voice_default_badge">Default</string>
+
+    <!-- Phase 14: permissions onboarding & reliability dashboard -->
+    <string name="prayer_onboarding_title">Enable Prayer Notifications &amp; Adhan</string>
+    <string name="prayer_onboarding_intro">Ayah will remind you of each prayer time and can play the Adhan. The following settings make that reliable.</string>
+    <string name="prayer_onboarding_step_format">Step %1$d — %2$s</string>
+    <string name="prayer_status_enabled">Enabled</string>
+    <string name="prayer_status_not_enabled">Not enabled</string>
+    <string name="prayer_status_recommended">Recommended — cannot be verified automatically</string>
+    <string name="prayer_onboarding_enable">Enable</string>
+    <string name="prayer_onboarding_open_channel">Open channel settings</string>
+    <string name="prayer_onboarding_notifications_title">Notifications</string>
+    <string name="prayer_onboarding_notifications_desc">Needed so Ayah can show you the prayer-time alert.</string>
+    <string name="prayer_onboarding_channel_title">Adhan notification channel</string>
+    <string name="prayer_channel_row">Adhan notification channel</string>
+    <string name="prayer_onboarding_channel_desc">Prayer alerts use their own notification channel; it must stay enabled.</string>
+    <string name="prayer_onboarding_exact_title">Exact alarms</string>
+    <string name="prayer_onboarding_exact_desc">Exact alarms are necessary for accurate prayer times. Without them, alerts may be delayed by up to 10 minutes.</string>
+    <string name="prayer_onboarding_vendor_honor_title">HONOR background settings</string>
+    <string name="prayer_onboarding_vendor_generic_title">Background execution settings</string>
+    <string name="prayer_onboarding_vendor_desc">Some devices restrict background activity. Configuring your device\u2019s app-launch settings keeps prayer alerts and Adhan playback reliable.</string>
+    <string name="prayer_onboarding_vendor_guide_title">Background settings guide</string>
+    <string name="prayer_onboarding_vendor_note">Menu names can differ between device models and OS versions.</string>
+    <string name="prayer_onboarding_open_vendor">Open device settings</string>
+    <string name="prayer_onboarding_vendor_done">I completed the setup</string>
+    <string name="prayer_onboarding_adhan_mode_title">Adhan mode</string>
+    <string name="prayer_onboarding_adhan_mode_desc">Choose how each prayer alerts you: full Adhan audio, a short tone, silent, or off.</string>
+    <string name="prayer_onboarding_open_adhan_settings">Open Adhan settings</string>
+    <string name="prayer_onboarding_ready">Your prayer notifications are ready.</string>
+    <string name="prayer_onboarding_skip">Skip for now</string>
+    <string name="prayer_onboarding_skip_warning">Until the settings above are enabled, prayer notifications or Adhan may not arrive on time.</string>
+    <string name="prayer_dashboard_title">Prayer Notifications &amp; Reliability</string>
+    <string name="prayer_dashboard_notifications_row">Notifications</string>
+    <string name="prayer_dashboard_enable_notifications">Enable notifications</string>
+    <string name="prayer_dashboard_open_notification_settings">Open notification settings</string>
+    <string name="prayer_dashboard_exact_row">Exact alarms</string>
+    <string name="prayer_dashboard_allow_exact">Allow exact alarms</string>
+    <string name="prayer_dashboard_background_row">Background execution guidance</string>
+    <string name="prayer_dashboard_background_done">Completed</string>
+    <string name="prayer_dashboard_background_needs_attention">Needs attention</string>
+    <string name="prayer_dashboard_open_battery_settings">Open battery settings</string>
+    <string name="prayer_dashboard_adhan_mode_row">Adhan mode</string>
+    <string name="prayer_test_notification_button">Test notification</string>
+    <string name="prayer_test_notification_title">Test notification</string>
+    <string name="prayer_test_notification_body">Prayer-time notifications are working correctly.</string>
+    <string name="prayer_test_adhan_button">Test Adhan</string>
+    <string name="prayer_test_suffix">— test</string>
+    <string name="prayer_diagnostic_alarm_title">Diagnostic alarm (test)</string>
+    <string name="prayer_diagnostic_alarm_body">This is a 60-second scheduled-alarm test from Ayah.</string>
+    <string name="prayer_test_diagnostic_button">Test alarm in 60 seconds</string>
+    <string name="prayer_test_diagnostic_scheduled">Diagnostic alarm scheduled — lock the screen and wait for it.</string>
+
+    <string name="prayer_onboarding_home_card_hint">Notifications, exact alarms and background settings make prayer alerts reliable.</string>
+    <string name="prayer_onboarding_home_card_action">Enable prayer alerts</string>
 </resources>

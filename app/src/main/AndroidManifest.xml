@@ -52,6 +52,9 @@
             android:name=".prayer.PrayerAlarmReceiver"
             android:exported="false" />
         <receiver
+            android:name=".prayer.DiagnosticAlarmReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".prayer.PrayerSystemReceiver"
             android:exported="false">
             <intent-filter>

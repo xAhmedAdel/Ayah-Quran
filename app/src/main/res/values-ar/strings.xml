@@ -266,4 +266,57 @@
     <string name="prayer_voice_user_file_desc">ملف صوتي مختار من تخزين جهازك</string>
     <string name="prayer_voice_select">اختيار</string>
     <string name="prayer_voice_default_badge">الافتراضي</string>
+
+    <!-- Phase 14: permissions onboarding & reliability dashboard (Arabic-first) -->
+    <string name="prayer_onboarding_title">فعّل مواقيت الصلاة والأذان</string>
+    <string name="prayer_onboarding_intro">سيذكّرك تطبيق آية بوقت كل صلاة، ويمكنه تشغيل الأذان. الإعدادات التالية تجعل ذلك موثوقاً.</string>
+    <string name="prayer_onboarding_step_format">الخطوة %1$d — %2$s</string>
+    <string name="prayer_status_enabled">مفعّل</string>
+    <string name="prayer_status_not_enabled">غير مفعّل</string>
+    <string name="prayer_status_recommended">موصى به — لا يمكن التحقق منه تلقائياً</string>
+    <string name="prayer_onboarding_enable">تفعيل</string>
+    <string name="prayer_onboarding_open_channel">فتح إعدادات القناة</string>
+    <string name="prayer_onboarding_notifications_title">الإشعارات</string>
+    <string name="prayer_onboarding_notifications_desc">مطلوبة ليعرض تطبيق آية تنبيه وقت الصلاة.</string>
+    <string name="prayer_onboarding_channel_title">قناة إشعار الأذان</string>
+    <string name="prayer_channel_row">قناة إشعار الأذان</string>
+    <string name="prayer_onboarding_channel_desc">تنبيهات الصلاة تستخدم قناة إشعارات خاصة بها؛ يجب أن تبقى مفعّلة.</string>
+    <string name="prayer_onboarding_exact_title">المنبهات الدقيقة</string>
+    <string name="prayer_onboarding_exact_desc">المنبهات الدقيقة ضرورية لدقة مواقيت الصلاة. بدونها قد يتأخر التنبيه حتى 10 دقائق.</string>
+    <string name="prayer_onboarding_vendor_honor_title">إعدادات الخلفية لأجهزة HONOR</string>
+    <string name="prayer_onboarding_vendor_generic_title">إعدادات العمل في الخلفية</string>
+    <string name="prayer_onboarding_vendor_desc">بعض الأجهزة تقيّد العمل في الخلفية. ضبط إعدادات تشغيل التطبيق على جهازك يجعل تنبيهات الصلاة والأذان موثوقة.</string>
+    <string name="prayer_onboarding_vendor_guide_title">دليل إعدادات الخلفية</string>
+    <string name="prayer_onboarding_vendor_note">أسماء القوائم قد تختلف حسب طراز الجهاز وإصدار النظام.</string>
+    <string name="prayer_onboarding_open_vendor">فتح إعدادات الجهاز</string>
+    <string name="prayer_onboarding_vendor_done">أتممت الإعداد</string>
+    <string name="prayer_onboarding_adhan_mode_title">نمط الأذان</string>
+    <string name="prayer_onboarding_adhan_mode_desc">اختر كيف تنبهك كل صلاة: أذان كامل، نغمة قصيرة، صامت، أو متوقف.</string>
+    <string name="prayer_onboarding_open_adhan_settings">فتح إعدادات الأذان</string>
+    <string name="prayer_onboarding_ready">إشعارات صلواتك جاهزة.</string>
+    <string name="prayer_onboarding_skip">تخطٍّ الآن</string>
+    <string name="prayer_onboarding_skip_warning">قبل تفعيل الإعدادات أعلاه، قد لا تصل تنبيهات الصلاة أو الأذان في وقتها.</string>
+    <string name="prayer_dashboard_title">إشعارات الصلاة والموثوقية</string>
+    <string name="prayer_dashboard_notifications_row">الإشعارات</string>
+    <string name="prayer_dashboard_enable_notifications">تفعيل الإشعارات</string>
+    <string name="prayer_dashboard_open_notification_settings">فتح إعدادات الإشعارات</string>
+    <string name="prayer_dashboard_exact_row">المنبهات الدقيقة</string>
+    <string name="prayer_dashboard_allow_exact">السماح بالمنبهات الدقيقة</string>
+    <string name="prayer_dashboard_background_row">إعداد التشغيل في الخلفية</string>
+    <string name="prayer_dashboard_background_done">مكتمل</string>
+    <string name="prayer_dashboard_background_needs_attention">يحتاج انتباهك</string>
+    <string name="prayer_dashboard_open_battery_settings">فتح إعدادات البطارية</string>
+    <string name="prayer_dashboard_adhan_mode_row">نمط الأذان</string>
+    <string name="prayer_test_notification_button">اختبار إشعار الأذان</string>
+    <string name="prayer_test_notification_title">إشعار تجريبي</string>
+    <string name="prayer_test_notification_body">إشعارات مواقيت الصلاة تعمل بشكل صحيح.</string>
+    <string name="prayer_test_adhan_button">اختبار تشغيل الأذان</string>
+    <string name="prayer_test_suffix">— تجربة</string>
+    <string name="prayer_diagnostic_alarm_title">إنذار تشخيصي (تجربة)</string>
+    <string name="prayer_diagnostic_alarm_body">هذا اختبار لإنذار مجدول بعد 60 ثانية من تطبيق آية.</string>
+    <string name="prayer_test_diagnostic_button">اختبار إنذار بعد 60 ثانية</string>
+    <string name="prayer_test_diagnostic_scheduled">تم جدولة الإنذار التشخيصي — أقفل الشاشة وانتظر وصوله.</string>
+
+    <string name="prayer_onboarding_home_card_hint">الإشعارات والمنبهات الدقيقة وإعدادات الخلفية تجعل تنبيهات الصلاة موثوقة.</string>
+    <string name="prayer_onboarding_home_card_action">تفعيل تنبيهات الصلاة</string>
 </resources>

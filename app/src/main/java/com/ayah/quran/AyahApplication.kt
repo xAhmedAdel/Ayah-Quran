@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.quran.QuranImporter
+import com.ayah.quran.prayer.PrayerNotifications
 import com.ayah.quran.prayer.PrayerTimeManager
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -27,6 +28,9 @@ class AyahApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var prayerTimeManager: PrayerTimeManager
 
+    @Inject
+    lateinit var prayerNotifications: PrayerNotifications
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(hiltWorkerFactory)
@@ -40,6 +44,9 @@ class AyahApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         quranImporter.startAsync()
+        // Notification channels exist from install (the permissions
+        // onboarding and dashboard verify the alert channel's state).
+        prayerNotifications.createChannels()
         // (Re)arm the next prayer alarm from persisted preferences — covers
         // process restarts alongside the BOOT/update receivers.
         prayerTimeManager.reconcile()

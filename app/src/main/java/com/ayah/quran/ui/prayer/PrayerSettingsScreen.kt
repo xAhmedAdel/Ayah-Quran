@@ -66,8 +66,10 @@ import com.ayah.quran.domain.model.prayer.PrayerLocation
 fun PrayerSettingsScreen(
     onBack: () -> Unit,
     onOpenVoices: () -> Unit,
+    onOpenOnboarding: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PrayerTimesViewModel = hiltViewModel(),
+    permissionsViewModel: PrayerPermissionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -292,6 +294,12 @@ fun PrayerSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            // ---- Notifications & reliability dashboard (Phase 14) ----
+            PermissionsDashboardSection(
+                permissionsViewModel = permissionsViewModel,
+                onOpenOnboarding = onOpenOnboarding,
+            )
 
             // ---- Notifications ----
             SectionCard(title = stringResource(R.string.prayer_settings_notifications)) {

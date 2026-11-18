@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,6 +37,7 @@ import com.ayah.quran.ui.prayer.PrayerTimesScreen
 import com.ayah.quran.ui.quran.QuranScreen
 import com.ayah.quran.ui.reader.MushafPageReaderScreen
 import com.ayah.quran.ui.prayer.AdhanVoiceScreen
+import com.ayah.quran.ui.prayer.PrayerOnboardingScreen
 import com.ayah.quran.ui.prayer.PrayerSettingsScreen
 import com.ayah.quran.ui.reader.ReaderScreen
 import com.ayah.quran.ui.settings.SettingsScreen
@@ -51,6 +53,7 @@ object Routes {
     const val BOOKMARKS = "bookmarks"
     const val PRAYER_SETTINGS = "prayer/settings"
     const val PRAYER_VOICE = "prayer/adhan-voice"
+    const val PRAYER_ONBOARDING = "prayer/onboarding"
     const val FULLSCREEN_PREVIEW = "preview/{surahId}/{ayahNumber}"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
@@ -84,6 +87,12 @@ fun AyahApp(modifier: Modifier = Modifier) {
     val motionEnabled = rememberMotionEnabled()
     val mainViewModel: MainViewModel = hiltViewModel()
     val readingMode by mainViewModel.readingMode.collectAsStateWithLifecycle()
+    // Phase 14: onboarding entry — a prominent Home card (visible until the
+    // onboarding is finished or skipped) plus the Settings dashboard. A
+    // hard auto-redirect on launch was deliberately avoided: it is brittle
+    // under instrumentation and violates "skip and continue using the app".
+    val permissionsViewModel: com.ayah.quran.ui.prayer.PrayerPermissionsViewModel = hiltViewModel()
+    val onboardingCompleted by permissionsViewModel.onboardingCompleted.collectAsStateWithLifecycle()
 
     /** Reader route honoring the user's reading mode. */
     fun openReadingPosition(surahId: Int, ayahNumber: Int?) {
@@ -152,6 +161,8 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     },
                     onOpenBookmarks = { navController.navigate(Routes.BOOKMARKS) },
                     onOpenWallpapers = { navController.navigateToTopLevel(TopLevelDestination.WALLPAPERS.route) },
+                    showPrayerOnboardingCard = !onboardingCompleted,
+                    onOpenPrayerOnboarding = { navController.navigate(Routes.PRAYER_ONBOARDING) },
                 )
             }
             composable(TopLevelDestination.QURAN.route) {
@@ -252,6 +263,17 @@ fun AyahApp(modifier: Modifier = Modifier) {
                 PrayerSettingsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenVoices = { navController.navigate(Routes.PRAYER_VOICE) },
+                    onOpenOnboarding = { navController.navigate(Routes.PRAYER_ONBOARDING) },
+                )
+            }
+
+            composable(route = Routes.PRAYER_ONBOARDING) {
+                PrayerOnboardingScreen(
+                    onSkip = { navController.popBackStack() },
+                    onOpenAdhanSettings = {
+                        navController.popBackStack()
+                        navController.navigate(Routes.PRAYER_SETTINGS)
+                    },
                 )
             }
 

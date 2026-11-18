@@ -54,4 +54,14 @@ interface PrayerPreferencesRepository {
 
     /** Persists ONE prayer's voice; other prayers keep their selection. */
     suspend fun setVoice(prayer: Prayer, recordingId: String)
+
+    /** Phase 14: the permissions onboarding was finished or skipped. */
+    val onboardingCompleted: Flow<Boolean>
+
+    suspend fun setOnboardingCompleted()
+
+    /** Phase 14: user confirmed the vendor background settings themselves. */
+    val vendorGuidanceAcknowledged: Flow<Boolean>
+
+    suspend fun setVendorGuidanceAcknowledged()
 }

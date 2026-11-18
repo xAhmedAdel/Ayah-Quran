@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -106,6 +107,26 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         }
     }
 
+    override val onboardingCompleted: Flow<Boolean> = dataStore.data
+        .catch { throwable ->
+            if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+        }
+        .map { prefs -> prefs[KEY_ONBOARDING_DONE] ?: false }
+
+    override suspend fun setOnboardingCompleted() {
+        dataStore.edit { prefs -> prefs[KEY_ONBOARDING_DONE] = true }
+    }
+
+    override val vendorGuidanceAcknowledged: Flow<Boolean> = dataStore.data
+        .catch { throwable ->
+            if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+        }
+        .map { prefs -> prefs[KEY_VENDOR_GUIDANCE_DONE] ?: false }
+
+    override suspend fun setVendorGuidanceAcknowledged() {
+        dataStore.edit { prefs -> prefs[KEY_VENDOR_GUIDANCE_DONE] = true }
+    }
+
     override suspend fun setCustomAdhanAudioUri(uri: String?) {
         dataStore.edit { prefs ->
             if (uri == null) prefs.remove(KEY_CUSTOM_ADHAN_URI) else prefs[KEY_CUSTOM_ADHAN_URI] = uri
@@ -189,6 +210,8 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         val KEY_ADJ_MAGHRIB = intPreferencesKey("prayer_adj_maghrib")
         val KEY_ADJ_ISHA = intPreferencesKey("prayer_adj_isha")
         val KEY_HIJRI_ADJUSTMENT = intPreferencesKey("prayer_hijri_adjustment")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("prayer_onboarding_done")
+        val KEY_VENDOR_GUIDANCE_DONE = booleanPreferencesKey("prayer_vendor_guidance_done")
         val KEY_CUSTOM_ADHAN_URI = stringPreferencesKey("prayer_custom_adhan_uri")
     }
 }
