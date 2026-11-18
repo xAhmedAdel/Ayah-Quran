@@ -161,9 +161,9 @@ class AdhanLibraryViewModel @Inject constructor(
 
     fun download(recording: AdhanRecording) = downloadRepository.download(recording)
 
-    fun cancelDownload(recording: AdhanRecording) = downloadRepository.cancel(recording.id)
+    fun cancelDownload(recording: AdhanRecording) = downloadRepository.cancelDownload(recording.id)
 
-    fun deleteDownload(recording: AdhanRecording) = downloadRepository.delete(recording.id)
+    fun deleteDownload(recording: AdhanRecording) = downloadRepository.deleteDownload(recording.id)
 
     // ---- preview ----
 

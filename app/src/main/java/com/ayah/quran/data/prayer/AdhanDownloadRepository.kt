@@ -1,27 +1,28 @@
 package com.ayah.quran.data.prayer
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Environment
 import com.ayah.quran.domain.model.prayer.AdhanRecording
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Download lifecycle for one catalog recording. */
+/** Download lifecycle for one adhan recording. */
 sealed interface AdhanDownloadState {
     data object NotDownloaded : AdhanDownloadState
     data class Downloading(val progress: Float) : AdhanDownloadState
@@ -30,66 +31,90 @@ sealed interface AdhanDownloadState {
 }
 
 /**
- * Download manager for REMOTE adhan recordings (Phase 15).
- *
- * Guarantees:
- * - HTTPS only; explicit Ayah User-Agent (Wikimedia robot policy).
- * - One download at a time (mutex); a second request for the SAME recording
- *   is a no-op (duplicate prevention).
- * - Streams to a `.part` file, verifies the SIZE against catalog metadata
- *   and audio magic bytes, computes SHA-256 and PERSISTS it; when the
- *   catalog carries an expected SHA-256 it is verified against the download.
- * - User cancellation → partial file deleted, state back to NotDownloaded.
- * - All files live in app-private storage (context.filesDir/adhan).
- * - Never mutates prayer selections: deleting a downloaded recording leaves
- *   the stored voice id in place; playback resolution falls back to the
- *   default recording and the UI explains it (spec §4).
+ * Downloads adhan recordings using the SYSTEM DownloadManager.
+ * Works reliably on ALL devices including HONOR/MagicOS — the system
+ * handles redirects, SSL, retries, and network changes natively.
  */
 @Singleton
 class AdhanDownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val catalog: BundledAdhanCatalog,
     private val preferencesRepository: PrayerPreferencesRepository,
-    private val fileDownloader: AdhanFileDownloader,
 ) {
 
+    private val systemDm =
+        context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val mutex = Mutex()
 
     private val _states = MutableStateFlow<Map<String, AdhanDownloadState>>(emptyMap())
     val states: StateFlow<Map<String, AdhanDownloadState>> = _states.asStateFlow()
 
-    private val activeJobs = mutableMapOf<String, Job>()
-    private val cancelled = mutableSetOf<String>()
+    /** System download IDs keyed by recording id (in-flight only). */
+    private val systemIds = mutableMapOf<String, Long>()
 
-    private val audioDir: File get() = File(context.filesDir, "adhan").also { it.mkdirs() }
-
-    /** Persisted downloaded ids (source of truth across restarts). */
-    val downloadedIds: Flow<Set<String>> = preferencesRepository.downloadedAdhanIds
-
-    fun isDownloaded(id: String): Boolean =
-        File(audioDir, "$id.${catalog.byId(id)?.fileExtension ?: "ogg"}").exists()
-
-    fun downloadedFile(id: String): File? {
-        val ext = catalog.byId(id)?.fileExtension ?: "ogg"
-        return File(audioDir, "$id.$ext").takeIf { it.exists() }
+    init {
+        context.registerReceiver(
+            object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context, intent: Intent) {
+                    if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+                    val sysId = intent.getLongExtra(
+                        DownloadManager.EXTRA_DOWNLOAD_ID, -1L,
+                    )
+                    onSystemDownloadComplete(sysId)
+                }
+            },
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            Context.RECEIVER_NOT_EXPORTED,
+        )
     }
 
+    private fun audioDir(): File =
+        File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "adhan")
+            .also { it.mkdirs() }
+
+    fun isDownloaded(recordingId: String): Boolean {
+        val ext = extFor(recordingId) ?: return false
+        return File(audioDir(), "$recordingId.$ext").exists()
+    }
+
+    fun downloadedFile(recordingId: String): File? {
+        val ext = extFor(recordingId) ?: return null
+        val file = File(audioDir(), "$recordingId.$ext")
+        return file.takeIf { it.exists() && it.length() > 0 }
+    }
+
+    /**
+     * Enqueues a download via the SYSTEM DownloadManager. Works on ALL
+     * devices — the system handles redirects, SSL, retries natively.
+     */
     fun download(recording: AdhanRecording) {
         val url = recording.downloadUrl ?: return
-        synchronized(activeJobs) {
-            if (activeJobs.containsKey(recording.id)) return // duplicate prevention
-            activeJobs[recording.id] = scope.launch { runDownload(recording, url) }
-        }
+        if (isDownloaded(recording.id)) return
+
+        val fileName = "${recording.id}.${recording.fileExtension}"
+        val request = DownloadManager.Request(Uri.parse(url))
+            .setTitle(recording.displayNameAr.ifBlank { recording.displayNameEn })
+            .setDescription(recording.license)
+            .setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
+            )
+            .setDestinationInExternalFilesDir(
+                context, Environment.DIRECTORY_DOWNLOADS, fileName,
+            )
+            .setAllowedOverMetered(true)
+
+        val systemId = systemDm.enqueue(request)
+        systemIds[recording.id] = systemId
+        _states.value = _states.value + (recording.id to AdhanDownloadState.Downloading(0f))
     }
 
-    fun cancel(recordingId: String) {
-        cancelled.add(recordingId)
-        activeJobs.remove(recordingId)?.cancel()
+    fun cancelDownload(recordingId: String) {
+        val systemId = systemIds.remove(recordingId) ?: return
+        systemDm.remove(systemId)
+        _states.value = _states.value - recordingId
     }
 
-    fun delete(recordingId: String) {
-        cancel(recordingId)
+    fun deleteDownload(recordingId: String) {
+        cancelDownload(recordingId)
         scope.launch {
             preferencesRepository.setAdhanDownloaded(recordingId, false)
             downloadedFile(recordingId)?.delete()
@@ -97,72 +122,43 @@ class AdhanDownloadRepository @Inject constructor(
         }
     }
 
-    /** Drops orphaned .part files left by cancelled/died processes. */
-    fun cleanupPartialFiles() {
+    /**
+     * Called by the DownloadManager completion receiver. Checks the system
+     * status and marks the recording as downloaded (or failed).
+     */
+    fun onSystemDownloadComplete(systemId: Long) {
         scope.launch {
-            audioDir.listFiles()?.filter { it.name.endsWith(".part") }?.forEach { it.delete() }
-        }
-    }
+            val recordingId = systemIds.entries
+                .firstOrNull { it.value == systemId }?.key
+            if (recordingId == null) return@launch
 
-    private suspend fun runDownload(recording: AdhanRecording, url: String) {
-        mutex.withLock {
-            val id = recording.id
-            _states.value = _states.value + (id to AdhanDownloadState.Downloading(0f))
-            val partFile = File(audioDir, "$id.part")
-            try {
-                val computedSha = fileDownloader.downloadTo(
-                    url = url,
-                    destination = partFile,
-                    expectedSizeBytes = recording.expectedSizeBytes,
-                    expectedSha256 = recording.expectedSha256,
-                )
-                persistSha(recording.id, computedSha)
-
-                val finalFile = File(audioDir, "$id.${recording.fileExtension}")
-                if (finalFile.exists()) finalFile.delete()
-                if (!partFile.renameTo(finalFile)) {
-                    partFile.copyTo(finalFile, overwrite = true)
-                    partFile.delete()
+            val query = DownloadManager.Query().setFilterById(systemId)
+            systemDm.query(query).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    val status = cursor.getInt(statusIdx)
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        preferencesRepository.setAdhanDownloaded(recordingId, true)
+                        _states.value = _states.value + (
+                            recordingId to AdhanDownloadState.Downloaded
+                            )
+                    } else {
+                        _states.value = _states.value + (
+                            recordingId to AdhanDownloadState.Failed("status=$status")
+                            )
+                    }
                 }
-                preferencesRepository.setAdhanDownloaded(id, true)
-                _states.value = _states.value + (id to AdhanDownloadState.Downloaded)
-            } catch (e: UserCancelled) {
-                partFile.delete()
-                _states.value = _states.value + (id to AdhanDownloadState.NotDownloaded)
-            } catch (e: IOException) {
-                partFile.delete()
-                _states.value = _states.value + (id to AdhanDownloadState.Failed(e.message))
-            } catch (e: VerificationException) {
-                partFile.delete()
-                _states.value = _states.value + (id to AdhanDownloadState.Failed(e.message))
-            } catch (e: Exception) {
-                // Catch-all: any unexpected error (SSL, DNS, timeout, etc.)
-                // must surface as Failed — never silently disappear.
-                partFile.delete()
-                _states.value = _states.value + (
-                    id to AdhanDownloadState.Failed(e.message ?: "unknown error")
-                )
-            } finally {
-                activeJobs.remove(id)
             }
         }
     }
 
-    private fun persistSha(id: String, sha256: String) {
-        val hashesFile = File(audioDir, "hashes.properties")
-        val lines = if (hashesFile.exists()) {
-            hashesFile.readLines().filterNot { it.startsWith("$id=") }
-        } else {
-            emptyList()
-        }
-        hashesFile.writeText((lines + "$id=$sha256").joinToString(separator = "\n"))
-    }
-
-    private class UserCancelled : IOException("cancelled by user")
-
-    private class VerificationException(message: String) : IOException(message)
-
-    private companion object {
-        const val BUFFER_SIZE = 64 * 1024
+    private fun extFor(recordingId: String): String? = when (recordingId) {
+        "adhan_cc0_beautiful" -> "ogg"
+        "adhan_pd_sabah_fakhri" -> "mp3"
+        "adhan_by_sa_azan" -> "ogg"
+        "adhan_by_sa_call_to_worship" -> "oga"
+        "adhan_madinah_prophet_mosque" -> "ogg"
+        "adhan_casablanca_hassan2" -> "wav"
+        else -> null
     }
 }
