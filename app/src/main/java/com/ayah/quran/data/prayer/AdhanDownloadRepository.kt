@@ -135,6 +135,13 @@ class AdhanDownloadRepository @Inject constructor(
             } catch (e: VerificationException) {
                 partFile.delete()
                 _states.value = _states.value + (id to AdhanDownloadState.Failed(e.message))
+            } catch (e: Exception) {
+                // Catch-all: any unexpected error (SSL, DNS, timeout, etc.)
+                // must surface as Failed — never silently disappear.
+                partFile.delete()
+                _states.value = _states.value + (
+                    id to AdhanDownloadState.Failed(e.message ?: "unknown error")
+                )
             } finally {
                 activeJobs.remove(id)
             }

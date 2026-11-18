@@ -10,7 +10,7 @@ Per-recording source verification. Every remote download URL points to a Wikimed
 - **License**: CC BY 3.0
 - **Description**: "Islamic call to prayer from the prophet mosque" — genuine adhan recorded at the Prophet's Mosque, Madinah
 - **Duration**: 3:06 · **Size**: 2,974,689 bytes · **Format**: OGG Vorbis
-- **Download URL**: `https://commons.wikimedia.org/wiki/Special:FilePath/33937_ejaz215_call-to-prayer-from-the-prophet-s-mo.ogg`
+- **Download URL**: `https://upload.wikimedia.org/wikipedia/commons/7/7c/33937_ejaz215_call-to-prayer-from-the-prophet-s-mo.ogg` (direct URL, no redirect)
 
 ### `adhan_casablanca_hassan2` — Casablanca (Other regions)
 - **Source**: [File:Llamada a oración Mezquita Hassan II.wav](https://commons.wikimedia.org/wiki/File:Llamada_a_oraci%C3%B3n_Mezquita_Hassan_II.wav)
@@ -18,7 +18,7 @@ Per-recording source verification. Every remote download URL points to a Wikimed
 - **License**: CC BY-SA 4.0
 - **Description**: "Sonido ambiental registrado al pie de la Mezquita Hassan II de Casablanca, Marruecos" — adhan recorded at Hassan II Mosque, Casablanca
 - **Duration**: 2:56 · **Size**: 30,990,030 bytes · **Format**: WAV PCM
-- **Download URL**: `https://commons.wikimedia.org/wiki/Special:FilePath/Llamada_a_oraci%C3%B3n_Mezquita_Hassan_II.wav`
+- **Download URL**: `https://upload.wikimedia.org/wikipedia/commons/9/9c/Llamada_a_oraci%C3%B3n_Mezquita_Hassan_II.wav` (direct URL, no redirect)
 
 ## Verified bundled recordings (Phase 13)
 
