@@ -99,6 +99,26 @@ class PrayerTimeManager @Inject constructor(
                 _todayTimes.value = todayTimes
                 _tomorrowFajr.value = tomorrowTimes.fajr
 
+                // Overdue detection: log if a prayer time has already passed
+                // without its alarm having been delivered (diagnostic only —
+                // the next alarm is always armed regardless).
+                val now = java.time.LocalDateTime.now(zone)
+                val allToday = listOf(
+                    todayTimes.fajr to "FAJR",
+                    todayTimes.dhuhr to "DHUHR",
+                    todayTimes.asr to "ASR",
+                    todayTimes.maghrib to "MAGHRIB",
+                    todayTimes.isha to "ISHA",
+                )
+                val overdue = allToday.filter { (time, _) -> time.isBefore(now) }
+                if (overdue.isNotEmpty()) {
+                    android.util.Log.w(
+                        com.ayah.quran.prayer.PrayerAlarmLog.TAG,
+                        "RECONCILE | overdue prayers detected: " +
+                            overdue.joinToString(", ") { (time, name) -> "$name at $time" },
+                    )
+                }
+
                 val next = nextAlarm(todayTimes, tomorrowTimes.fajr, zone)
                 if (next == null) {
                     scheduler.cancel()

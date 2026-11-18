@@ -3,6 +3,7 @@ package com.ayah.quran.prayer
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.ayah.quran.data.prayer.AlarmPrayerAlarmScheduler
 import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.Prayer
@@ -18,6 +19,9 @@ import javax.inject.Inject
  * mode (notification / silent / full adhan service) and re-arms the NEXT
  * prayer alarm. Duplicate protection: a single fixed PendingIntent is armed
  * at any time, plus a same-minute in-memory guard for OEM double delivery.
+ *
+ * Phase 16: structured logging with correlation IDs, delivery-delay tracking,
+ * and defensive `finally` to guarantee `goAsync().finish()` is always called.
  */
 @AndroidEntryPoint
 class PrayerAlarmReceiver : BroadcastReceiver() {
@@ -32,6 +36,19 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             .getStringExtra(AlarmPrayerAlarmScheduler.EXTRA_PRAYER)
             ?.let { runCatching { Prayer.valueOf(it) }.getOrNull() }
             ?: return
+        val scheduledAtMillis = intent.getLongExtra(
+            com.ayah.quran.data.prayer.AlarmPrayerAlarmScheduler.EXTRA_SCHEDULED_AT,
+            0L,
+        )
+
+        val correlationId = "$prayer-" +
+            java.text.SimpleDateFormat("yyyy-MM-dd-HH:mm", java.util.Locale.US)
+                .format(java.util.Date(scheduledAtMillis))
+        PrayerAlarmLog.receiverEntered(correlationId, prayer.name)
+
+        if (scheduledAtMillis > 0) {
+            PrayerAlarmLog.receiverDelay(correlationId, scheduledAtMillis, System.currentTimeMillis())
+        }
 
         val result = goAsync()
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
@@ -39,39 +56,63 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             try {
                 val prefs = preferencesRepository.preferences.first()
                 val mode = prefs.adhanConfig.modeOf(prayer)
-                if (FiredAlarmGuard.mark(prayer, prefs.adhanConfig)) {
-                    when (mode) {
-                        AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT ->
-                            notifications.post(prayer, mode)
+                val voiceId = prefs.voiceSelection.voiceOf(prayer)
+                PrayerAlarmLog.notificationSuppressed(
+                    correlationId,
+                    "mode=${mode.name} voice=$voiceId",
+                )
 
-                        AdhanMode.FULL_ADHAN -> {
-                            val intent_playback = Intent(context, AdhanPlaybackService::class.java)
-                                .putExtra(AdhanPlaybackService.EXTRA_PRAYER, prayer.name)
-                            runCatching {
-                                context.startForegroundService(intent_playback)
-                            }
-                            // The service posts its own notification; if the
-                            // OS blocks the foreground start, still notify.
-                            if (!notifications.canNotify()) Unit
+                if (FiredAlarmGuard.mark(prayer, mode)) {
+                    when (mode) {
+                        AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
+                            notifications.post(prayer, mode)
+                            PrayerAlarmLog.notificationPosted(
+                                correlationId,
+                                if (mode == AdhanMode.NOTIFICATION_SOUND) {
+                                    PrayerNotifications.CHANNEL_ALERT
+                                } else {
+                                    PrayerNotifications.CHANNEL_SILENT
+                                },
+                            )
                         }
 
-                        AdhanMode.DISABLED -> Unit
+                        AdhanMode.FULL_ADHAN -> {
+                            val serviceIntent = Intent(context, AdhanPlaybackService::class.java)
+                                .putExtra(AdhanPlaybackService.EXTRA_PRAYER, prayer.name)
+                                .putExtra(AdhanPlaybackService.EXTRA_TEST, false)
+                            runCatching {
+                                context.startForegroundService(serviceIntent)
+                                PrayerAlarmLog.playbackStarted(correlationId, voiceId)
+                            }.onFailure { e ->
+                                PrayerAlarmLog.playbackFallback(
+                                    correlationId,
+                                    "startForegroundService failed: ${e.message}",
+                                )
+                                notifications.post(prayer, AdhanMode.SILENT)
+                            }
+                        }
+
+                        AdhanMode.DISABLED -> {
+                            PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
+                        }
                     }
                 }
                 manager.onAlarmFired()
+            } catch (e: Exception) {
+                Log.e(PrayerAlarmLog.TAG, "$correlationId | RECEIVER_ERROR | ${e.message}", e)
             } finally {
                 result.finish()
             }
         }
     }
 
-    /** True exactly once per prayer/dayKey per minute (OEM double-delivery guard). */
+    /** True exactly once per prayer/mode per minute (OEM double-delivery guard). */
     private object FiredAlarmGuard {
         private val last = mutableMapOf<String, Long>()
 
-        fun mark(prayer: Prayer, config: com.ayah.quran.domain.model.prayer.PrayerAdhanConfig): Boolean {
+        fun mark(prayer: Prayer, mode: AdhanMode): Boolean {
             val nowMinute = System.currentTimeMillis() / 60_000
-            val key = "${prayer.name}|${config.modeOf(prayer).name}"
+            val key = "${prayer.name}|${mode.name}"
             synchronized(last) {
                 if (last[key] == nowMinute) return false
                 last[key] = nowMinute

@@ -8,6 +8,7 @@ import android.os.Build
 import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.prayer.PrayerAlarm
 import com.ayah.quran.domain.prayer.PrayerAlarmScheduler
+import com.ayah.quran.prayer.PrayerAlarmLog
 import com.ayah.quran.prayer.PrayerAlarmReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -30,7 +31,8 @@ class AlarmPrayerAlarmScheduler @Inject constructor(
 
     override fun schedule(alarm: PrayerAlarm): Boolean {
         val exact = canScheduleExact()
-        val pending = pendingIntent(alarm.prayer, alarm.dayKey)
+        PrayerAlarmLog.scheduling(alarm.prayer.name + "-" + alarm.dayKey, alarm.triggerAtMillis, exact)
+        val pending = pendingIntent(alarm.prayer, alarm.dayKey, alarm.triggerAtMillis)
         if (exact) {
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -52,14 +54,15 @@ class AlarmPrayerAlarmScheduler @Inject constructor(
     }
 
     override fun cancel() {
-        alarmManager.cancel(pendingIntent(Prayer.FAJR, dayKey = "cancel"))
+        alarmManager.cancel(pendingIntent(Prayer.FAJR, "cancel", 0L))
     }
 
-    private fun pendingIntent(prayer: Prayer, dayKey: String): PendingIntent {
+    private fun pendingIntent(prayer: Prayer, dayKey: String, triggerAtMillis: Long): PendingIntent {
         val intent = Intent(context, PrayerAlarmReceiver::class.java).apply {
             action = ACTION_PRAYER_ALARM
             putExtra(EXTRA_PRAYER, prayer.name)
             putExtra(EXTRA_DAY_KEY, dayKey)
+            putExtra(EXTRA_SCHEDULED_AT, triggerAtMillis)
         }
         return PendingIntent.getBroadcast(
             context,
@@ -73,6 +76,7 @@ class AlarmPrayerAlarmScheduler @Inject constructor(
         const val ACTION_PRAYER_ALARM = "com.ayah.quran.PRAYER_ALARM"
         const val EXTRA_PRAYER = "prayer"
         const val EXTRA_DAY_KEY = "day_key"
+        const val EXTRA_SCHEDULED_AT = "scheduled_at"
         const val REQUEST_CODE = 4711
     }
 }
