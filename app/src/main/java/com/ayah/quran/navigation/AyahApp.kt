@@ -35,6 +35,7 @@ import com.ayah.quran.ui.home.HomeScreen
 import com.ayah.quran.ui.prayer.PrayerTimesScreen
 import com.ayah.quran.ui.quran.QuranScreen
 import com.ayah.quran.ui.reader.MushafPageReaderScreen
+import com.ayah.quran.ui.prayer.AdhanVoiceScreen
 import com.ayah.quran.ui.prayer.PrayerSettingsScreen
 import com.ayah.quran.ui.reader.ReaderScreen
 import com.ayah.quran.ui.settings.SettingsScreen
@@ -49,6 +50,7 @@ object Routes {
     const val MUSHAF = "mushaf?surahId={surahId}&page={page}&ayah={ayah}"
     const val BOOKMARKS = "bookmarks"
     const val PRAYER_SETTINGS = "prayer/settings"
+    const val PRAYER_VOICE = "prayer/adhan-voice"
     const val FULLSCREEN_PREVIEW = "preview/{surahId}/{ayahNumber}"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
@@ -248,6 +250,13 @@ fun AyahApp(modifier: Modifier = Modifier) {
 
             composable(route = Routes.PRAYER_SETTINGS) {
                 PrayerSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenVoices = { navController.navigate(Routes.PRAYER_VOICE) },
+                )
+            }
+
+            composable(route = Routes.PRAYER_VOICE) {
+                AdhanVoiceScreen(
                     onBack = { navController.popBackStack() },
                 )
             }

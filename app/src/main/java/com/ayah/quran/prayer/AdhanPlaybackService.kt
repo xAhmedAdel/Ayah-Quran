@@ -11,7 +11,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ayah.quran.R
+import com.ayah.quran.data.prayer.AdhanRawResources
+import com.ayah.quran.data.prayer.AdhanVoiceResolver
+import com.ayah.quran.data.prayer.BundledAdhanCatalog
 import com.ayah.quran.domain.model.prayer.Prayer
+import com.ayah.quran.domain.model.prayer.AdhanVoiceDefaults
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import com.ayah.quran.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -40,6 +44,8 @@ class AdhanPlaybackService : android.app.Service() {
 
     @Inject lateinit var preferencesRepository: PrayerPreferencesRepository
     @Inject lateinit var notifications: PrayerNotifications
+    @Inject lateinit var voiceResolver: AdhanVoiceResolver
+    @Inject lateinit var catalog: BundledAdhanCatalog
 
     private var player: ExoPlayer? = null
     private var audioManager: AudioManager? = null
@@ -57,12 +63,25 @@ class AdhanPlaybackService : android.app.Service() {
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER) ?: Prayer.FAJR.name
         val prayer = runCatching { Prayer.valueOf(prayerName) }.getOrDefault(Prayer.FAJR)
         val prefs = runBlocking { preferencesRepository.preferences.first() }
-        val audioUri = prefs.customAdhanAudioUri
+
+        // Phase 13: resolve THIS prayer's selected voice. Legacy user-file
+        // selection still wins when chosen; otherwise the bundled catalog
+        // (falling back to the default recording if an id disappeared).
+        val audioUri: String? = when {
+            prefs.voiceSelection.voiceOf(prayer) == AdhanVoiceDefaults.USER_FILE_ID ->
+                prefs.customAdhanAudioUri
+
+            else -> voiceResolver
+                .recordingFor(prefs.voiceSelection.voiceOf(prayer))
+                ?.let { recording ->
+                    "android.resource://$packageName/${AdhanRawResources.resIdOf(recording.id)}"
+                }
+        } ?: prefs.customAdhanAudioUri
 
         startInForeground(prayer)
 
         if (audioUri == null) {
-            // No user-selected audio: honest fallback to a notification, no
+            // No resolvable audio: honest fallback to a notification, no
             // fake playback.
             notifications.post(prayer, com.ayah.quran.domain.model.prayer.AdhanMode.SILENT)
             stopSelf()

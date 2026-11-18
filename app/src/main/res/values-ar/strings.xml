@@ -176,7 +176,7 @@
     <string name="settings_about">حول</string>
     <string name="settings_version">الإصدار</string>
     <string name="settings_licenses">التراخيص</string>
-    <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي نسب المنسوب 3.0 — tanzil.net. بيانات الجزء والصفحة من المصحف المدني عبر quran.com. خط أميري تحت رخصة SIL للخطوط المفتوحة 1.1.</string>
+    <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي نسب المنسوب 3.0 — tanzil.net. بيانات الجزء والصفحة من المصحف المدني عبر quran.com. خط أميري تحت رخصة SIL للخطوط المفتوحة 1.1. تسجيلات الأذان (ويكيميديا كومنز): CC0 بواسطة Adam-synagda؛ تسجيل صبح فخري (ملكية عامة)؛ CC BY-SA 4.0 بواسطة Andrewler و Mahfoudou. بيانات المدن من GeoNames (CC-BY 4.0).</string>
 
     <!-- مواقيت الصلاة والأذان (المرحلة 12) -->
     <string name="nav_prayer">الصلوات</string>
@@ -253,4 +253,17 @@
     <string name="prayer_hijri_disclaimer">التاريخ الهجري محسوب (أساس أم القرى) وقد يختلف عن رؤية الهلال المحلية بيوم. عدّله هنا ليطابق منطقتك. هذا ليس إعلاناً رسمياً لرؤية الهلال.</string>
     <string name="prayer_open_settings">إعدادات الصلاة والأذان</string>
     <string name="prayer_back">رجوع</string>
+
+    <string name="prayer_voice_title">أصوات الأذان</string>
+    <string name="prayer_voice_open_settings">أصوات الأذان لكل صلاة</string>
+    <string name="prayer_voice_open_library">اختيار الصوت</string>
+    <string name="prayer_voice_selected_cd">الصوت المحدد</string>
+    <string name="prayer_voice_preview_play">تشغيل المعاينة</string>
+    <string name="prayer_voice_preview_pause">إيقاف المعاينة مؤقتاً</string>
+    <string name="prayer_voice_preview_playing_cd">جارٍ تشغيل المعاينة</string>
+    <string name="prayer_voice_duration_format">%1$d:%2$02d</string>
+    <string name="prayer_voice_user_file">ملفك المخصص</string>
+    <string name="prayer_voice_user_file_desc">ملف صوتي مختار من تخزين جهازك</string>
+    <string name="prayer_voice_select">اختيار</string>
+    <string name="prayer_voice_default_badge">الافتراضي</string>
 </resources>

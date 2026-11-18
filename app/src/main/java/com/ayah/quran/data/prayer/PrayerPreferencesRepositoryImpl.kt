@@ -16,6 +16,8 @@ import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.model.prayer.PrayerAdjustments
 import com.ayah.quran.domain.model.prayer.PrayerAdhanConfig
 import com.ayah.quran.domain.model.prayer.PrayerLocation
+import com.ayah.quran.domain.model.prayer.PrayerVoiceSelection
+import com.ayah.quran.domain.model.prayer.AdhanVoiceDefaults
 import com.ayah.quran.domain.repository.prayer.PrayerPreferences
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import java.io.IOException
@@ -92,6 +94,18 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { prefs -> prefs[KEY_HIJRI_ADJUSTMENT] = days }
     }
 
+    override val voiceSelection: Flow<PrayerVoiceSelection> = dataStore.data
+        .catch { throwable ->
+            if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+        }
+        .map { prefs -> prefs.toVoiceSelection() }
+
+    override suspend fun setVoice(prayer: Prayer, recordingId: String) {
+        dataStore.edit { prefs ->
+            prefs[voiceKey(prayer)] = recordingId
+        }
+    }
+
     override suspend fun setCustomAdhanAudioUri(uri: String?) {
         dataStore.edit { prefs ->
             if (uri == null) prefs.remove(KEY_CUSTOM_ADHAN_URI) else prefs[KEY_CUSTOM_ADHAN_URI] = uri
@@ -121,6 +135,7 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
             maghrib = adhanMode(Prayer.MAGHRIB),
             isha = adhanMode(Prayer.ISHA),
         ),
+        voiceSelection = toVoiceSelection(),
         hijriAdjustmentDays = this[KEY_HIJRI_ADJUSTMENT] ?: 0,
         customAdhanAudioUri = this[KEY_CUSTOM_ADHAN_URI],
     )
@@ -145,6 +160,16 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
             ?: AdhanMode.NOTIFICATION_SOUND
 
     private fun adhanKey(prayer: Prayer) = stringPreferencesKey("prayer_adhan_${prayer.name}")
+
+    private fun Preferences.toVoiceSelection(): PrayerVoiceSelection = PrayerVoiceSelection(
+        fajr = this[voiceKey(Prayer.FAJR)] ?: AdhanVoiceDefaults.DEFAULT_RECORDING_ID,
+        dhuhr = this[voiceKey(Prayer.DHUHR)] ?: AdhanVoiceDefaults.DEFAULT_RECORDING_ID,
+        asr = this[voiceKey(Prayer.ASR)] ?: AdhanVoiceDefaults.DEFAULT_RECORDING_ID,
+        maghrib = this[voiceKey(Prayer.MAGHRIB)] ?: AdhanVoiceDefaults.DEFAULT_RECORDING_ID,
+        isha = this[voiceKey(Prayer.ISHA)] ?: AdhanVoiceDefaults.DEFAULT_RECORDING_ID,
+    )
+
+    private fun voiceKey(prayer: Prayer) = stringPreferencesKey("prayer_voice_${prayer.name}")
 
     private companion object {
         val KEY_CITY_AR = stringPreferencesKey("prayer_city_ar")

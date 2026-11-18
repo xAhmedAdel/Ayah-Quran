@@ -5,7 +5,9 @@ import com.ayah.quran.domain.model.prayer.CalculationMethod
 import com.ayah.quran.domain.model.prayer.HighLatitudeRulePref
 import com.ayah.quran.domain.model.prayer.PrayerAdjustments
 import com.ayah.quran.domain.model.prayer.PrayerAdhanConfig
+import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.model.prayer.PrayerLocation
+import com.ayah.quran.domain.model.prayer.PrayerVoiceSelection
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -20,6 +22,7 @@ data class PrayerPreferences(
     val highLatitudeRule: HighLatitudeRulePref,
     val adjustments: PrayerAdjustments,
     val adhanConfig: PrayerAdhanConfig,
+    val voiceSelection: PrayerVoiceSelection,
     val hijriAdjustmentDays: Int,
     val customAdhanAudioUri: String?,
 )
@@ -45,4 +48,10 @@ interface PrayerPreferencesRepository {
     suspend fun setHijriAdjustmentDays(days: Int)
 
     suspend fun setCustomAdhanAudioUri(uri: String?)
+
+    /** The per-prayer adhan voice ids (Phase 13). */
+    val voiceSelection: Flow<PrayerVoiceSelection>
+
+    /** Persists ONE prayer's voice; other prayers keep their selection. */
+    suspend fun setVoice(prayer: Prayer, recordingId: String)
 }

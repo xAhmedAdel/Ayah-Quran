@@ -153,6 +153,7 @@ class PrayerTimeManager @Inject constructor(
         highLatitudeRule = com.ayah.quran.domain.model.prayer.HighLatitudeRulePref.ANGLE_BASED,
         adjustments = com.ayah.quran.domain.model.prayer.PrayerAdjustments(),
         adhanConfig = com.ayah.quran.domain.model.prayer.PrayerAdhanConfig(),
+        voiceSelection = com.ayah.quran.domain.model.prayer.PrayerVoiceSelection(),
         hijriAdjustmentDays = 0,
         customAdhanAudioUri = null,
     )

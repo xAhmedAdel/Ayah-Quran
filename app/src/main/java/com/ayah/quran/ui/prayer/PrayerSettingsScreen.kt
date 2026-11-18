@@ -65,6 +65,7 @@ import com.ayah.quran.domain.model.prayer.PrayerLocation
 @Composable
 fun PrayerSettingsScreen(
     onBack: () -> Unit,
+    onOpenVoices: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PrayerTimesViewModel = hiltViewModel(),
 ) {
@@ -227,6 +228,9 @@ fun PrayerSettingsScreen(
 
             // ---- Adhan ----
             SectionCard(title = stringResource(R.string.prayer_settings_adhan)) {
+                TextButton(onClick = onOpenVoices) {
+                    Text(stringResource(R.string.prayer_voice_open_settings))
+                }
                 listOf(
                     Prayer.FAJR, Prayer.DHUHR, Prayer.ASR, Prayer.MAGHRIB, Prayer.ISHA,
                 ).forEach { prayer ->

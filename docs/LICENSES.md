@@ -30,3 +30,14 @@ The Settings → Licenses screen will present the full OSS notice list
 - **GeoNames** — the bundled city catalog (`assets/prayer/cities.json`, 107 curated cities) is derived from GeoNames data, licensed **Creative Commons Attribution 4.0** (geonames.org). Attribution: "City data from GeoNames under CC-BY 4.0."
 - **Aladhan API** (api.aladhan.com) — used ONLY at development time to generate independent reference fixtures for calculation tests (`src/test/resources/prayer/aladhan-reference.json`). Not called at runtime; the app performs no prayer-time network requests.
 - **Adhan audio**: no recordings are bundled. Redistribution rights could not be verified for any catalog, so the app ships an honest empty catalog and lets users select their own local audio file for full-adhan playback.
+
+## Phase 13 — built-in adhan voice library
+
+Four adhan recordings bundled in `res/raw/`, each license-verified on Wikimedia Commons before download (full decision log: docs/ADHAN-AUDIO-LICENSES.md; inventory: docs/ADHAN-AUDIO-ASSETS.md):
+
+- **adhan_cc0_beautiful.ogg** — CC0 1.0 Universal, recording by Adam-synagda (DEFAULT voice).
+- **adhan_pd_sabah_fakhri.mp3** — Public domain, performance by Sabah Fakhri.
+- **adhan_by_sa_azan.ogg** — CC BY-SA 4.0, recording by Andrewler. Attribution required and provided.
+- **adhan_by_sa_call_to_worship.oga** — CC BY-SA 4.0, recording by Mahfoudou. Attribution required and provided.
+
+Per-prayer voice ids persist in DataStore; unresolvable ids fall back to the CC0 default.
