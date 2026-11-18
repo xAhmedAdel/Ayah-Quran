@@ -131,47 +131,60 @@ fun AdhanLibraryScreen(
             )
 
             // Scrollable filter row: categories + downloaded-only toggle.
-            Row(
+            // LazyRow renders chips at their natural width — no vertical squeeze.
+            androidx.compose.foundation.lazy.LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_all),
-                    selected = state.categoryFilter == null,
-                    onClick = { viewModel.setCategoryFilter(null) },
-                )
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_makkah),
-                    selected = state.categoryFilter == AdhanCategory.MAKKAH,
-                    onClick = { viewModel.setCategoryFilter(AdhanCategory.MAKKAH) },
-                )
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_madinah),
-                    selected = state.categoryFilter == AdhanCategory.MADINAH,
-                    onClick = { viewModel.setCategoryFilter(AdhanCategory.MADINAH) },
-                )
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_famous),
-                    selected = state.categoryFilter == AdhanCategory.FAMOUS,
-                    onClick = { viewModel.setCategoryFilter(AdhanCategory.FAMOUS) },
-                )
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_regions),
-                    selected = state.categoryFilter == AdhanCategory.REGIONS,
-                    onClick = { viewModel.setCategoryFilter(AdhanCategory.REGIONS) },
-                )
-                CategoryChip(
-                    label = stringResource(R.string.prayer_library_category_bundled),
-                    selected = state.categoryFilter == AdhanCategory.BUNDLED,
-                    onClick = { viewModel.setCategoryFilter(AdhanCategory.BUNDLED) },
-                )
-                FilterChip(
-                    selected = state.downloadedOnly,
-                    onClick = { viewModel.setDownloadedOnly(!state.downloadedOnly) },
-                    label = { Text(stringResource(R.string.prayer_library_downloaded_only)) },
-                )
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_all),
+                        selected = state.categoryFilter == null,
+                        onClick = { viewModel.setCategoryFilter(null) },
+                    )
+                }
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_makkah),
+                        selected = state.categoryFilter == AdhanCategory.MAKKAH,
+                        onClick = { viewModel.setCategoryFilter(AdhanCategory.MAKKAH) },
+                    )
+                }
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_madinah),
+                        selected = state.categoryFilter == AdhanCategory.MADINAH,
+                        onClick = { viewModel.setCategoryFilter(AdhanCategory.MADINAH) },
+                    )
+                }
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_famous),
+                        selected = state.categoryFilter == AdhanCategory.FAMOUS,
+                        onClick = { viewModel.setCategoryFilter(AdhanCategory.FAMOUS) },
+                    )
+                }
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_regions),
+                        selected = state.categoryFilter == AdhanCategory.REGIONS,
+                        onClick = { viewModel.setCategoryFilter(AdhanCategory.REGIONS) },
+                    )
+                }
+                item {
+                    CategoryChip(
+                        label = stringResource(R.string.prayer_library_category_bundled),
+                        selected = state.categoryFilter == AdhanCategory.BUNDLED,
+                        onClick = { viewModel.setCategoryFilter(AdhanCategory.BUNDLED) },
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = state.downloadedOnly,
+                        onClick = { viewModel.setDownloadedOnly(!state.downloadedOnly) },
+                        label = { Text(stringResource(R.string.prayer_library_downloaded_only)) },
+                    )
+                }
             }
 
             // Honest Makkah state: no legally verified recording exists yet.

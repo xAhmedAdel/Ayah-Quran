@@ -146,14 +146,19 @@ class AdhanPlaybackService : android.app.Service() {
             )
             .setOnAudioFocusChangeListener { change ->
                 when (change) {
-                    AudioManager.AUDIOFOCUS_LOSS,
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK,
-                    -> {
-                        // Interruption (call, navigation, other alarm): stop
-                        // cleanly rather than fight for focus.
+                    AudioManager.AUDIOFOCUS_LOSS -> {
                         cleanup()
                         stopSelf()
+                    }
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                        player?.pause()
+                    }
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                        // Adhan keeps playing — duck is inappropriate for
+                        // a religious obligation.
+                    }
+                    AudioManager.AUDIOFOCUS_GAIN -> {
+                        player?.play()
                     }
                 }
             }
