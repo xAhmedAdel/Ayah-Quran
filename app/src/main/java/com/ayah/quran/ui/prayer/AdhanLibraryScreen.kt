@@ -1,6 +1,7 @@
 package com.ayah.quran.ui.prayer
 
 import android.Manifest
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -129,14 +130,22 @@ fun AdhanLibraryScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Scrollable filter row: categories + downloaded-only toggle.
             Row(
                 horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
             ) {
                 CategoryChip(
                     label = stringResource(R.string.prayer_library_category_all),
                     selected = state.categoryFilter == null,
                     onClick = { viewModel.setCategoryFilter(null) },
+                )
+                CategoryChip(
+                    label = stringResource(R.string.prayer_library_category_makkah),
+                    selected = state.categoryFilter == AdhanCategory.MAKKAH,
+                    onClick = { viewModel.setCategoryFilter(AdhanCategory.MAKKAH) },
                 )
                 CategoryChip(
                     label = stringResource(R.string.prayer_library_category_madinah),
@@ -153,11 +162,6 @@ fun AdhanLibraryScreen(
                     selected = state.categoryFilter == AdhanCategory.REGIONS,
                     onClick = { viewModel.setCategoryFilter(AdhanCategory.REGIONS) },
                 )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
                 CategoryChip(
                     label = stringResource(R.string.prayer_library_category_bundled),
                     selected = state.categoryFilter == AdhanCategory.BUNDLED,
