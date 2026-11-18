@@ -319,4 +319,23 @@
 
     <string name="prayer_onboarding_home_card_hint">الإشعارات والمنبهات الدقيقة وإعدادات الخلفية تجعل تنبيهات الصلاة موثوقة.</string>
     <string name="prayer_onboarding_home_card_action">تفعيل تنبيهات الصلاة</string>
+
+    <!-- Phase 15: مكتبة صوت الأذان -->
+    <string name="prayer_library_title_format">مكتبة الأذان — %1$s</string>
+    <string name="prayer_library_search_hint">ابحث عن مؤذن أو مسجد أو تسجيل</string>
+    <string name="prayer_library_category_all">الكل</string>
+    <string name="prayer_library_category_makkah">مكة المكرمة</string>
+    <string name="prayer_library_category_madinah">المدينة المنورة</string>
+    <string name="prayer_library_category_famous">مؤذنون مشهورون</string>
+    <string name="prayer_library_category_regions">مناطق أخرى</string>
+    <string name="prayer_library_category_bundled">مدمجة</string>
+    <string name="prayer_library_downloaded_only">المحمّلة</string>
+    <string name="prayer_library_makkah_unavailable">لا يتوفر بعد أي تسجيل أذان لمكة المكرمة بحقوق إعادة نشر متحقق منها. سيُفتح هذا التصنيف إذا حُصلت على الحقوق — لن نضمّن أبداً تسجيلات غير متحقق منها.</string>
+    <string name="prayer_library_needs_download_warning">الصوت المختار غير محمّل — سيستخدم الأذان المجدول الصوت الافتراضي حتى يتم تحميله.</string>
+    <string name="prayer_library_select_needs_download">حمّله أولاً — الأذان المجدول دون اتصال يحتاج الملف على الجهاز.</string>
+    <string name="prayer_download">تحميل</string>
+    <string name="prayer_download_cancel">إلغاء التحميل</string>
+    <string name="prayer_download_retry">إعادة المحاولة</string>
+    <string name="prayer_download_delete">حذف التحميل</string>
+    <string name="prayer_download_failed">فشل التحميل</string>
 </resources>

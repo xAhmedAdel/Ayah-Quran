@@ -64,4 +64,9 @@ interface PrayerPreferencesRepository {
     val vendorGuidanceAcknowledged: Flow<Boolean>
 
     suspend fun setVendorGuidanceAcknowledged()
+
+    /** Phase 15: adhan recording ids fully downloaded to app storage. */
+    val downloadedAdhanIds: Flow<Set<String>>
+
+    suspend fun setAdhanDownloaded(id: String, downloaded: Boolean)
 }

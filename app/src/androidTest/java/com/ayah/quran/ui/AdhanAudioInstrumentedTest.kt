@@ -27,8 +27,8 @@ class AdhanAudioInstrumentedTest {
     private val catalog = BundledAdhanCatalog()
 
     @Test
-    fun allCatalogRecordingsMapToRealDecodableRawResources() {
-        catalog.recordings.forEach { recording ->
+    fun allBundledRecordingsMapToRealDecodableRawResources() {
+        catalog.bundled().forEach { recording ->
             val resId = AdhanRawResources.resIdOf(recording.id)
             assertTrue("resId for ${recording.id} must be valid", resId != 0)
 
@@ -54,6 +54,19 @@ class AdhanAudioInstrumentedTest {
             } finally {
                 retriever.release()
             }
+        }
+    }
+
+    @Test
+    fun remoteRecordingIdsFallBackToTheDefaultResource() {
+        // REMOTE entries have no res/raw file: resIdOf correctly maps them
+        // to the DEFAULT recording (playback of remote entries goes through
+        // the download repository instead).
+        catalog.remote().forEach { recording ->
+            assertEquals(
+                AdhanRawResources.resIdOf(com.ayah.quran.domain.model.prayer.AdhanVoiceDefaults.DEFAULT_RECORDING_ID),
+                AdhanRawResources.resIdOf(recording.id),
+            )
         }
     }
 

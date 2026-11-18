@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.ayah.quran.domain.model.prayer.AsrMethod
@@ -127,6 +128,20 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { prefs -> prefs[KEY_VENDOR_GUIDANCE_DONE] = true }
     }
 
+    override val downloadedAdhanIds: Flow<Set<String>> = dataStore.data
+        .catch { throwable ->
+            if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+        }
+        .map { prefs -> prefs[KEY_DOWNLOADED_ADHAN_IDS] ?: emptySet() }
+
+    override suspend fun setAdhanDownloaded(id: String, downloaded: Boolean) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_DOWNLOADED_ADHAN_IDS] ?: emptySet()
+            prefs[KEY_DOWNLOADED_ADHAN_IDS] =
+                if (downloaded) current + id else current - id
+        }
+    }
+
     override suspend fun setCustomAdhanAudioUri(uri: String?) {
         dataStore.edit { prefs ->
             if (uri == null) prefs.remove(KEY_CUSTOM_ADHAN_URI) else prefs[KEY_CUSTOM_ADHAN_URI] = uri
@@ -212,6 +227,7 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         val KEY_HIJRI_ADJUSTMENT = intPreferencesKey("prayer_hijri_adjustment")
         val KEY_ONBOARDING_DONE = booleanPreferencesKey("prayer_onboarding_done")
         val KEY_VENDOR_GUIDANCE_DONE = booleanPreferencesKey("prayer_vendor_guidance_done")
+        val KEY_DOWNLOADED_ADHAN_IDS = stringSetPreferencesKey("prayer_adhan_downloaded_ids")
         val KEY_CUSTOM_ADHAN_URI = stringPreferencesKey("prayer_custom_adhan_uri")
     }
 }

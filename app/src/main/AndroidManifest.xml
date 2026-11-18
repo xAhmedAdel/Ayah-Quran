@@ -24,6 +24,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <!-- Phase 15: used EXCLUSIVELY to download user-requested adhan audio
+         from Wikimedia Commons (HTTPS). Prayer calculations, Quran text and
+         every other feature remain fully offline; no telemetry, no tracking. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".AyahApplication"
         android:allowBackup="true"

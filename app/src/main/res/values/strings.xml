@@ -324,4 +324,23 @@
 
     <string name="prayer_onboarding_home_card_hint">Notifications, exact alarms and background settings make prayer alerts reliable.</string>
     <string name="prayer_onboarding_home_card_action">Enable prayer alerts</string>
+
+    <!-- Phase 15: adhan audio library -->
+    <string name="prayer_library_title_format">Adhan library — %1$s</string>
+    <string name="prayer_library_search_hint">Search mu\u2019adhin, mosque or recording</string>
+    <string name="prayer_library_category_all">All</string>
+    <string name="prayer_library_category_makkah">Makkah</string>
+    <string name="prayer_library_category_madinah">Madinah</string>
+    <string name="prayer_library_category_famous">Famous mu\u2019adhins</string>
+    <string name="prayer_library_category_regions">Other regions</string>
+    <string name="prayer_library_category_bundled">Built-in</string>
+    <string name="prayer_library_downloaded_only">Downloaded</string>
+    <string name="prayer_library_makkah_unavailable">No Makkah adhan recording with verified redistribution rights is available yet. This category will unlock if the rights are obtained — we will never bundle unverified audio.</string>
+    <string name="prayer_library_needs_download_warning">The selected voice is not downloaded — scheduled Adhan will use the default voice until it is downloaded.</string>
+    <string name="prayer_library_select_needs_download">Download first — offline scheduled playback needs the file on the device.</string>
+    <string name="prayer_download">Download</string>
+    <string name="prayer_download_cancel">Cancel download</string>
+    <string name="prayer_download_retry">Retry download</string>
+    <string name="prayer_download_delete">Delete download</string>
+    <string name="prayer_download_failed">Download failed</string>
 </resources>

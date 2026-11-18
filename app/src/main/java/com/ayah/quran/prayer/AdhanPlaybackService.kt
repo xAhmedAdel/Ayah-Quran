@@ -11,6 +11,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ayah.quran.R
+import com.ayah.quran.data.prayer.AdhanPlaybackSource
 import com.ayah.quran.data.prayer.AdhanRawResources
 import com.ayah.quran.data.prayer.AdhanVoiceResolver
 import com.ayah.quran.data.prayer.BundledAdhanCatalog
@@ -45,6 +46,7 @@ class AdhanPlaybackService : android.app.Service() {
     @Inject lateinit var preferencesRepository: PrayerPreferencesRepository
     @Inject lateinit var notifications: PrayerNotifications
     @Inject lateinit var voiceResolver: AdhanVoiceResolver
+    @Inject lateinit var sourceResolver: com.ayah.quran.data.prayer.AdhanPlaybackSourceResolver
     @Inject lateinit var catalog: BundledAdhanCatalog
 
     private var player: ExoPlayer? = null
@@ -65,18 +67,29 @@ class AdhanPlaybackService : android.app.Service() {
         val prayer = runCatching { Prayer.valueOf(prayerName) }.getOrDefault(Prayer.FAJR)
         val prefs = runBlocking { preferencesRepository.preferences.first() }
 
-        // Phase 13: resolve THIS prayer's selected voice. Legacy user-file
-        // selection still wins when chosen; otherwise the bundled catalog
-        // (falling back to the default recording if an id disappeared).
+        // Phase 13/15: resolve THIS prayer's selected voice. Legacy user-file
+        // selection still wins when chosen; otherwise the catalog resolution
+        // (bundled resource, downloaded file, or DEFAULT fallback when a
+        // remote voice is not downloaded — never silence).
         val audioUri: String? = when {
             prefs.voiceSelection.voiceOf(prayer) == AdhanVoiceDefaults.USER_FILE_ID ->
                 prefs.customAdhanAudioUri
 
-            else -> voiceResolver
-                .recordingFor(prefs.voiceSelection.voiceOf(prayer))
-                ?.let { recording ->
-                    "android.resource://$packageName/${AdhanRawResources.resIdOf(recording.id)}"
-                }
+            else -> {
+                val (recording, source) = sourceResolver.resolve(
+                    prefs.voiceSelection.voiceOf(prayer),
+                )
+                when (source) {
+                    is AdhanPlaybackSource.RawResource ->
+                        "android.resource://$packageName/${source.resId}"
+
+                    is AdhanPlaybackSource.LocalFile ->
+                        android.net.Uri.fromFile(source.file).toString()
+
+                    AdhanPlaybackSource.Missing -> null
+                } ?: "android.resource://$packageName/" +
+                    AdhanRawResources.resIdOf(recording.id)
+            }
         } ?: prefs.customAdhanAudioUri
 
         startInForeground(prayer, isTest)

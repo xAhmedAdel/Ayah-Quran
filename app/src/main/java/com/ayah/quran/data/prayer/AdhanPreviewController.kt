@@ -8,6 +8,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ayah.quran.domain.model.prayer.AdhanRecording
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -58,10 +59,29 @@ class AdhanPreviewController @Inject constructor(
     private var focusRequest: AudioFocusRequest? = null
     private var ticker: Job? = null
 
-    fun start(recording: AdhanRecording) {
+    /**
+     * Starts a preview. Bundled recordings play from res/raw; downloaded
+     * recordings play from app storage; remote recordings that are NOT yet
+     * downloaded stream directly from their HTTPS source (Phase 15 §3:
+     * preview-before-download). Focus and cleanup rules are identical.
+     */
+    fun start(recording: AdhanRecording, downloadedFile: File? = null) {
         scope.launch {
             stopInternal() // one preview at a time
             if (!requestFocus()) return@launch
+
+            val mediaUri: android.net.Uri = when {
+                !recording.isBundled && downloadedFile != null ->
+                    android.net.Uri.fromFile(downloadedFile)
+
+                !recording.isBundled && recording.downloadUrl != null ->
+                    android.net.Uri.parse(recording.downloadUrl)
+
+                else ->
+                    android.net.Uri.parse(
+                        "android.resource://${context.packageName}/${AdhanRawResources.resIdOf(recording.id)}",
+                    )
+            }
 
             val newPlayer = ExoPlayer.Builder(context).build().also { player = it }
             newPlayer.setAudioAttributes(
@@ -71,11 +91,7 @@ class AdhanPreviewController @Inject constructor(
                     .build(),
                 /* handleAudioFocus = */ false, // explicit focus handling below
             )
-            newPlayer.setMediaItem(
-                MediaItem.fromUri(
-                    "android.resource://${context.packageName}/${AdhanRawResources.resIdOf(recording.id)}",
-                ),
-            )
+            newPlayer.setMediaItem(MediaItem.fromUri(mediaUri))
             newPlayer.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
