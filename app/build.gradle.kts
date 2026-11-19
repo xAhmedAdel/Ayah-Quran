@@ -42,10 +42,10 @@ android {
         targetSdk = 36
         // AGP 8 removed BuildConfig.VERSION_CODE; expose it explicitly so the
         // in-app updater can compare against release metadata.
-        val code = 3
+        val code = 4
         versionCode = code
         buildConfigField("int", "VERSION_CODE", "$code")
-        versionName = "1.0.0-beta.2"
+        versionName = "1.0.0-beta.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
