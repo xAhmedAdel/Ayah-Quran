@@ -383,6 +383,17 @@
     <string name="action_dismiss">إغلاق</string>
     <string name="reader_repeat_range">تكرار نطاق آيات</string>
     <string name="reader_make_wallpaper">إنشاء خلفية</string>
+    <string name="home_prayer_setup_short">اختر مدينتك لعرض مواقيت الصلاة</string>
+    <string name="home_prayer_setup_action">إعداد</string>
+    <string name="home_page_short">صفحة %1$d</string>
+    <string name="settings_preferences_section">تفضيلات التطبيق</string>
+    <string name="settings_reading_title">القراءة والمصحف</string>
+    <string name="settings_reading_mode_mushaf">وضع المصحف (٦٠٤ صفحات)</string>
+    <string name="settings_reading_mode_continuous">القراءة المستمرة</string>
+    <string name="settings_reading_summary">%1$s · %2$s</string>
+    <string name="settings_audio_title">الصوت والتلاوات</string>
+    <string name="settings_prayer_not_set">لم يتم اختيار مدينة</string>
+    <string name="settings_licenses_view">عرض</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="zero">لا توجد آيات</item>

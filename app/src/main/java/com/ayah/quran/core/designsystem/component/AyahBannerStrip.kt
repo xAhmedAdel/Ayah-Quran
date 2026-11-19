@@ -2,6 +2,7 @@ package com.ayah.quran.core.designsystem.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -57,23 +58,28 @@ fun AyahBannerStrip(
         contentColor = content,
         border = BorderStroke(AyahTouchTargets.hairline, content.copy(alpha = 0.2f)),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             if (actionLabel != null && onAction != null) {
                 FilledTonalButton(
                     onClick = onAction,
@@ -82,6 +88,7 @@ fun AyahBannerStrip(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
+                    modifier = Modifier.align(Alignment.End),
                 ) {
                     Text(text = actionLabel, style = MaterialTheme.typography.labelMedium)
                 }
