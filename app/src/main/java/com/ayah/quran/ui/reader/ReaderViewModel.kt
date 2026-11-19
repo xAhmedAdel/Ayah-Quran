@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.ayah.quran.data.audio.AyahPlaybackState
 import com.ayah.quran.data.audio.ExoPlayerAyahPlaylistPlayer
 import com.ayah.quran.data.audio.QuranAudioCatalog
+import com.ayah.quran.data.audio.QuranRepeatRange
 import com.ayah.quran.domain.model.Ayah
+import com.ayah.quran.domain.model.ReadingMode
 import com.ayah.quran.domain.model.Surah
 import com.ayah.quran.domain.repository.ReaderPreferencesRepository
 import com.ayah.quran.domain.usecase.GetAyahUseCase
@@ -16,11 +18,14 @@ import com.ayah.quran.domain.usecase.ObserveSurahAyahsUseCase
 import com.ayah.quran.domain.usecase.SaveReadingPositionUseCase
 import com.ayah.quran.domain.usecase.ToggleBookmarkUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -93,6 +98,30 @@ class ReaderViewModel @Inject constructor(
     fun observeIsBookmarked(ayahNumber: Int): Flow<Boolean> =
         observeBookmarkState(surahId, ayahNumber)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val isSelectedBookmarked: StateFlow<Boolean> = selectedAyah
+        .flatMapLatest { ayah ->
+            if (ayah != null) observeBookmarkState(surahId, ayah) else flowOf(false)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val repeatRange: StateFlow<QuranRepeatRange?> = ayahPlayer.state
+        .map { it.repeatRange }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun startRepeatRange(range: QuranRepeatRange) {
+        ayahPlayer.setRepeatRange(range)
+        playFromAyah(range.fromAyah)
+    }
+
+    fun clearRepeatRange() {
+        ayahPlayer.setRepeatRange(null)
+    }
+
+    fun clearSelection() {
+        selectedAyah.value = null
+    }
+
     fun toggleBookmark(ayahNumber: Int) {
         viewModelScope.launch { toggleBookmarkUseCase(surahId, ayahNumber) }
     }
@@ -120,6 +149,12 @@ class ReaderViewModel @Inject constructor(
     fun setFontScale(scale: Float) {
         viewModelScope.launch {
             readerPrefs.update { it.copy(fontScale = scale.coerceIn(0.5f, 2.0f)) }
+        }
+    }
+
+    fun setReadingMode(mode: ReadingMode) {
+        viewModelScope.launch {
+            readerPrefs.update { it.copy(readingMode = mode) }
         }
     }
 

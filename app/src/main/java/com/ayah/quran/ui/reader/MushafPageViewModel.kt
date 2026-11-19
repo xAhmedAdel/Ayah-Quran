@@ -7,6 +7,7 @@ import com.ayah.quran.domain.model.MushafPage
 import com.ayah.quran.domain.model.ReadingMode
 import com.ayah.quran.data.audio.ExoPlayerAyahPlaylistPlayer
 import com.ayah.quran.data.audio.QuranAudioCatalog
+import com.ayah.quran.data.audio.QuranRepeatRange
 import com.ayah.quran.domain.repository.ReaderPreferencesRepository
 import com.ayah.quran.domain.usecase.GetMushafPageUseCase
 import com.ayah.quran.domain.usecase.ObserveBookmarkStateUseCase
@@ -14,13 +15,16 @@ import com.ayah.quran.domain.usecase.PageForAyahUseCase
 import com.ayah.quran.domain.usecase.SaveReadingPositionUseCase
 import com.ayah.quran.domain.usecase.ToggleBookmarkUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -214,13 +218,35 @@ class MushafPageViewModel @Inject constructor(
         _userSelection.value = if (_userSelection.value == tapped) null else tapped
     }
 
-    fun observeIsBookmarked(): Flow<Boolean> {
-        val target = highlight.value
-        return if (target != null) {
+    fun clearSelection() {
+        _highlight.value = null
+        _userSelection.value = null
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeIsBookmarked(): Flow<Boolean> = highlight.flatMapLatest { target ->
+        if (target != null) {
             observeBookmarkState(target.first, target.second)
         } else {
-            kotlinx.coroutines.flow.flowOf(false)
+            flowOf(false)
         }
+    }
+
+    val repeatRange: StateFlow<QuranRepeatRange?> = ayahPlayer.state
+        .map { it.repeatRange }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null,
+        )
+
+    fun startRepeatRange(surahId: Int, range: QuranRepeatRange) {
+        ayahPlayer.setRepeatRange(range)
+        playFromAyah(surahId, range.fromAyah)
+    }
+
+    fun clearRepeatRange() {
+        ayahPlayer.setRepeatRange(null)
     }
 
     fun toggleBookmark() {

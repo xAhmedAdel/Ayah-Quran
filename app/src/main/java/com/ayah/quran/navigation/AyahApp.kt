@@ -320,6 +320,9 @@ fun AyahApp(modifier: Modifier = Modifier) {
                             launchSingleTop = true
                         }
                     },
+                    onCreateWallpaper = { surahId, ayah ->
+                        navController.navigate(Routes.fullscreenPreview(surahId, ayah))
+                    },
                 )
             }
 
@@ -350,6 +353,9 @@ fun AyahApp(modifier: Modifier = Modifier) {
                             }
                             launchSingleTop = true
                         }
+                    },
+                    onCreateWallpaper = { surahId, ayah ->
+                        navController.navigate(Routes.fullscreenPreview(surahId, ayah))
                     },
                 )
             }

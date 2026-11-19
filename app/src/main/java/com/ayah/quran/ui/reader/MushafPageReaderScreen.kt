@@ -1,5 +1,7 @@
 package com.ayah.quran.ui.reader
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -9,32 +11,30 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -48,41 +48,46 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.AyahCard
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.component.MushafSurahBanner
+import com.ayah.quran.core.designsystem.component.ReaderAyahActionPill
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
-import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.core.designsystem.theme.AyahTouchTargets
+import com.ayah.quran.core.designsystem.theme.LocalAyahColors
 import com.ayah.quran.core.locale.localizedDisplayName
 import com.ayah.quran.domain.model.MushafPage
+import com.ayah.quran.domain.model.ReadingMode
 import com.ayah.quran.domain.usecase.GetMushafPageUseCase
 import kotlinx.coroutines.launch
 
-/**
- * Authentic Madinah mushaf reader: 604 pages with their ORIGINAL page
- * boundaries (from the verified Madani page mapping), original surah-start
- * headers and bismillah placement, rendered as justified Uthmani text.
- *
- * This is a page-boundary-accurate mushaf, not a line-for-line print
- * reproduction — the printed line breaks are not part of the verified data.
- * Pinch to zoom; the boundaries never change with zoom or font settings.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MushafPageReaderScreen(
     onBack: () -> Unit,
     onSwitchToContinuous: (surahId: Int, ayah: Int) -> Unit,
     modifier: Modifier = Modifier,
+    onCreateWallpaper: ((surahId: Int, ayah: Int) -> Unit)? = null,
     viewModel: MushafPageViewModel = hiltViewModel(),
 ) {
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val startPage by viewModel.startPage.collectAsStateWithLifecycle()
     val highlight by viewModel.highlight.collectAsStateWithLifecycle()
+    val bookmarked by viewModel.observeIsBookmarked().collectAsStateWithLifecycle(false)
+    val repeatRange by viewModel.repeatRange.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val extendedColors = LocalAyahColors.current
 
     val pageCount = GetMushafPageUseCase.LAST_PAGE
     val pagerState = rememberPagerState(
@@ -90,45 +95,44 @@ fun MushafPageReaderScreen(
         pageCount = { pageCount },
     )
 
-    // Jump once the start page resolves from navigation args (surah/ayah).
-    // A resolved page is always 1..604; 0 means "still resolving".
     LaunchedEffect(startPage) {
         if (startPage in GetMushafPageUseCase.FIRST_PAGE..GetMushafPageUseCase.LAST_PAGE) {
             pagerState.scrollToPage(startPage - 1)
         }
     }
 
-    // Load content for the settled page and its neighbors.
     val settledPage by remember {
         derivedStateOf { pagerState.settledPage + 1 }
     }
-    // Re-runs when the pages map updates, so the position of the FIRST page
-    // opened is saved once its content arrives (settledPage itself is stable).
     LaunchedEffect(settledPage, pages) {
         viewModel.ensureLoaded(settledPage)
         viewModel.onPageSettled(settledPage)
     }
 
-    // Slice 3: follow the recited ayah across pages (policy-guarded — one
-    // navigation per recited ayah; manual browsing is respected; smooth).
     val recitedAyah by viewModel.recitedAyah.collectAsStateWithLifecycle()
-    val userSelectionActive by viewModel.userSelectionActive
-        .collectAsStateWithLifecycle()
+    val userSelectionActive by viewModel.userSelectionActive.collectAsStateWithLifecycle()
     LaunchedEffect(recitedAyah, settledPage, userSelectionActive) {
         val target = viewModel.evaluateRecitationFollow(settledPage)
         if (target != null && target in 1..pageCount &&
             target != pagerState.settledPage + 1
         ) {
-            // Preload the target (and neighbors) so the turn never flashes.
             viewModel.ensureLoaded(target)
             pagerState.animateScrollToPage(target - 1)
         }
     }
 
-    // Pinch-zoom disables pager swiping while zoomed in.
     var pageZoomed by remember { mutableStateOf(false) }
-
     var showJumpDialog by remember { mutableStateOf(false) }
+    var showRepeatDialog by remember { mutableStateOf(false) }
+
+    val currentPage = pages[pagerState.settledPage + 1]
+    val selectedSegment = remember(currentPage, highlight) {
+        val target = highlight ?: return@remember null
+        currentPage?.segments?.firstOrNull { seg ->
+            seg.surah.id == target.first && seg.ayahs.any { it.ayahNumber == target.second }
+        }
+    }
+
     if (showJumpDialog) {
         PageJumpDialog(
             onPageSelected = { target ->
@@ -141,9 +145,31 @@ fun MushafPageReaderScreen(
         )
     }
 
-    val currentPage = pages[pagerState.settledPage + 1]
-    Column(modifier = modifier.fillMaxSize()) {
+    val currentHighlight = highlight
+    if (showRepeatDialog && currentHighlight != null) {
+        val maxAyahs = selectedSegment?.surah?.ayahCount ?: 286
+        RepeatRangeDialog(
+            initialFromAyah = currentHighlight.second,
+            maxAyahCount = maxAyahs,
+            hasActiveRepeatRange = repeatRange != null,
+            onStartRepeat = { range ->
+                showRepeatDialog = false
+                viewModel.startRepeatRange(currentHighlight.first, range)
+            },
+            onClearRepeat = viewModel::clearRepeatRange,
+            onDismiss = { showRepeatDialog = false },
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(extendedColors.mushafCanvas),
+    ) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = extendedColors.mushafCanvas,
+            ),
             title = {
                 val title = currentPage?.singleSurahTitle()
                 Text(
@@ -154,60 +180,33 @@ fun MushafPageReaderScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = AyahIcons.Back,
                         contentDescription = stringResource(R.string.reader_back),
                     )
                 }
             },
             actions = {
-                val bookmarked = viewModel
-                    .observeIsBookmarked()
-                    .collectAsStateWithLifecycle(false)
-                    .value
-                val bookmarkEnabled = highlight != null
-                IconButton(onClick = viewModel::toggleBookmark, enabled = bookmarkEnabled) {
-                    val selectedHere = highlight != null && currentPage?.contains(highlight) == true
-                    Icon(
-                        imageVector = if (bookmarked && selectedHere) {
-                            Icons.Filled.Bookmark
-                        } else {
-                            Icons.Filled.BookmarkBorder
-                        },
-                        contentDescription = stringResource(R.string.reader_bookmark),
-                    )
-                }
                 IconButton(
                     onClick = {
-                        val target = highlight ?: return@IconButton
-                        viewModel.playFromAyah(target.first, target.second)
+                        val target = highlight ?: currentPage?.firstAyah?.let {
+                            it.surahId to it.ayahNumber
+                        } ?: return@IconButton
+                        viewModel.setReadingMode(ReadingMode.CONTINUOUS)
+                        onSwitchToContinuous(target.first, target.second)
                     },
-                    enabled = highlight != null,
+                    modifier = Modifier.testTag("mushaf_switch_continuous"),
                 ) {
                     Icon(
-                        Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.audio_play_surah),
-                        tint = if (highlight != null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            LocalContentColor.current
-                        },
-                    )
-                }
-                IconButton(onClick = {
-                    val target = highlight ?: currentPage?.firstAyah?.let {
-                        it.surahId to it.ayahNumber
-                    } ?: return@IconButton
-                    viewModel.setReadingMode(
-                        com.ayah.quran.domain.model.ReadingMode.CONTINUOUS,
-                    )
-                    onSwitchToContinuous(target.first, target.second)
-                }) {
-                    Icon(
-                        Icons.Outlined.TextFields,
+                        imageVector = AyahIcons.ContinuousMode,
                         contentDescription = stringResource(R.string.continuous_mode_cd),
                     )
                 }
             },
+        )
+
+        HorizontalDivider(
+            thickness = AyahTouchTargets.hairline,
+            color = MaterialTheme.colorScheme.outlineVariant,
         )
 
         HorizontalPager(
@@ -231,6 +230,33 @@ fun MushafPageReaderScreen(
                 )
             }
         }
+
+        AnimatedVisibility(visible = currentHighlight != null && selectedSegment != null) {
+            if (currentHighlight != null && selectedSegment != null) {
+                val surahLabel = selectedSegment.surah.localizedDisplayName()
+                val refLabel = "$surahLabel · ${AyahNumbering.isolateLtr("${currentHighlight.first}:${currentHighlight.second}")}"
+                ReaderAyahActionPill(
+                    ayahReferenceLabel = refLabel,
+                    isBookmarked = bookmarked,
+                    onPlay = { viewModel.playFromAyah(currentHighlight.first, currentHighlight.second) },
+                    onToggleBookmark = viewModel::toggleBookmark,
+                    onRepeatRange = { showRepeatDialog = true },
+                    onCreateWallpaper = onCreateWallpaper?.let { cb ->
+                        { cb(currentHighlight.first, currentHighlight.second) }
+                    },
+                    onDismiss = viewModel::clearSelection,
+                    modifier = Modifier.padding(
+                        horizontal = AyahSpacing.m,
+                        vertical = AyahSpacing.xs,
+                    ),
+                )
+            }
+        }
+
+        HorizontalDivider(
+            thickness = AyahTouchTargets.hairline,
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
 
         MushafPageNavBar(
             pageNumber = pagerState.settledPage + 1,
@@ -263,9 +289,6 @@ private fun ZoomableMushafPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Pinch-zoom that yields to the pager: single-finger drags are
-            // only consumed while zoomed in, so HorizontalPager keeps
-            // receiving page swipes at rest scale.
             .pointerInput(Unit) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -315,13 +338,13 @@ private fun ZoomableMushafPage(
                     translationY = offsetY
                 }
                 .verticalScroll(scrollState)
-                .padding(horizontal = AyahSpacing.m),
+                .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm),
             verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
         ) {
             page.segments.forEach { segment ->
                 if (segment.surahStartsHere) {
-                    SurahStartHeader(
-                        surahName = segment.surah.nameArabic,
+                    MushafSurahBanner(
+                        surahNameArabic = segment.surah.nameArabic,
                         bismillah = segment.bismillah,
                     )
                 }
@@ -336,43 +359,7 @@ private fun ZoomableMushafPage(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
-    }
-}
-
-/** Surah header shown when a surah begins on the page (printed convention). */
-@Composable
-private fun SurahStartHeader(
-    surahName: String,
-    bismillah: String?,
-) {
-    AyahCard {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = AyahSpacing.l, horizontal = AyahSpacing.m),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = surahName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = QuranTextFontFamily,
-                    fontSize = 30.sp,
-                ),
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            bismillah?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = QuranTextFontFamily,
-                    ),
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = AyahSpacing.s),
-                )
-            }
+            Spacer(Modifier.height(AyahSpacing.l))
         }
     }
 }
@@ -387,31 +374,35 @@ private fun MushafPageNavBar(
     onNext: () -> Unit,
     onIndicatorTap: () -> Unit,
 ) {
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = AyahSpacing.l, vertical = AyahSpacing.s),
+            .padding(horizontal = AyahSpacing.l, vertical = AyahSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         IconButton(onClick = onPrev, enabled = canGoBack) {
-            // RTL-aware: "previous" points toward earlier pages. In an RTL
-            // mushaf, earlier pages lie to the RIGHT — arrow must not be
-            // blindly mirrored by auto-mirroring icons.
             Icon(
-                Icons.Filled.KeyboardArrowRight,
+                imageVector = AyahIcons.mushafPreviousArrow(isRtl),
                 contentDescription = stringResource(R.string.mushaf_prev_page),
             )
         }
-        TextButton(onClick = onIndicatorTap) {
+        Surface(
+            onClick = onIndicatorTap,
+            shape = RoundedCornerShape(AyahRadii.pill),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
             Text(
                 text = stringResource(R.string.mushaf_page_indicator, pageNumber, totalPages),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.s),
             )
         }
         IconButton(onClick = onNext, enabled = canGoForward) {
             Icon(
-                Icons.Filled.KeyboardArrowLeft,
+                imageVector = AyahIcons.mushafNextArrow(isRtl),
                 contentDescription = stringResource(R.string.mushaf_next_page),
             )
         }
@@ -438,6 +429,7 @@ private fun PageJumpDialog(
                     label = { Text(stringResource(R.string.mushaf_page_jump_hint)) },
                     isError = text.isNotEmpty() && !valid,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 if (text.isNotEmpty() && !valid) {
                     Text(
@@ -459,18 +451,11 @@ private fun PageJumpDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.reader_back))
+                Text(stringResource(R.string.action_cancel))
             }
         },
     )
 }
 
-/** The surah name for single-surah pages; null when the page spans surahs. */
 private fun MushafPage.singleSurahTitle(): String? =
     if (segments.size == 1) segments.first().surah.localizedDisplayName() else null
-
-private fun MushafPage.contains(highlight: Pair<Int, Int>?): Boolean =
-    highlight != null && segments.any { segment ->
-        segment.surah.id == highlight.first &&
-            segment.ayahs.any { it.ayahNumber == highlight.second }
-    }
