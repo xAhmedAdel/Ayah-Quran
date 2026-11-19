@@ -50,9 +50,9 @@ class PrayerPermissionsInstrumentedTest {
 
     @Test
     fun testNotificationPostsOnTheRealAlertChannel() {
-        instrumentation.uiAutomation.executeShellCommand(
-            "pm grant com.ayah.quran.debug android.permission.POST_NOTIFICATIONS",
-        )
+        // Use the draining helper: a raw executeShellCommand may not apply
+        // before the assertion (its output descriptor is never read).
+        grantNotifications()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // Direct construction of the PRODUCTION class (same behavior as the
         // injected singleton: real channels, real alert-channel posting).
