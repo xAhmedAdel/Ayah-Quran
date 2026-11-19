@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +34,9 @@ import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.locale.AppLocale
+import com.ayah.quran.domain.update.AppUpdateInfo
+import com.ayah.quran.data.update.AppUpdateInstaller
+import com.ayah.quran.data.update.AppUpdateState
 import com.ayah.quran.domain.model.ThemeMode
 
 /**
@@ -128,6 +134,8 @@ fun SettingsScreen(
                 )
             }
         }
+
+        UpdatesSection(viewModel)
 
         AyahCard {
             Column(
@@ -229,4 +237,131 @@ private fun AboutRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * In-app updater (GitHub Releases): auto-checks once per process when the
+ * section becomes visible, then drives check → download → install states.
+ */
+@Composable
+private fun UpdatesSection(viewModel: SettingsViewModel) {
+    val update by viewModel.updateState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // One silent check per app process; manual re-checks stay available.
+    LaunchedEffect(Unit) { viewModel.checkForUpdate() }
+
+    SectionHeader(text = stringResource(R.string.settings_updates))
+
+    AyahCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
+            when (val state = update) {
+                is AppUpdateState.Idle, AppUpdateState.Checking -> {
+                    Text(
+                        text = stringResource(R.string.settings_updates_checking),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                is AppUpdateState.UpToDate -> {
+                    Text(
+                        text = stringResource(R.string.settings_updates_uptodate),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                AppUpdateState.NoReleases -> {
+                    Text(
+                        text = stringResource(R.string.settings_updates_noreleases),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                is AppUpdateState.Available -> UpdateAvailableRows(
+                    info = state.info,
+                    viewModel = viewModel,
+                )
+
+                is AppUpdateState.Downloading -> {
+                    Text(
+                        text = stringResource(R.string.settings_updates_downloading) +
+                            " " + "%d%%".format((state.progress * 100).toInt()),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    LinearProgressIndicator(
+                        progress = { state.progress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                is AppUpdateState.Downloaded -> {
+                    Text(
+                        text = stringResource(
+                            R.string.settings_updates_ready, state.info.tagName,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Button(
+                        onClick = { AppUpdateInstaller.installOrGuide(context, state.apkFile) },
+                    ) {
+                        Text(stringResource(R.string.settings_updates_install))
+                    }
+                }
+
+                is AppUpdateState.Failed -> {
+                    Text(
+                        text = stringResource(
+                            R.string.settings_updates_error,
+                            state.reason ?: "",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            // Manual re-check is always available (force = true).
+            TextButton(onClick = { viewModel.checkForUpdate(force = true) }) {
+                Text(stringResource(R.string.settings_updates_check))
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdateAvailableRows(
+    info: AppUpdateInfo,
+    viewModel: SettingsViewModel,
+) {
+    Text(
+        text = stringResource(R.string.settings_updates_available, info.tagName),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.primary,
+    )
+    Text(
+        text = stringResource(
+            R.string.settings_updates_size,
+            formatUpdateSize(info.apkSizeBytes),
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Button(onClick = { viewModel.downloadUpdate(info) }) {
+        Text(stringResource(R.string.settings_updates_download))
+    }
+}
+
+private fun formatUpdateSize(bytes: Long): String = when {
+    bytes >= 1_000_000 -> "%.1f MB".format(bytes / 1_000_000f)
+    bytes >= 1_000 -> "%d KB".format(bytes / 1_000)
+    else -> "%d B".format(bytes)
 }

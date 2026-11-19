@@ -29,6 +29,13 @@
          every other feature remain fully offline; no telemetry, no tracking. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- In-app updater: downloads the new APK from this project's GitHub
+         Releases and hands it to the SYSTEM package installer. The user
+         always confirms in the installer UI (Android forbids silent
+         installs); this permission only lets the installer be launched for
+         OUR app's updates. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".AyahApplication"
         android:allowBackup="true"
@@ -84,6 +91,18 @@
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
                 tools:node="remove" />
+        </provider>
+
+        <!-- In-app updater: shares the downloaded update APK with the system
+             package installer (file:// Uris are rejected on modern Android). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
         </provider>
     </application>
 

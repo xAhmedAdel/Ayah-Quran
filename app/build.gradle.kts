@@ -40,8 +40,12 @@ android {
         applicationId = "com.ayah.quran"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.0-beta.1"
+        // AGP 8 removed BuildConfig.VERSION_CODE; expose it explicitly so the
+        // in-app updater can compare against release metadata.
+        val code = 3
+        versionCode = code
+        buildConfigField("int", "VERSION_CODE", "$code")
+        versionName = "1.0.0-beta.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true

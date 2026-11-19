@@ -2,6 +2,8 @@ package com.ayah.quran.ui.settings
 
 import app.cash.turbine.test
 import com.ayah.quran.core.locale.AppLocale
+import com.ayah.quran.data.update.AppUpdateRepository
+import com.ayah.quran.data.update.AppUpdateState
 import com.ayah.quran.domain.model.ThemeMode
 import com.ayah.quran.domain.repository.UserPreferencesRepository
 import com.ayah.quran.domain.usecase.ObserveAppLanguageUseCase
@@ -125,10 +127,15 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { repository.setLanguageTag(AppLocale.ENGLISH) }
     }
 
-    private fun createViewModel() = SettingsViewModel(
-        observeThemeMode = ObserveThemeModeUseCase(repository),
-        setThemeModeUseCase = SetThemeModeUseCase(repository),
-        observeAppLanguage = ObserveAppLanguageUseCase(repository),
-        setAppLanguageUseCase = SetAppLanguageUseCase(repository),
-    )
+    private fun createViewModel(): SettingsViewModel {
+        val updateRepository = mockk<AppUpdateRepository>(relaxUnitFun = true)
+        every { updateRepository.state } returns MutableStateFlow(AppUpdateState.Idle)
+        return SettingsViewModel(
+            observeThemeMode = ObserveThemeModeUseCase(repository),
+            setThemeModeUseCase = SetThemeModeUseCase(repository),
+            observeAppLanguage = ObserveAppLanguageUseCase(repository),
+            setAppLanguageUseCase = SetAppLanguageUseCase(repository),
+            updateRepository = updateRepository,
+        )
+    }
 }

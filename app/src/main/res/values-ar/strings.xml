@@ -175,6 +175,18 @@
     <string name="settings_language_english">English</string>
     <string name="settings_about">حول</string>
     <string name="settings_version">الإصدار</string>
+    <string name="settings_updates">التحديثات</string>
+    <string name="settings_updates_check">التحقق من التحديثات</string>
+    <string name="settings_updates_checking">جارٍ التحقق من التحديثات…</string>
+    <string name="settings_updates_uptodate">أنت تستخدم أحدث إصدار.</string>
+    <string name="settings_updates_noreleases">لا توجد إصدارات منشورة على GitHub بعد.</string>
+    <string name="settings_updates_available">إصدار جديد متاح: %1$s</string>
+    <string name="settings_updates_size">الحجم: %1$s</string>
+    <string name="settings_updates_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="settings_updates_ready">تم تنزيل التحديث (%1$s) — جاهز للتثبيت.</string>
+    <string name="settings_updates_download">تنزيل التحديث</string>
+    <string name="settings_updates_install">تثبيت التحديث</string>
+    <string name="settings_updates_error">تعذّر التحقق من التحديثات: %1$s</string>
     <string name="settings_licenses">التراخيص</string>
     <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي نسب المنسوب 3.0 — tanzil.net. بيانات الجزء والصفحة من المصحف المدني عبر quran.com. خط أميري تحت رخصة SIL للخطوط المفتوحة 1.1. تسجيلات الأذان (ويكيميديا كومنز): CC0 بواسطة Adam-synagda؛ تسجيل صبح فخري (ملكية عامة)؛ CC BY-SA 4.0 بواسطة Andrewler و Mahfoudou. بيانات المدن من GeoNames (CC-BY 4.0).</string>
 

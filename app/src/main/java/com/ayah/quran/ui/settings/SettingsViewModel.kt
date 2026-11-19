@@ -2,7 +2,11 @@ package com.ayah.quran.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ayah.quran.BuildConfig
 import com.ayah.quran.core.locale.AppLocale
+import com.ayah.quran.domain.update.AppUpdateInfo
+import com.ayah.quran.data.update.AppUpdateRepository
+import com.ayah.quran.data.update.AppUpdateState
 import com.ayah.quran.domain.model.ThemeMode
 import com.ayah.quran.domain.usecase.ObserveAppLanguageUseCase
 import com.ayah.quran.domain.usecase.ObserveThemeModeUseCase
@@ -16,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -32,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val setThemeModeUseCase: SetThemeModeUseCase,
     observeAppLanguage: ObserveAppLanguageUseCase,
     private val setAppLanguageUseCase: SetAppLanguageUseCase,
+    private val updateRepository: AppUpdateRepository,
 ) : ViewModel() {
 
     val themeMode: StateFlow<ThemeMode> = observeThemeMode()
@@ -65,4 +71,22 @@ class SettingsViewModel @Inject constructor(
             _languageApplied.tryEmit(Unit)
         }
     }
+
+    // ---- in-app updater (GitHub Releases) ----
+
+    val updateState: StateFlow<AppUpdateState> = updateRepository.state
+
+    /** True once per process so opening Settings doesn't spam the GitHub API. */
+    private var autoChecked = false
+
+    fun checkForUpdate(force: Boolean = false) {
+        if (!force && autoChecked) return
+        autoChecked = true
+        updateRepository.checkForUpdate(BuildConfig.VERSION_NAME)
+    }
+
+    /** A previously downloaded update APK, if the app was killed mid-flow. */
+    fun pendingUpdateFile(): File? = updateRepository.pendingUpdateFile()
+
+    fun downloadUpdate(info: AppUpdateInfo) = updateRepository.downloadUpdate(info)
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paths shared with the system package installer via FileProvider
+     (in-app updater — see AppUpdateRepository). -->
+<paths>
+    <external-files-path
+        name="updates"
+        path="updates/" />
+</paths>
