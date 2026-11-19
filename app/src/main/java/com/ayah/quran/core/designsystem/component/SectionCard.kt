@@ -11,13 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 
-/**
- * The standard section container: titled card with consistent spacing.
- * The title is exposed as an accessibility heading.
- */
 @Composable
 fun SectionCard(
     title: String,
@@ -29,7 +24,7 @@ fun SectionCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(AyahSpacing.m),
-            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
         ) {
             Text(
                 text = title,
