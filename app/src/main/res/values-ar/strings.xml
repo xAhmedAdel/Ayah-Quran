@@ -40,8 +40,8 @@
     <string name="mushaf_invalid_page">أدخل رقم صفحة بين %1$d و %2$d</string>
     <string name="mushaf_go">انتقال</string>
     <string name="mushaf_page_unavailable">هذه الصفحة غير متاحة.</string>
-    <string name="mushaf_mode_cd">وضع المصحف (٦٠٤ صفحة بأصولها)</string>
-    <string name="continuous_mode_cd">وضع النص المتغير</string>
+    <string name="mushaf_mode_cd">وضع المصحف (٦٠٤ صفحات أصلية)</string>
+    <string name="continuous_mode_cd">وضع القراءة المستمرة</string>
     <string name="reader_prev_surah">السورة السابقة</string>
     <string name="reader_next_surah">السورة التالية</string>
     <string name="reader_back">رجوع</string>
@@ -56,7 +56,7 @@
 
     <!-- Home -->
     <string name="home_daily_ayah_title">آية اليوم</string>
-    <string name="home_daily_ayah_pending">آية اليوم ستتوفر مع مرحلة محرك الخلفيات.</string>
+    <string name="home_daily_ayah_pending">تظهر آية اليوم هنا بمجرد جاهزية نص القرآن.</string>
     <string name="home_continue_reading_title">متابعة القراءة</string>
     <string name="home_continue_reading_pending">افتح أي سورة وسيتم حفظ موضعك تلقائياً.</string>
     <string name="home_continue_reading_format">سورة %1$s · الآية %2$d من %3$d</string>
@@ -77,12 +77,12 @@
     <string name="preview_apply">تطبيق الخلفية</string>
 
     <!-- History management -->
-    <string name="history_delete_entry">حذف السجل</string>
+    <string name="history_delete_entry">حذف العنصر</string>
     <string name="history_clear">مسح السجل</string>
     <string name="history_clear_title">مسح سجل الخلفيات؟</string>
     <string name="history_clear_message">سيتم إزالة جميع سجلات تطبيق الخلفيات. خلفية جهازك الحالية والعلامات المرجعية لن تتأثر.</string>
     <string name="history_clear_confirm">مسح</string>
-    <string name="history_entry_deleted">تم حذف السجل</string>
+    <string name="history_entry_deleted">تم حذف العنصر</string>
 
     <!-- Wallpapers -->
     <string name="wallpapers_title">الخلفيات</string>
@@ -110,7 +110,7 @@
     <string name="wallpapers_shuffle_verse">آية عشوائية</string>
     <string name="wallpapers_selection_mode">طريقة اختيار الآية</string>
     <string name="wallpapers_selection_random">عشوائي</string>
-    <string name="wallpapers_selection_from_selection">من المحددة</string>
+    <string name="wallpapers_selection_from_selection">من المختارات</string>
     <string name="wallpapers_selection_sequential">تسلسلي</string>
     <string name="wallpapers_selection_daily">يومي</string>
     <string name="wallpapers_dest_home">الرئيسية</string>
@@ -118,13 +118,13 @@
     <string name="wallpapers_dest_both">كلاهما</string>
     <string name="wallpapers_pick_surah">سورة</string>
     <string name="wallpapers_pick_ayah">آية</string>
-    <string name="wallpapers_ayah_number_error">أدخل رقم آية بين ١ و %1$d</string>
+    <string name="wallpapers_ayah_number_error">أدخل رقم آية بين 1 و %1$d</string>
     <string name="wallpapers_apply_success">تم تطبيق الخلفية على %1$s.</string>
     <string name="wallpapers_apply_failed">رفض النظام الخلفية. لم يتم تطبيق أي شيء. السبب: %1$s</string>
     <string name="wallpapers_apply_working">جارٍ التطبيق…</string>
     <string name="wallpapers_auto_every_format">كل %1$s (تقريبي)</string>
     <string name="wallpapers_auto_off">التحديثات التلقائية متوقفة</string>
-    <string name="wallpapers_auto_hint">يجدول WorkManager التحديثات تقريبياً؛ التوقيت الدقيق غير مضمون ويعتمد على إعدادات البطارية في النظام.</string>
+    <string name="wallpapers_auto_hint">يجدول النظام التحديثات التلقائية بشكل تقريبي؛ يعتمد التوقيت الدقيق على إعدادات البطارية في جهازك.</string>
     <string name="wallpapers_last_applied_never">لم يتم التطبيق بعد</string>
     <string name="wallpapers_last_applied_format">آخر تطبيق: %1$s</string>
     <string name="wallpapers_history_section">السجل</string>
@@ -154,7 +154,7 @@
     <string name="audio_selected_surah">السورة المحددة</string>
     <string name="audio_repeat">التكرار</string>
     <string name="audio_download">تحميل السورة</string>
-    <string name="audio_downloading_progress">جارٍ التحميل %1$d / %2$d</string>
+    <string name="audio_downloading_progress">جارٍ التحميل \u2066%1$d / %2$d\u2069</string>
     <string name="audio_downloaded">متاح دون اتصال</string>
     <string name="audio_delete_download">حذف التحميل</string>
     <string name="audio_cancel_download">إلغاء التحميل</string>
@@ -164,7 +164,7 @@
     <string name="audio_pause">إيقاف مؤقت</string>
     <string name="audio_stop">إيقاف</string>
     <string name="audio_repeat_ayah">تكرار الآية</string>
-    <string name="audio_attribution_note">التسجيلات بتوزيع مجتمعي حر عبر AlQuran Cloud / EveryAyah — رحم الله القرّاء.</string>
+    <string name="audio_attribution_note">التسجيلات بتوزيع مجتمعي عبر \u2066AlQuran Cloud / EveryAyah\u2069.</string>
     <string name="audio_resume_hint">اضغط للتشغيل للمتابعة من حيث توقفت</string>
     <string name="audio_blocked_by_adhan">التلاوة متوقفة — الأذان قيد التشغيل الآن</string>
     <string name="audio_ayah_counter">الآية %1$d من %2$d</string>
@@ -190,7 +190,7 @@
     <!-- Settings -->
     <string name="settings_title">الإعدادات</string>
     <string name="settings_appearance">المظهر</string>
-    <string name="settings_theme_system">توقّع النظام</string>
+    <string name="settings_theme_system">تلقائي (النظام)</string>
     <string name="settings_theme_light">فاتح</string>
     <string name="settings_theme_dark">داكن</string>
     <string name="settings_language">اللغة</string>
@@ -213,7 +213,7 @@
     <string name="settings_updates_install">تثبيت التحديث</string>
     <string name="settings_updates_error">تعذّر التحقق من التحديثات: %1$s</string>
     <string name="settings_licenses">التراخيص</string>
-    <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي نسب المنسوب 3.0 — tanzil.net. بيانات الجزء والصفحة من المصحف المدني عبر quran.com. خط أميري تحت رخصة SIL للخطوط المفتوحة 1.1. تسجيلات الأذان (ويكيميديا كومنز): CC0 بواسطة Adam-synagda؛ تسجيل صبح فخري (ملكية عامة)؛ CC BY-SA 4.0 بواسطة Andrewler و Mahfoudou. بيانات المدن من GeoNames (CC-BY 4.0).</string>
+    <string name="settings_licenses_summary">نص القرآن (العثماني) © مشروع تنزيل، المشاع الإبداعي - نسب المصنَّف 3.0 — \u2066tanzil.net\u2069. بيانات الجزء والصفحة من المصحف المدني عبر \u2066quran.com\u2069. خط أميري وخط \u2066IBM Plex Sans Arabic\u2069 تحت رخصة SIL للخطوط المفتوحة 1.1. تسجيلات الأذان (ويكيميديا كومنز): CC0 بواسطة \u2066Adam-synagda\u2069؛ تسجيل صباح فخري (ملكية عامة)؛ CC BY-SA 4.0 بواسطة \u2066Andrewler\u2069 و\u2066Mahfoudou\u2069. بيانات المدن من \u2066GeoNames (CC-BY 4.0)\u2069.</string>
 
     <!-- مواقيت الصلاة والأذان (المرحلة 12) -->
     <string name="nav_prayer">الصلوات</string>
@@ -283,8 +283,8 @@
     <string name="prayer_notification_permission_status">إذن الإشعارات: %1$s</string>
     <string name="prayer_permission_granted">ممنوح</string>
     <string name="prayer_permission_denied">غير ممنوح</string>
-    <string name="prayer_exact_alarm_status">الإنذارات الدقيقة: %1$s</string>
-    <string name="prayer_exact_alarm_denied">الإنذارات الدقيقة غير ممنوحة، وقد يتأخر التنبيه حتى 10 دقائق. اضغط لفتح إعداد النظام.</string>
+    <string name="prayer_exact_alarm_status">المنبهات الدقيقة: %1$s</string>
+    <string name="prayer_exact_alarm_denied">المنبهات الدقيقة غير ممنوحة، وقد يتأخر التنبيه حتى 10 دقائق. اضغط لفتح إعداد النظام.</string>
     <string name="prayer_battery_guidance">بعض الأجهزة تقيّد التشغيل في الخلفية لتوفير البطارية. إذا تأخر الأذان، اسمح لتطبيق آية بالعمل بدون قيود من إعدادات البطارية.</string>
     <string name="prayer_hijri_adjust">تعديل اليوم الهجري</string>
     <string name="prayer_hijri_disclaimer">التاريخ الهجري محسوب (أساس أم القرى) وقد يختلف عن رؤية الهلال المحلية بيوم. عدّله هنا ليطابق منطقتك. هذا ليس إعلاناً رسمياً لرؤية الهلال.</string>
@@ -320,10 +320,10 @@
     <string name="prayer_onboarding_channel_desc">تنبيهات الصلاة تستخدم قناة إشعارات خاصة بها؛ يجب أن تبقى مفعّلة.</string>
     <string name="prayer_onboarding_exact_title">المنبهات الدقيقة</string>
     <string name="prayer_onboarding_exact_desc">المنبهات الدقيقة ضرورية لدقة مواقيت الصلاة. بدونها قد يتأخر التنبيه حتى 10 دقائق.</string>
-    <string name="prayer_onboarding_vendor_honor_title">إعدادات الخلفية لأجهزة HONOR</string>
-    <string name="prayer_onboarding_vendor_generic_title">إعدادات العمل في الخلفية</string>
-    <string name="prayer_onboarding_vendor_desc">بعض الأجهزة تقيّد العمل في الخلفية. ضبط إعدادات تشغيل التطبيق على جهازك يجعل تنبيهات الصلاة والأذان موثوقة.</string>
-    <string name="prayer_onboarding_vendor_guide_title">دليل إعدادات الخلفية</string>
+    <string name="prayer_onboarding_vendor_honor_title">التشغيل في الخلفية لأجهزة HONOR</string>
+    <string name="prayer_onboarding_vendor_generic_title">إعدادات التشغيل في الخلفية</string>
+    <string name="prayer_onboarding_vendor_desc">بعض الأجهزة تقيّد التشغيل في الخلفية. ضبط إعدادات تشغيل التطبيق على جهازك يجعل تنبيهات الصلاة والأذان موثوقة.</string>
+    <string name="prayer_onboarding_vendor_guide_title">دليل التشغيل في الخلفية</string>
     <string name="prayer_onboarding_vendor_note">أسماء القوائم قد تختلف حسب طراز الجهاز وإصدار النظام.</string>
     <string name="prayer_onboarding_open_vendor">فتح إعدادات الجهاز</string>
     <string name="prayer_onboarding_vendor_done">أتممت الإعداد</string>
@@ -331,7 +331,7 @@
     <string name="prayer_onboarding_adhan_mode_desc">اختر كيف تنبهك كل صلاة: أذان كامل، نغمة قصيرة، صامت، أو متوقف.</string>
     <string name="prayer_onboarding_open_adhan_settings">فتح إعدادات الأذان</string>
     <string name="prayer_onboarding_ready">إشعارات صلواتك جاهزة.</string>
-    <string name="prayer_onboarding_skip">تخطٍّ الآن</string>
+    <string name="prayer_onboarding_skip">تخطي الآن</string>
     <string name="prayer_onboarding_skip_warning">قبل تفعيل الإعدادات أعلاه، قد لا تصل تنبيهات الصلاة أو الأذان في وقتها.</string>
     <string name="prayer_dashboard_title">إشعارات الصلاة والموثوقية</string>
     <string name="prayer_dashboard_notifications_row">الإشعارات</string>
@@ -352,9 +352,9 @@
     <string name="prayer_diagnostic_alarm_title">إنذار تشخيصي (تجربة)</string>
     <string name="prayer_diagnostic_alarm_body">هذا اختبار لإنذار مجدول بعد 60 ثانية من تطبيق آية.</string>
     <string name="prayer_test_diagnostic_button">اختبار إنذار بعد 60 ثانية</string>
-    <string name="prayer_test_diagnostic_scheduled">تم جدولة الإنذار التشخيصي — أقفل الشاشة وانتظر وصوله.</string>
+    <string name="prayer_test_diagnostic_scheduled">تمت جدولة المنبه التشخيصي — أغلق الشاشة وانتظر وصوله.</string>
 
-    <string name="prayer_onboarding_home_card_hint">الإشعارات والمنبهات الدقيقة وإعدادات الخلفية تجعل تنبيهات الصلاة موثوقة.</string>
+    <string name="prayer_onboarding_home_card_hint">الإشعارات والمنبهات الدقيقة وإعدادات التشغيل في الخلفية تجعل تنبيهات الصلاة موثوقة.</string>
     <string name="prayer_onboarding_home_card_action">تفعيل تنبيهات الصلاة</string>
 
     <!-- Phase 15: مكتبة صوت الأذان -->
@@ -367,7 +367,7 @@
     <string name="prayer_library_category_regions">مناطق أخرى</string>
     <string name="prayer_library_category_bundled">مدمجة</string>
     <string name="prayer_library_downloaded_only">المحمّلة</string>
-    <string name="prayer_library_makkah_unavailable">لا يتوفر بعد أي تسجيل أذان لمكة المكرمة بحقوق إعادة نشر متحقق منها. سيُفتح هذا التصنيف إذا حُصلت على الحقوق — لن نضمّن أبداً تسجيلات غير متحقق منها.</string>
+    <string name="prayer_library_makkah_unavailable">لا يتوفر بعد أي تسجيل أذان لمكة المكرمة بحقوق إعادة نشر متحقق منها. سيُفتح هذا التصنيف عند الحصول على الحقوق — لن نضمّن أبداً تسجيلات غير متحقق منها.</string>
     <string name="prayer_library_needs_download_warning">الصوت المختار غير محمّل — سيستخدم الأذان المجدول الصوت الافتراضي حتى يتم تحميله.</string>
     <string name="prayer_library_select_needs_download">حمّله أولاً — الأذان المجدول دون اتصال يحتاج الملف على الجهاز.</string>
     <string name="prayer_download">تحميل</string>
@@ -376,4 +376,36 @@
     <string name="prayer_download_delete">حذف التحميل</string>
     <string name="prayer_download_failed">فشل التحميل</string>
     <string name="prayer_download_done">متاح دون اتصال</string>
+
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_clear">مسح</string>
+    <string name="action_more">المزيد</string>
+    <string name="action_dismiss">إغلاق</string>
+    <string name="reader_repeat_range">تكرار نطاق آيات</string>
+    <string name="reader_make_wallpaper">إنشاء خلفية</string>
+
+    <plurals name="ayah_count_plurals">
+        <item quantity="zero">لا توجد آيات</item>
+        <item quantity="one">آية واحدة</item>
+        <item quantity="two">آيتان</item>
+        <item quantity="few">%1$d آيات</item>
+        <item quantity="many">%1$d آية</item>
+        <item quantity="other">%1$d آية</item>
+    </plurals>
+    <plurals name="duration_minutes_plurals">
+        <item quantity="zero">٠ دقائق</item>
+        <item quantity="one">دقيقة واحدة</item>
+        <item quantity="two">دقيقتان</item>
+        <item quantity="few">%1$d دقائق</item>
+        <item quantity="many">%1$d دقيقة</item>
+        <item quantity="other">%1$d دقيقة</item>
+    </plurals>
+    <plurals name="duration_hours_plurals">
+        <item quantity="zero">٠ ساعات</item>
+        <item quantity="one">ساعة واحدة</item>
+        <item quantity="two">ساعتان</item>
+        <item quantity="few">%1$d ساعات</item>
+        <item quantity="many">%1$d ساعة</item>
+        <item quantity="other">%1$d ساعة</item>
+    </plurals>
 </resources>

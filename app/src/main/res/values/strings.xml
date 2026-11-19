@@ -58,7 +58,7 @@
 
     <!-- Home -->
     <string name="home_daily_ayah_title">Daily Ayah</string>
-    <string name="home_daily_ayah_pending">The Daily Ayah arrives with the wallpaper engine phase.</string>
+    <string name="home_daily_ayah_pending">Your daily verse appears here once the Quran text is ready.</string>
     <string name="home_continue_reading_title">Continue Reading</string>
     <string name="home_continue_reading_pending">Open any surah and your position will be saved automatically.</string>
     <string name="home_continue_reading_format">Surah %1$s · Ayah %2$d of %3$d</string>
@@ -128,7 +128,7 @@
     <string name="wallpapers_apply_working">Applying…</string>
     <string name="wallpapers_auto_every_format">Every %1$s (approximate)</string>
     <string name="wallpapers_auto_off">Automatic updates are off</string>
-    <string name="wallpapers_auto_hint">WorkManager schedules updates approximately; exact timing is not guaranteed and depends on system battery optimizations.</string>
+    <string name="wallpapers_auto_hint">Android schedules automatic updates approximately; exact timing depends on system battery optimizations.</string>
     <string name="wallpapers_last_applied_never">Never applied yet</string>
     <string name="wallpapers_last_applied_format">Last applied: %1$s</string>
     <string name="wallpapers_history_section">History</string>
@@ -136,7 +136,7 @@
     <string name="wallpapers_history_reapply">Reapply</string>
     <string name="wallpapers_history_status_success">Applied</string>
     <string name="wallpapers_history_status_failed">Failed</string>
-    <string name="wallpapers_history_ayah_format">%1$s · %2$d:%3$d</string>
+    <string name="wallpapers_history_ayah_format" translatable="false">%1$s · \u2066%2$d:%3$d\u2069</string>
 
     <!-- Audio -->
     <string name="audio_title">Audio</string>
@@ -218,7 +218,7 @@
     <string name="settings_updates_install">Install update</string>
     <string name="settings_updates_error">Update check failed: %1$s</string>
     <string name="settings_licenses">Licenses</string>
-    <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz/page layout data from the Madani mushaf via quran.com. Amiri typeface under SIL Open Font License 1.1. Full details in docs/QURAN_DATA.md. Adhan recordings (Wikimedia Commons): CC0 by Adam-synagda; Sabah Fakhri recording (public domain); CC BY-SA 4.0 by Andrewler and Mahfoudou. City data from GeoNames (CC-BY 4.0).</string>
+    <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz/page layout data from the Madani mushaf via quran.com. Amiri and IBM Plex Sans Arabic typefaces under SIL Open Font License 1.1. Full details in docs/QURAN_DATA.md and docs/LICENSES.md. Adhan recordings (Wikimedia Commons): CC0 by Adam-synagda; Sabah Fakhri recording (public domain); CC BY-SA 4.0 by Andrewler and Mahfoudou. City data from GeoNames (CC-BY 4.0).</string>
 
     <!-- Prayer times & adhan (Phase 12) -->
     <string name="nav_prayer">Prayer times</string>
@@ -381,4 +381,24 @@
     <string name="prayer_download_delete">Delete download</string>
     <string name="prayer_download_failed">Download failed</string>
     <string name="prayer_download_done">Available offline</string>
+
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_more">More</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="reader_repeat_range">Repeat range</string>
+    <string name="reader_make_wallpaper">Create wallpaper</string>
+
+    <plurals name="ayah_count_plurals">
+        <item quantity="one">%1$d ayah</item>
+        <item quantity="other">%1$d ayahs</item>
+    </plurals>
+    <plurals name="duration_minutes_plurals">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="duration_hours_plurals">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
 </resources>
