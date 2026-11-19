@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ayah Redesign — Interactive UI Prototype (Al-Mushaf Al-Hadith)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F6F2E9;
+  --surface: #FCF9F2;
+  --surface-low: #FAF7EF;
+  --surface-container: #F3EFE4;
+  --surface-high: #ECE7DA;
+  --surface-highest: #E4DEC0;
+  --surface-lowest: #FFFFFF;
+  --primary: #0F3D32;
+  --on-primary: #FAF7F0;
+  --primary-container: #DCEAE4;
+  --on-primary-container: #0A2921;
+  --secondary: #8F6E2A;
+  --secondary-container: #F2E5C6;
+  --on-secondary-container: #43320E;
+  --text: #151C18;
+  --text-muted: #525C56;
+  --outline: #838D87;
+  --outline-variant: #DDD7CA;
+  --hero-bg: #0F3D32;
+  --hero-bg-end: #0A2921;
+  --hero-text: #F9F5EB;
+  --hero-accent: #DFC178;
+  --hero-muted: #B7CEC6;
+  --mushaf-bg: #FBF7EE;
+  --mushaf-highlight: rgba(196, 160, 82, 0.22);
+  --mushaf-marker: #9A762D;
+  --success: #1C6B4E;
+  --success-bg: #E1F2EB;
+  --warn: #9E6310;
+  --warn-bg: #FBF0DC;
+  --error: #B33A3A;
+  --error-bg: #FBE8E8;
+  --font-ui: 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-quran: 'Amiri', Georgia, serif;
+  --studio-bg: #E8E3D9;
+  --studio-bar: #FAF7F0;
+  --studio-border: #D5CEBF;
+}
+[data-theme="dark"] {
+  --bg: #0C1210;
+  --surface: #131B17;
+  --surface-low: #111815;
+  --surface-container: #161F1B;
+  --surface-high: #1D2722;
+  --surface-highest: #25312B;
+  --surface-lowest: #090E0C;
+  --primary: #D6B66B;
+  --on-primary: #16201B;
+  --primary-container: #1B3B31;
+  --on-primary-container: #E6D29E;
+  --secondary: #E2C887;
+  --secondary-container: #3A2F16;
+  --on-secondary-container: #F4E5BF;
+  --text: #F2EEE5;
+  --text-muted: #A7B2AC;
+  --outline: #6F7A74;
+  --outline-variant: #24302A;
+  --hero-bg: #122D25;
+  --hero-bg-end: #0B1D17;
+  --hero-text: #F5F1E8;
+  --hero-accent: #DFC178;
+  --hero-muted: #A5BEB5;
+  --mushaf-bg: #101613;
+  --mushaf-highlight: rgba(214, 182, 107, 0.20);
+  --mushaf-marker: #D6B66B;
+  --success: #68C79F;
+  --success-bg: #143327;
+  --warn: #EBB45B;
+  --warn-bg: #362812;
+  --error: #F08A8A;
+  --error-bg: #441B1B;
+  --studio-bg: #070B09;
+  --studio-bar: #111815;
+  --studio-border: #232F29;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-ui);
+  background: var(--studio-bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+.ltr-iso { unicode-bidi: isolate; direction: ltr; display: inline-block; }
+.studio-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--studio-bar);
+  border-bottom: 1px solid var(--studio-border);
+  padding: 12px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.studio-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.studio-brand h1 {
+  font-family: var(--font-quran);
+  font-size: 26px;
+  color: var(--primary);
+  line-height: 1;
+}
+.studio-brand span {
+  font-size: 13px;
+  color: var(--text-muted);
+  border-inline-start: 1px solid var(--outline-variant);
+  padding-inline-start: 12px;
+}
+.studio-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ctrl-group {
+  display: inline-flex;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+.ctrl-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ctrl-btn.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.screen-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 20px 4px;
+}
+.screen-pill {
+  border: 1px solid var(--outline-variant);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.screen-pill.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+.stage {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px 24px 48px;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.phone-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.phone-caption {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.phone {
+  width: 390px;
+  height: 820px;
+  background: var(--bg);
+  border-radius: 40px;
+  border: 8px solid #1C221F;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.status-bar {
+  height: 36px;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+  direction: ltr;
+}
+.status-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+}
+.screen-body.mushaf-mode {
+  background: var(--mushaf-bg);
+  padding: 0;
+  gap: 0;
+}
+.screen-body.studio-mode {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.topbar {
+  height: 52px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+.topbar.mushaf-top {
+  background: var(--mushaf-bg);
+  border-bottom: 1px solid var(--outline-variant);
+}
+.topbar-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+}
+.topbar-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.icon-btn:hover { background: var(--surface-high); }
+.icon-btn.tonal {
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+}
+.icon-btn.primary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: 16px;
+  padding: 16px;
+}
+.hero-card {
+  background: linear-gradient(155deg, var(--hero-bg) 0%, var(--hero-bg-end) 100%);
+  border: 1px solid rgba(223, 193, 120, 0.26);
+  border-radius: 22px;
+  padding: 20px;
+  color: var(--hero-text);
+  position: relative;
+  overflow: hidden;
+}
+.hero-card::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(223, 193, 120, 0.14);
+  border-radius: 16px;
+  pointer-events: none;
+}
+.banner-warn {
+  background: var(--warn-bg);
+  border: 1px solid rgba(158, 99, 16, 0.22);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--warn);
+}
+.pill-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s ease;
+}
+.pill-btn.primary { background: var(--primary); color: var(--on-primary); }
+.pill-btn.hero { background: var(--hero-accent); color: #17201B; }
+.pill-btn.tonal { background: var(--primary-container); color: var(--on-primary-container); }
+.pill-btn.outlined { background: transparent; border: 1px solid var(--outline-variant); color: var(--text); }
+.pill-btn.sm { padding: 6px 12px; font-size: 12px; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.badge.success { background: var(--success-bg); color: var(--success); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.gold { background: var(--secondary-container); color: var(--on-secondary-container); }
+.badge.hero { background: rgba(223, 193, 120, 0.16); color: var(--hero-accent); }
+.progress-track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-highest);
+  overflow: hidden;
+  width: 100%;
+}
+.progress-track.hero { background: rgba(255, 255, 255, 0.16); }
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.progress-fill.hero { background: var(--hero-accent); }
+.section-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 2px 0;
+}
+.search-pill {
+  height: 44px;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+.search-pill input {
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  flex: 1;
+}
+.seg-row {
+  display: flex;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 3px;
+}
+.seg-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 6px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--surface-lowest);
+  color: var(--primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .seg-btn.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.surah-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--outline-variant);
+  cursor: pointer;
+}
+.surah-row:last-child { border-bottom: none; }
+.rosette {
+  width: 38px;
+  height: 38px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.rosette svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mushaf-banner {
+  margin: 14px 16px 10px;
+  padding: 10px 16px;
+  background: var(--primary-container);
+  border-top: 1.5px solid var(--mushaf-marker);
+  border-bottom: 1.5px solid var(--mushaf-marker);
+  border-radius: 6px;
+  text-align: center;
+  font-family: var(--font-quran);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--on-primary-container);
+}
+.mushaf-text {
+  padding: 8px 20px 20px;
+  font-family: var(--font-quran);
+  font-size: 23.5px;
+  line-height: 2.12;
+  text-align: justify;
+  direction: rtl;
+  color: var(--text);
+}
+.ayah-span {
+  border-radius: 6px;
+  padding: 1px 3px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ayah-span.selected {
+  background: var(--mushaf-highlight);
+}
+.ayah-marker {
+  color: var(--mushaf-marker);
+  font-size: 18px;
+  margin: 0 3px;
+}
+.ayah-action-pill {
+  margin: 0 14px 8px;
+  background: var(--surface-high);
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+.reader-bottom-bar {
+  height: 52px;
+  padding: 0 16px;
+  background: var(--mushaf-bg);
+  border-top: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.mini-player {
+  margin: 0 10px 6px;
+  background: var(--surface-high);
+  border: 1px solid var(--outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mini-player-line {
+  height: 2.5px;
+  background: var(--surface-highest);
+}
+.mini-player-line-fill {
+  height: 100%;
+  width: 58%;
+  background: var(--primary);
+}
+.mini-player-inner {
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.bottom-nav {
+  height: 68px;
+  background: var(--surface-container);
+  border-top: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 4px 6px 8px;
+  flex-shrink: 0;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.nav-pill {
+  width: 52px;
+  height: 28px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.nav-item.active { color: var(--primary); font-weight: 700; }
+.nav-item.active .nav-pill { background: var(--secondary-container); color: var(--on-secondary-container); }
+.reciter-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.reciter-card {
+  min-width: 146px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reciter-card.active {
+  background: var(--primary-container);
+  border-color: var(--primary);
+}
+.prayer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 12px;
+  border-radius: 12px;
+}
+.prayer-row.next {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-weight: 700;
+}
+.wp-stage {
+  padding: 10px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--surface-low);
+  border-bottom: 1px solid var(--outline-variant);
+  flex-shrink: 0;
+}
+.wp-preview {
+  width: 152px;
+  height: 274px;
+  border-radius: 22px;
+  border: 3px solid var(--outline-variant);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 14px;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.wp-preview::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border: 1px solid rgba(213, 181, 106, 0.45);
+  border-radius: 14px;
+  pointer-events: none;
+}
+.wp-swatch-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+.wp-swatch {
+  min-width: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.wp-swatch-box {
+  width: 58px;
+  height: 76px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-quran);
+  font-size: 16px;
+}
+.wp-swatch.active .wp-swatch-box {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-container);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--outline-variant);
+  cursor: pointer;
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-container);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.theme-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.theme-card {
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 14px;
+  padding: 10px 6px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.theme-card.active {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.mini-ui-thumb {
+  width: 52px;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid var(--outline-variant);
+  overflow: hidden;
+  display: flex;
+}
+.medallion {
+  width: 176px;
+  height: 176px;
+  margin: 8px auto 4px;
+  border-radius: 50%;
+  background: linear-gradient(155deg, var(--hero-bg) 0%, var(--hero-bg-end) 100%);
+  border: 2px solid rgba(223, 193, 120, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--hero-text);
+  box-shadow: 0 12px 28px rgba(15, 61, 50, 0.22);
+}
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  border: 1px solid var(--outline-variant);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.chip.active {
+  background: var(--secondary-container);
+  border-color: var(--secondary);
+  color: var(--on-secondary-container);
+  font-weight: 600;
+}
+.toast {
+  position: absolute;
+  bottom: 84px;
+  left: 16px;
+  right: 16px;
+  background: var(--primary);
+  color: var(--on-primary);
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  z-index: 50;
+}
+</style>
+</head>
+<body>
+<header class="studio-header">
+  <div class="studio-brand">
+    <h1>آية</h1>
+    <span id="studioSubtitle">النظام التصميمي المقترح: المصحف الحديث — نموذج تفاعلي</span>
+  </div>
+  <div class="studio-controls">
+    <div class="ctrl-group">
+      <button class="ctrl-btn active" id="btnViewSingle" onclick="setViewMode('single')">Interactive Phone</button>
+      <button class="ctrl-btn" id="btnViewAll" onclick="setViewMode('all')">All 8 Screens</button>
+    </div>
+    <div class="ctrl-group">
+      <button class="ctrl-btn active" id="btnLangAr" onclick="setLang('ar')">العربية RTL</button>
+      <button class="ctrl-btn" id="btnLangEn" onclick="setLang('en')">English LTR</button>
+    </div>
+    <div class="ctrl-group">
+      <button class="ctrl-btn active" id="btnThemeLight" onclick="setTheme('light')">Light</button>
+      <button class="ctrl-btn" id="btnThemeDark" onclick="setTheme('dark')">Dark</button>
+    </div>
+  </div>
+</header>
+
+<div class="screen-pills" id="screenPills"></div>
+<main class="stage" id="stage"></main>
+
+<script>
+const state = {
+  lang: 'ar',
+  theme: 'light',
+  viewMode: 'single',
+  screen: 'home',
+  quranTab: 'surahs',
+  selectedAyah: 6,
+  bookmarkedAyahs: new Set([6]),
+  isPlaying: true,
+  reciter: 'alafasy',
+  audioFilter: 'all',
+  repeatAyah: false,
+  sleepMode: 'surah',
+  speed: '1.0x',
+  wpTemplate: 'emerald',
+  wpTab: 'style',
+  wpDest: 'both',
+  wpFontSize: 19,
+  readerMoreOpen: false,
+  setupDismissed: false,
+  toastMsg: null
+};
+
+const icons = {
+  home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>',
+  quran: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H12v18H4.5A2.5 2.5 0 0 1 2 18.5v-13z"/><path d="M22 5.5A2.5 2.5 0 0 0 19.5 3H12v18h7.5a2.5 2.5 0 0 0 2.5-2.5v-13z"/></svg>',
+  prayer: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  audio: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4"/><path d="M8 6v12"/><path d="M12 3v18"/><path d="M16 6v12"/><path d="M20 10v4"/></svg>',
+  wallpapers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>',
+  settings: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  play: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+  bookmark: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg>',
+  bookmarkFill: '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg>',
+  search: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  backRtl: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>',
+  tune: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="11" cy="18" r="2" fill="currentColor"/></svg>',
+  download: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>',
+  check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>',
+  bell: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  shuffle: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
+  expand: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
+  prev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
+  next: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>',
+  rosette: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="7" y="7" width="26" height="26" rx="2"/><rect x="7" y="7" width="26" height="26" rx="2" transform="rotate(45 20 20)"/></svg>'
+};
+
+const T = {
+  ar: {
+    subtitle: 'النظام التصميمي المقترح: المصحف الحديث — نموذج تفاعلي',
+    screens: {
+      home: 'الرئيسية', quran: 'القرآن', reader: 'المصحف', audio: 'الصوت',
+      nowplaying: 'قيد التشغيل', prayer: 'الصلوات', wallpapers: 'الخلفيات', settings: 'الإعدادات'
+    },
+    nav: [
+      { id: 'home', label: 'الرئيسية', icon: 'home' },
+      { id: 'quran', label: 'القرآن', icon: 'quran' },
+      { id: 'prayer', label: 'الصلوات', icon: 'prayer' },
+      { id: 'audio', label: 'الصوت', icon: 'audio' },
+      { id: 'wallpapers', label: 'الخلفيات', icon: 'wallpapers' }
+    ],
+    hijri: '١٩ جمادى الأولى ١٤٤٨ هـ',
+    gregorian: 'الخميس، ١٩ نوفمبر ٢٠٢٦',
+    setupPrompt: 'أكمل إعداد تنبيهات الصلاة والأذان',
+    setupAction: 'إعداد',
+    continueLbl: 'متابعة القراءة',
+    continueSurah: 'سورة الكهف',
+    continueMeta: 'صفحة ٢٩٣ · الجزء ١٥ · الآية ١ من ١١٠',
+    continueBtn: 'متابعة',
+    nextPrayerLbl: 'الصلاة القادمة',
+    maghrib: 'المغرب',
+    cairo: 'القاهرة · مصر',
+    adhanOn: 'الأذان مفعّل',
+    dailyWallpaper: 'خلفيتك الحالية',
+    wallpaperRef: 'الإسراء · ١٧:٤٠',
+    wallpaperAuto: 'تلقائي كل ٦ ساعات',
+    manageWallpaper: 'تخصيص الخلفية',
+    bookmarks: 'المحفوظات',
+    recitations: 'التلاوات',
+    quranTitle: 'القرآن الكريم',
+    goToPage: 'صفحة',
+    searchSurah: 'ابحث عن سورة...',
+    tabSurahs: 'السور',
+    tabJuz: 'الأجزاء',
+    tabBookmarks: 'المحفوظات',
+    mushafSub: 'الجزء ١ · صفحة ١ من ٦٠٤',
+    playFromAyah: 'تشغيل',
+    saveAyah: 'حفظ',
+    savedAyah: 'محفوظة',
+    asWallpaper: 'خلفية',
+    pageIndicator: 'صفحة ١ من ٦٠٤',
+    audioTitle: 'الاستماع والتلاوات',
+    recitersLbl: 'القرّاء',
+    attribution: 'تسجيلات بتوزيع مجتمعي عبر AlQuran Cloud / EveryAyah',
+    allSurahs: 'الكل (١١٤)',
+    downloadedOnly: 'المحملة (٢)',
+    offlineBadge: 'متاح دون اتصال',
+    downloadingLbl: 'جارٍ التحميل · ١٤٢ / ٢٨٦',
+    nowPlayingTitle: 'قيد التشغيل',
+    openInMushaf: 'افتح المصحف',
+    ayahCounter: 'الآية ٦ من ٧',
+    repeatAyah: 'تكرار الآية',
+    repeatRange: 'نطاق آيات',
+    sleepTitle: 'مؤقت النوم',
+    sleepOff: 'بدون مؤقت',
+    sleepAyah: 'بعد الآية',
+    sleepSurah: 'بعد السورة',
+    sleep15: '١٥ دقيقة',
+    speedTitle: 'سرعة التلاوة',
+    prayerTitle: 'مواقيت الصلاة',
+    upcoming: 'القادمة',
+    sunrise: 'الشروق',
+    sunriseNote: 'وقت الشروق — ليس صلاة',
+    reliabilityNote: 'المنبهات الدقيقة غير مفعّلة — قد يتأخر الأذان حتى ١٠ دقائق',
+    reviewSetup: 'مراجعة',
+    wpTitle: 'خلفيات آية',
+    wpStyle: 'التصميم',
+    wpVerse: 'الآية',
+    wpAuto: 'التلقائي',
+    wpHistory: 'السجل',
+    destHome: 'الرئيسية',
+    destLock: 'القفل',
+    destBoth: 'كلاهما',
+    applyWp: 'تطبيق الخلفية',
+    wpApplied: 'تم تطبيق الخلفية بنجاح',
+    settingsTitle: 'الإعدادات',
+    appearance: 'المظهر',
+    themeSystem: 'تلقائي',
+    themeLight: 'فاتح',
+    themeDark: 'داكن',
+    language: 'اللغة',
+    prefsTitle: 'تفضيلات التطبيق',
+    prefReading: 'القراءة والمصحف',
+    prefReadingSub: 'وضع المصحف (٦٠٤ صفحة) · حجم ١٠٠٪',
+    prefAudio: 'الصوت والتنزيلات',
+    prefAudioSub: 'مشاري العفاسي · سورتان محملتان',
+    prefPrayer: 'مواقيت الصلاة والأذان',
+    prefPrayerSub: 'القاهرة · الهيئة المصرية',
+    prefUpdates: 'تحديثات التطبيق',
+    prefUpdatesSub: 'أحدث إصدار مثبّت',
+    aboutTitle: 'حول آية',
+    versionLbl: 'الإصدار',
+    licensesLbl: 'التراخيص ومصادر البيانات',
+    miniReciter: 'مشاري العفاسي — الفاتحة'
+  },
+  en: {
+    subtitle: 'Proposed Design System: Al-Mushaf Al-Hadith — Interactive Prototype',
+    screens: {
+      home: 'Home', quran: 'Quran', reader: 'Mushaf', audio: 'Audio',
+      nowplaying: 'Now Playing', prayer: 'Prayer', wallpapers: 'Wallpapers', settings: 'Settings'
+    },
+    nav: [
+      { id: 'home', label: 'Home', icon: 'home' },
+      { id: 'quran', label: 'Quran', icon: 'quran' },
+      { id: 'prayer', label: 'Prayer', icon: 'prayer' },
+      { id: 'audio', label: 'Audio', icon: 'audio' },
+      { id: 'wallpapers', label: 'Wallpapers', icon: 'wallpapers' }
+    ],
+    hijri: '19 Jumada I 1448 AH',
+    gregorian: 'Thursday, 19 Nov 2026',
+    setupPrompt: 'Finish prayer alerts & Adhan setup',
+    setupAction: 'Setup',
+    continueLbl: 'CONTINUE READING',
+    continueSurah: 'Al-Kahf',
+    continueMeta: 'Page 293 · Juz 15 · Ayah 1 of 110',
+    continueBtn: 'Continue',
+    nextPrayerLbl: 'Next Prayer',
+    maghrib: 'Maghrib',
+    cairo: 'Cairo · Egypt',
+    adhanOn: 'Adhan active',
+    dailyWallpaper: 'Current Wallpaper',
+    wallpaperRef: 'Al-Isra · 17:40',
+    wallpaperAuto: 'Auto every 6h',
+    manageWallpaper: 'Customize',
+    bookmarks: 'Bookmarks',
+    recitations: 'Recitations',
+    quranTitle: 'The Noble Quran',
+    goToPage: 'Page',
+    searchSurah: 'Search surah...',
+    tabSurahs: 'Surahs',
+    tabJuz: 'Juz',
+    tabBookmarks: 'Bookmarks',
+    mushafSub: 'Juz 1 · Page 1 of 604',
+    playFromAyah: 'Play',
+    saveAyah: 'Bookmark',
+    savedAyah: 'Saved',
+    asWallpaper: 'Wallpaper',
+    pageIndicator: 'Page 1 of 604',
+    audioTitle: 'Audio & Recitations',
+    recitersLbl: 'Reciters',
+    attribution: 'Community distribution via AlQuran Cloud / EveryAyah',
+    allSurahs: 'All (114)',
+    downloadedOnly: 'Downloaded (2)',
+    offlineBadge: 'Available offline',
+    downloadingLbl: 'Downloading · 142 / 286',
+    nowPlayingTitle: 'Now Playing',
+    openInMushaf: 'Open Mushaf',
+    ayahCounter: 'Ayah 6 of 7',
+    repeatAyah: 'Repeat Ayah',
+    repeatRange: 'Ayah Range',
+    sleepTitle: 'Sleep Timer',
+    sleepOff: 'Off',
+    sleepAyah: 'After Ayah',
+    sleepSurah: 'After Surah',
+    sleep15: '15 min',
+    speedTitle: 'Playback Speed',
+    prayerTitle: 'Prayer Times',
+    upcoming: 'Next',
+    sunrise: 'Sunrise',
+    sunriseNote: 'Sunrise — not a prayer',
+    reliabilityNote: 'Exact alarms disabled — Adhan may delay up to 10 min',
+    reviewSetup: 'Fix',
+    wpTitle: 'Ayah Wallpapers',
+    wpStyle: 'Design',
+    wpVerse: 'Verse',
+    wpAuto: 'Auto',
+    wpHistory: 'History',
+    destHome: 'Home',
+    destLock: 'Lock',
+    destBoth: 'Both',
+    applyWp: 'Apply Wallpaper',
+    wpApplied: 'Wallpaper applied successfully',
+    settingsTitle: 'Settings',
+    appearance: 'Appearance',
+    themeSystem: 'System',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    language: 'Language',
+    prefsTitle: 'Preferences',
+    prefReading: 'Reading & Mushaf',
+    prefReadingSub: 'Mushaf 604 pages · 100% scale',
+    prefAudio: 'Audio & Downloads',
+    prefAudioSub: 'Mishary Alafasy · 2 surahs offline',
+    prefPrayer: 'Prayer & Adhan',
+    prefPrayerSub: 'Cairo · Egyptian Authority',
+    prefUpdates: 'App Updates',
+    prefUpdatesSub: 'Up to date',
+    aboutTitle: 'About Ayah',
+    versionLbl: 'Version',
+    licensesLbl: 'Licenses & Data Sources',
+    miniReciter: 'Mishary Alafasy — Al-Fatihah'
+  }
+};
+
+const wpTemplates = [
+  { id: 'emerald', ar: 'زمردي', en: 'Emerald', bg: 'linear-gradient(160deg,#0E2B23,#1E5A49)', text: '#E8D3A2', ref: '#D5B56A' },
+  { id: 'cream', ar: 'كريمي', en: 'Cream', bg: '#F7F2E8', text: '#17201B', ref: '#153D32' },
+  { id: 'midnight', ar: 'ليلي', en: 'Midnight', bg: 'linear-gradient(160deg,#0B0F0D,#161D19)', text: '#D5B56A', ref: '#E8D3A2' },
+  { id: 'arch', ar: 'معماري', en: 'Arch', bg: 'linear-gradient(160deg,#0F3038,#155E63)', text: '#F5F2EA', ref: '#E8D3A2' },
+  { id: 'geo', ar: 'هندسي', en: 'Geometric', bg: '#101815', text: '#E8D3A2', ref: '#D5B56A' }
+];
+
+const surahSample = [
+  { id: 1, ar: 'الفاتحة', en: 'Al-Fatihah', subEn: 'The Opening', typeAr: 'مكية', typeEn: 'Meccan', ayahs: 7, page: 1, dl: 'done' },
+  { id: 2, ar: 'البقرة', en: 'Al-Baqarah', subEn: 'The Cow', typeAr: 'مدنية', typeEn: 'Medinan', ayahs: 286, page: 2, dl: 'progress' },
+  { id: 18, ar: 'الكهف', en: 'Al-Kahf', subEn: 'The Cave', typeAr: 'مكية', typeEn: 'Meccan', ayahs: 110, page: 293, dl: 'done' },
+  { id: 36, ar: 'يس', en: 'Ya-Sin', subEn: 'Ya-Sin', typeAr: 'مكية', typeEn: 'Meccan', ayahs: 83, page: 440, dl: 'none' },
+  { id: 67, ar: 'الملك', en: 'Al-Mulk', subEn: 'The Sovereignty', typeAr: 'مكية', typeEn: 'Meccan', ayahs: 30, page: 562, dl: 'none' }
+];
+
+const fatihaAyahs = [
+  { n: 1, t: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ', m: '١' },
+  { n: 2, t: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ', m: '٢' },
+  { n: 3, t: 'ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ', m: '٣' },
+  { n: 4, t: 'مَـٰلِكِ يَوْمِ ٱلدِّينِ', m: '٤' },
+  { n: 5, t: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ', m: '٥' },
+  { n: 6, t: 'ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ', m: '٦' },
+  { n: 7, t: 'صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ', m: '٧' }
+];
+
+function showToast(msg) {
+  state.toastMsg = msg;
+  render();
+  setTimeout(() => { state.toastMsg = null; render(); }, 2200);
+}
+
+function setLang(l) {
+  state.lang = l;
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+  document.getElementById('btnLangAr').classList.toggle('active', l === 'ar');
+  document.getElementById('btnLangEn').classList.toggle('active', l === 'en');
+  render();
+}
+
+function setTheme(th) {
+  state.theme = th;
+  document.documentElement.setAttribute('data-theme', th);
+  document.getElementById('btnThemeLight').classList.toggle('active', th === 'light');
+  document.getElementById('btnThemeDark').classList.toggle('active', th === 'dark');
+  render();
+}
+
+function setViewMode(m) {
+  state.viewMode = m;
+  document.getElementById('btnViewSingle').classList.toggle('active', m === 'single');
+  document.getElementById('btnViewAll').classList.toggle('active', m === 'all');
+  render();
+}
+
+function go(screenId) {
+  state.screen = screenId;
+  if (state.viewMode === 'all') setViewMode('single');
+  else render();
+}
+
+function renderStatusBar() {
+  return `<div class="status-bar">
+    <span class="tnum">7:42</span>
+    <div class="status-icons">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6.3-2.9l1.9 1.9a6.2 6.2 0 0 1 8.8 0l1.9-1.9a9 9 0 0 0-12.6 0zm-3.5-3.5l1.9 1.9a11.1 11.1 0 0 1 15.8 0l1.9-1.9a13.8 13.8 0 0 0-19.6 0z"/></svg>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="17" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4.5" y="9.5" width="10" height="5" rx="0.8"/><path d="M21 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+  </div>`;
+}
+
+function renderMiniPlayer(t) {
+  return `<div class="mini-player" onclick="go('nowplaying')">
+    <div class="mini-player-line"><div class="mini-player-line-fill"></div></div>
+    <div class="mini-player-inner">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${icons.audio}</div>
+        <div style="min-width:0;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.miniReciter}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);" class="tnum">${t.ayahCounter}</div>
+        </div>
+      </div>
+      <button class="icon-btn primary" style="width:36px;height:36px;" onclick="event.stopPropagation();state.isPlaying=!state.isPlaying;render();">
+        ${state.isPlaying ? icons.pause : icons.play}
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderBottomNav(activeId, t) {
+  return `<nav class="bottom-nav">
+    ${t.nav.map(n => `
+      <button class="nav-item ${activeId === n.id ? 'active' : ''}" onclick="go('${n.id}')">
+        <span class="nav-pill">${icons[n.icon]}</span>
+        <span>${n.label}</span>
+      </button>
+    `).join('')}
+  </nav>`;
+}
+
+function renderHome(t) {
+  return `
+    <div class="topbar">
+      <div>
+        <div style="font-family:var(--font-quran);font-size:30px;font-weight:700;color:var(--primary);line-height:1.1;">${state.lang === 'ar' ? 'آية' : 'Ayah'}</div>
+        <div class="topbar-sub">${t.hijri}</div>
+      </div>
+      <button class="icon-btn tonal" onclick="go('settings')" title="${t.settingsTitle}">${icons.settings}</button>
+    </div>
+    <div class="screen-body">
+      ${!state.setupDismissed ? `<div class="banner-warn">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${icons.bell}
+          <span>${t.setupPrompt}</span>
+        </div>
+        <button class="pill-btn sm primary" onclick="state.setupDismissed=true;showToast('${state.lang === 'ar' ? 'تم فتح دليل إعداد الصلاة' : 'Prayer setup opened'}')">${t.setupAction}</button>
+      </div>` : ''}
+
+      <div class="hero-card" style="cursor:pointer;" onclick="go('reader')">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="badge hero">${t.continueLbl}</span>
+          <span style="font-size:12px;color:var(--hero-accent);" class="tnum">18%</span>
+        </div>
+        <div style="font-family:var(--font-quran);font-size:28px;font-weight:700;margin-bottom:4px;">${t.continueSurah}</div>
+        <div style="font-size:12.5px;color:var(--hero-muted);margin-bottom:14px;">${t.continueMeta}</div>
+        <div class="progress-track hero" style="margin-bottom:16px;"><div class="progress-fill hero" style="width:18%;"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <button class="pill-btn hero sm">${t.continueBtn}</button>
+          <span style="font-size:12px;color:var(--hero-muted);">${state.lang === 'ar' ? 'اضغط للاستكمال' : 'Tap to resume'}</span>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="go('prayer')">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:14px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;">${icons.prayer}</div>
+          <div>
+            <div style="font-size:11.5px;color:var(--text-muted);">${t.nextPrayerLbl} · ${t.cairo}</div>
+            <div style="font-family:var(--font-quran);font-size:22px;font-weight:700;line-height:1.25;">${t.maghrib}</div>
+          </div>
+        </div>
+        <div style="text-align:end;">
+          <div style="font-size:19px;font-weight:700;color:var(--primary);" class="tnum ltr-iso">00:42:18</div>
+          <div style="font-size:12px;color:var(--text-muted);" class="tnum">17:46 · ${t.adhanOn}</div>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;gap:14px;align-items:center;cursor:pointer;" onclick="go('wallpapers')">
+        <div style="width:66px;height:112px;border-radius:12px;background:linear-gradient(160deg,#0E2B23,#1E5A49);color:#E8D3A2;padding:8px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex-shrink:0;border:1px solid rgba(213,181,106,0.4);">
+          <div style="font-family:var(--font-quran);font-size:11px;line-height:1.5;">وَقُل رَّبِّ زِدْنِي عِلْمًا</div>
+          <div style="font-size:8px;color:#D5B56A;margin-top:4px;" class="ltr-iso">20:114</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:12px;color:var(--text-muted);">${t.dailyWallpaper}</div>
+          <div style="font-size:15px;font-weight:600;">${t.wallpaperRef}</div>
+          <div><span class="badge gold">${t.wallpaperAuto}</span></div>
+          <div><span style="font-size:12.5px;font-weight:600;color:var(--primary);">${t.manageWallpaper}</span></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="pill-btn tonal" onclick="state.quranTab='bookmarks';go('quran')">${icons.bookmark}<span>${t.bookmarks} (3)</span></button>
+        <button class="pill-btn outlined" onclick="go('audio')">${icons.audio}<span>${t.recitations}</span></button>
+      </div>
+    </div>
+    ${renderMiniPlayer(t)}
+    ${renderBottomNav('home', t)}
+  `;
+}
+
+function renderQuran(t) {
+  const isAr = state.lang === 'ar';
+  let listHtml = '';
+  if (state.quranTab === 'surahs') {
+    listHtml = surahSample.map(s => `
+      <div class="surah-row" onclick="go('reader')">
+        <div class="rosette">${icons.rosette}<span class="tnum">${s.id}</span></div>
+        <div style="flex:1;">
+          <div style="font-family:${isAr ? 'var(--font-quran)' : 'var(--font-ui)'};font-size:${isAr ? '20px' : '15.5px'};font-weight:${isAr ? '700' : '600'};">${isAr ? s.ar : s.en}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${isAr ? `${s.typeAr} · ${s.ayahs} آيات` : `${s.subEn} · ${s.typeEn} · ${s.ayahs} verses`}</div>
+        </div>
+        ${isAr
+          ? `<span class="badge gold tnum">ص ${s.page}</span>`
+          : `<div style="text-align:end;"><div style="font-family:var(--font-quran);font-size:20px;color:var(--primary);">${s.ar}</div><div style="font-size:11px;color:var(--text-muted);" class="tnum">p. ${s.page}</div></div>`}
+      </div>
+    `).join('');
+  } else if (state.quranTab === 'juz') {
+    listHtml = [
+      { j: 1, ar: 'الجزء الأول', en: 'Juz 1', start: isAr ? 'الفاتحة ١' : 'Al-Fatihah 1', p: '1–21' },
+      { j: 2, ar: 'الجزء الثاني', en: 'Juz 2', start: isAr ? 'البقرة ١٤٢' : 'Al-Baqarah 142', p: '22–41' },
+      { j: 15, ar: 'الجزء الخامس عشر', en: 'Juz 15', start: isAr ? 'الإسراء ١' : 'Al-Isra 1', p: '282–301' },
+      { j: 30, ar: 'الجزء الثلاثون (عمّ)', en: 'Juz 30 (Amma)', start: isAr ? 'النبأ ١' : 'An-Naba 1', p: '582–604' }
+    ].map(x => `
+      <div class="surah-row" onclick="go('reader')">
+        <div class="rosette">${icons.rosette}<span class="tnum">${x.j}</span></div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:600;">${isAr ? x.ar : x.en}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${x.start}</div>
+        </div>
+        <span class="badge gold tnum ltr-iso">${x.p}</span>
+      </div>
+    `).join('');
+  } else {
+    listHtml = `
+      <div class="card" style="cursor:pointer;margin-top:4px;" onclick="go('reader')">
+        <div style="font-family:var(--font-quran);font-size:21px;line-height:1.9;direction:rtl;text-align:right;margin-bottom:8px;">ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12.5px;font-weight:600;color:var(--primary);">${isAr ? 'سورة الفاتحة · الآية ٦' : 'Al-Fatihah · Ayah 6'}</span>
+          <span class="badge gold">${isAr ? 'ص ١' : 'p. 1'}</span>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer;margin-top:8px;" onclick="go('reader')">
+        <div style="font-family:var(--font-quran);font-size:21px;line-height:1.9;direction:rtl;text-align:right;margin-bottom:8px;">إِنَّ مَعَ ٱلْعُسْرِ يُسْرًا</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12.5px;font-weight:600;color:var(--primary);">${isAr ? 'سورة الشرح · الآية ٦' : 'Ash-Sharh · Ayah 6'}</span>
+          <span class="badge gold">${isAr ? 'ص ٥٩٦' : 'p. 596'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="topbar">
+      <div class="topbar-title">${t.quranTitle}</div>
+      <button class="pill-btn tonal sm" onclick="go('reader')">${icons.quran}<span>${t.goToPage}</span></button>
+    </div>
+    <div class="screen-body">
+      <div class="search-pill">${icons.search}<input placeholder="${t.searchSurah}" /></div>
+      <div class="seg-row">
+        <button class="seg-btn ${state.quranTab === 'surahs' ? 'active' : ''}" onclick="state.quranTab='surahs';render()">${t.tabSurahs}</button>
+        <button class="seg-btn ${state.quranTab === 'juz' ? 'active' : ''}" onclick="state.quranTab='juz';render()">${t.tabJuz}</button>
+        <button class="seg-btn ${state.quranTab === 'bookmarks' ? 'active' : ''}" onclick="state.quranTab='bookmarks';render()">${t.tabBookmarks}</button>
+      </div>
+      <div class="card" style="padding:4px 14px;">${listHtml}</div>
+    </div>
+    ${renderMiniPlayer(t)}
+    ${renderBottomNav('quran', t)}
+  `;
+}
+
+function renderReader(t) {
+  const isAr = state.lang === 'ar';
+  const isSaved = state.bookmarkedAyahs.has(state.selectedAyah);
+  return `
+    <div class="topbar mushaf-top">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="icon-btn" onclick="go('quran')">${isAr ? icons.backRtl : icons.back}</button>
+        <div>
+          <div style="font-size:16px;font-weight:700;">${isAr ? 'سورة الفاتحة' : 'Surah Al-Fatihah'}</div>
+          <div class="topbar-sub">${t.mushafSub}</div>
+        </div>
+      </div>
+      <button class="icon-btn" onclick="showToast('${isAr ? 'قائمة إعدادات القراءة: وضع المصحف / المستمر' : 'Reader sheet: Mushaf / Continuous & Font'}')">${icons.tune}</button>
+    </div>
+    <div class="screen-body mushaf-mode">
+      <div style="flex:1;overflow-y:auto;">
+        <div class="mushaf-banner">سُورَةُ الفَاتِحَة</div>
+        <div class="mushaf-text">
+          ${fatihaAyahs.map(a => `
+            <span class="ayah-span ${state.selectedAyah === a.n ? 'selected' : ''}" onclick="state.selectedAyah = state.selectedAyah === ${a.n} ? null : ${a.n}; render();">
+              ${a.t}<span class="ayah-marker">﴿${a.m}﴾</span>
+            </span>
+          `).join(' ')}
+        </div>
+        <div style="text-align:center;font-size:11.5px;color:var(--text-muted);padding:12px 16px;">
+          ${isAr ? 'اضغط على أي آية لتشغيل التلاوة أو حفظها أو تحويلها لخلفية' : 'Tap any ayah to play recitation, bookmark, or style as wallpaper'}
+        </div>
+      </div>
+
+      ${state.selectedAyah ? `
+      ${state.readerMoreOpen ? `
+      <div class="card" style="margin:0 14px 6px;padding:8px 10px;display:flex;justify-content:space-around;gap:6px;background:var(--surface-high);">
+        <button class="pill-btn sm tonal" style="flex:1;" onclick="state.readerMoreOpen=false;showToast('${isAr ? 'تحديد نطاق التكرار من الآية ' + state.selectedAyah : 'Repeat range from Ayah ' + state.selectedAyah}')">${t.repeatRange}</button>
+        <button class="pill-btn sm outlined" style="flex:1;" onclick="state.readerMoreOpen=false;go('wallpapers')">${t.asWallpaper}</button>
+      </div>` : ''}
+      <div class="ayah-action-pill">
+        <span style="font-size:12px;font-weight:700;color:var(--primary);padding-inline:8px;">${isAr ? `الفاتحة · آية ${state.selectedAyah}` : `Al-Fatihah · ${state.selectedAyah}`}</span>
+        <div style="display:flex;gap:4px;">
+          <button class="pill-btn sm primary" onclick="state.isPlaying=true;showToast('${isAr ? 'بدء التلاوة من الآية' : 'Playing from Ayah'}')">${icons.play}<span>${t.playFromAyah}</span></button>
+          <button class="pill-btn sm tonal" onclick="if(state.bookmarkedAyahs.has(state.selectedAyah)){state.bookmarkedAyahs.delete(state.selectedAyah)}else{state.bookmarkedAyahs.add(state.selectedAyah)};render()">
+            ${isSaved ? icons.bookmarkFill : icons.bookmark}<span>${isSaved ? t.savedAyah : t.saveAyah}</span>
+          </button>
+          <button class="pill-btn sm outlined" onclick="state.readerMoreOpen=!state.readerMoreOpen;render()">${isAr ? 'المزيد' : 'More'}</button>
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="reader-bottom-bar">
+      <button class="icon-btn" onclick="showToast('${isAr ? 'الصفحة السابقة' : 'Previous Page'}')">${isAr ? icons.backRtl : icons.back}</button>
+      <button class="pill-btn sm tonal tnum" onclick="showToast('${isAr ? 'انتقال سريع إلى صفحة (١–٦٠٤)' : 'Quick Page Jump (1–604)'}')">${t.pageIndicator}</button>
+      <button class="icon-btn" onclick="showToast('${isAr ? 'الصفحة التالية' : 'Next Page'}')">${isAr ? icons.back : icons.backRtl}</button>
+    </div>
+  `;
+}
+
+function renderAudio(t) {
+  const isAr = state.lang === 'ar';
+  const reciters = [
+    { id: 'alafasy', ar: 'مشاري العفاسي', en: 'Mishary Alafasy', kbps: '128 kbps', dl: 2 },
+    { id: 'husary', ar: 'محمود خليل الحصري', en: 'Al-Husary', kbps: '128 kbps', dl: 1 },
+    { id: 'minshawi', ar: 'محمد صديق المنشاوي', en: 'Al-Minshawi', kbps: '128 kbps', dl: 0 },
+    { id: 'hudhaify', ar: 'علي الحذيفي', en: 'Al-Hudhaify', kbps: '128 kbps', dl: 0 }
+  ];
+  const rows = state.audioFilter === 'dl' ? surahSample.filter(s => s.dl === 'done') : surahSample;
+
+  return `
+    <div class="topbar">
+      <div class="topbar-title">${t.audioTitle}</div>
+      <button class="pill-btn sm tonal" onclick="go('nowplaying')">${t.nowPlayingTitle}</button>
+    </div>
+    <div class="screen-body">
+      <div class="section-hdr"><span>${t.recitersLbl}</span><span style="font-size:11px;">5 ${isAr ? 'قرّاء' : 'reciters'}</span></div>
+      <div class="reciter-strip">
+        ${reciters.map(r => `
+          <div class="reciter-card ${state.reciter === r.id ? 'active' : ''}" onclick="state.reciter='${r.id}';render()">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:var(--text-muted);" class="ltr-iso">${r.kbps}</span>
+              ${state.reciter === r.id ? `<span style="color:var(--primary);">${icons.check}</span>` : ''}
+            </div>
+            <div style="font-size:13.5px;font-weight:700;">${isAr ? r.ar : r.en}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);">${isAr ? `${r.dl} محملة` : `${r.dl} offline`}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="font-size:11.5px;color:var(--text-muted);">${t.attribution}</div>
+
+      <div class="search-pill">${icons.search}<input placeholder="${t.searchSurah}" /></div>
+      <div class="chip-wrap">
+        <button class="chip ${state.audioFilter === 'all' ? 'active' : ''}" onclick="state.audioFilter='all';render()">${t.allSurahs}</button>
+        <button class="chip ${state.audioFilter === 'dl' ? 'active' : ''}" onclick="state.audioFilter='dl';render()">${t.downloadedOnly}</button>
+      </div>
+
+      <div class="card" style="padding:4px 12px;">
+        ${rows.map(s => `
+          <div style="padding:10px 2px;border-bottom:1px solid var(--outline-variant);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="rosette" style="width:34px;height:34px;">${icons.rosette}<span class="tnum">${s.id}</span></div>
+              <div style="flex:1;">
+                <div style="font-size:14.5px;font-weight:600;color:${s.id === 1 ? 'var(--primary)' : 'var(--text)'};">${isAr ? s.ar : s.en}</div>
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                  ${s.dl === 'done'
+                    ? `<span class="badge success">${icons.check} ${t.offlineBadge}</span>`
+                    : s.dl === 'progress'
+                      ? `<span style="color:var(--primary);font-weight:600;">${t.downloadingLbl}</span>`
+                      : `${s.ayahs} ${isAr ? 'آيات' : 'verses'}`}
+                </div>
+              </div>
+              <button class="icon-btn tonal" style="width:36px;height:36px;" onclick="state.isPlaying=!state.isPlaying;render()">${s.id === 1 && state.isPlaying ? icons.pause : icons.play}</button>
+              <button class="icon-btn" style="width:36px;height:36px;" onclick="showToast('${isAr ? 'إدارة التنزيل' : 'Download action'}')">${s.dl === 'done' ? icons.check : icons.download}</button>
+            </div>
+            ${s.dl === 'progress' ? `<div class="progress-track" style="height:3px;margin-top:8px;"><div class="progress-fill" style="width:50%;"></div></div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${renderMiniPlayer(t)}
+    ${renderBottomNav('audio', t)}
+  `;
+}
+
+function renderNowPlaying(t) {
+  const isAr = state.lang === 'ar';
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="go('audio')">${isAr ? icons.backRtl : icons.back}</button>
+      <div class="topbar-title" style="font-size:17px;">${t.nowPlayingTitle}</div>
+      <button class="pill-btn sm tonal" onclick="go('reader')">${t.openInMushaf}</button>
+    </div>
+    <div class="screen-body" style="justify-content:space-between;">
+      <div style="text-align:center;">
+        <div class="medallion">
+          <div style="font-size:11.5px;color:var(--hero-accent);margin-bottom:4px;">${t.offlineBadge}</div>
+          <div style="font-family:var(--font-quran);font-size:36px;font-weight:700;line-height:1.15;">الفاتحة</div>
+          <div style="font-size:12.5px;color:var(--hero-muted);margin-top:4px;">${isAr ? 'مشاري العفاسي' : 'Mishary Alafasy'}</div>
+        </div>
+        <div style="font-size:20px;font-weight:700;margin-top:12px;" class="tnum">${t.ayahCounter}</div>
+        <div style="padding:12px 6px 4px;">
+          <div class="progress-track" style="height:6px;"><div class="progress-fill" style="width:76%;"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-muted);margin-top:6px;" class="tnum ltr-iso">
+            <span>0:34</span><span>0:45</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:22px;margin:10px 0;" dir="ltr">
+          <button class="icon-btn tonal" style="width:46px;height:46px;">${icons.prev}</button>
+          <button class="icon-btn primary" style="width:64px;height:64px;" onclick="state.isPlaying=!state.isPlaying;render()">${state.isPlaying ? icons.pause : icons.play}</button>
+          <button class="icon-btn tonal" style="width:46px;height:46px;">${icons.next}</button>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="chip-wrap">
+          <button class="chip ${state.repeatAyah ? 'active' : ''}" onclick="state.repeatAyah=!state.repeatAyah;render()">${t.repeatAyah}</button>
+          <button class="chip" onclick="showToast('${isAr ? 'تحديد نطاق التكرار (من آية إلى آية)' : 'Select Ayah repeat range'}')">${t.repeatRange}</button>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">${t.sleepTitle}</div>
+          <div class="chip-wrap">
+            ${[['off', t.sleepOff], ['ayah', t.sleepAyah], ['surah', t.sleepSurah], ['15', t.sleep15]].map(([k, lbl]) => `
+              <button class="chip ${state.sleepMode === k ? 'active' : ''}" onclick="state.sleepMode='${k}';render()">${lbl}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">${t.speedTitle}</div>
+          <div class="chip-wrap" dir="ltr">
+            ${['0.75x', '1.0x', '1.25x', '1.5x'].map(sp => `
+              <button class="chip tnum ${state.speed === sp ? 'active' : ''}" onclick="state.speed='${sp}';render()">${sp}</button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPrayer(t) {
+  const isAr = state.lang === 'ar';
+  const prayers = [
+    { ar: 'الفجر', en: 'Fajr', time: '04:56', next: false, mode: 'full' },
+    { ar: 'الظهر', en: 'Dhuhr', time: '11:41', next: false, mode: 'full' },
+    { ar: 'العصر', en: 'Asr', time: '14:37', next: false, mode: 'notif' },
+    { ar: 'المغرب', en: 'Maghrib', time: '17:46', next: true, mode: 'full' },
+    { ar: 'العشاء', en: 'Isha', time: '19:07', next: false, mode: 'full' }
+  ];
+  return `
+    <div class="topbar">
+      <div class="topbar-title">${t.prayerTitle}</div>
+      <button class="icon-btn tonal" onclick="go('settings')">${icons.settings}</button>
+    </div>
+    <div class="screen-body">
+      <div class="hero-card" style="text-align:center;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="badge hero">${t.cairo}</span>
+          <span class="badge hero">${icons.bell} ${t.adhanOn}</span>
+        </div>
+        <div style="font-size:12px;color:var(--hero-muted);">${t.hijri} · ${t.gregorian}</div>
+        <div style="font-size:12px;color:var(--hero-accent);margin-top:10px;">${t.nextPrayerLbl}</div>
+        <div style="font-family:var(--font-quran);font-size:32px;font-weight:700;line-height:1.2;">${t.maghrib}</div>
+        <div style="font-size:34px;font-weight:700;letter-spacing:0.5px;margin:2px 0;" class="tnum ltr-iso">00:42:18</div>
+        <div style="font-size:13px;color:var(--hero-muted);margin-bottom:12px;" class="tnum">17:46</div>
+        <div class="progress-track hero"><div class="progress-fill hero" style="width:68%;"></div></div>
+      </div>
+
+      <div class="card" style="padding:10px;">
+        ${prayers.map(p => `
+          <div class="prayer-row ${p.next ? 'next' : ''}" onclick="showToast('${isAr ? 'تعديل نمط أذان ' + p.ar : 'Configure ' + p.en + ' Adhan'}')" style="cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:var(--font-quran);font-size:19px;">${isAr ? p.ar : p.en}</span>
+              ${p.next ? `<span class="badge gold">${t.upcoming}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:16px;font-weight:600;" class="tnum ltr-iso">${p.time}</span>
+              <span style="color:${p.next ? 'var(--on-primary-container)' : 'var(--primary)'};">${icons.bell}</span>
+            </div>
+          </div>
+        `).join('')}
+        <div style="border-top:1px solid var(--outline-variant);margin:6px 8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-muted);">
+          <div>
+            <div style="font-weight:600;">${t.sunrise}</div>
+            <div style="font-size:11px;">${t.sunriseNote}</div>
+          </div>
+          <span class="tnum ltr-iso">06:26</span>
+        </div>
+      </div>
+
+      <div class="banner-warn">
+        <span style="flex:1;">${t.reliabilityNote}</span>
+        <button class="pill-btn sm primary" onclick="showToast('${isAr ? 'فتح إعدادات الموثوقية' : 'Opening reliability settings'}')">${t.reviewSetup}</button>
+      </div>
+    </div>
+    ${renderMiniPlayer(t)}
+    ${renderBottomNav('prayer', t)}
+  `;
+}
+
+function renderWallpapers(t) {
+  const isAr = state.lang === 'ar';
+  const tpl = wpTemplates.find(x => x.id === state.wpTemplate) || wpTemplates[0];
+  let tabContent = '';
+  if (state.wpTab === 'style') {
+    tabContent = `
+      <div class="wp-swatch-row">
+        ${wpTemplates.map(w => `
+          <div class="wp-swatch ${state.wpTemplate === w.id ? 'active' : ''}" onclick="state.wpTemplate='${w.id}';render()">
+            <div class="wp-swatch-box" style="background:${w.bg};color:${w.text};">آية</div>
+            <span style="font-size:11.5px;color:var(--text-muted);font-weight:${state.wpTemplate === w.id ? '700' : '500'};">${isAr ? w.ar : w.en}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+        <span style="font-size:12px;color:var(--text-muted);">${isAr ? 'الحجم' : 'Size'}</span>
+        <input type="range" min="15" max="24" value="${state.wpFontSize}" oninput="state.wpFontSize=Number(this.value);render()" style="flex:1;accent-color:var(--primary);" />
+        <span style="font-size:12px;font-weight:600;" class="tnum">${state.wpFontSize}sp</span>
+      </div>
+    `;
+  } else if (state.wpTab === 'verse') {
+    tabContent = `
+      <div class="chip-wrap">
+        <button class="chip active">${isAr ? 'آية يومية' : 'Daily Ayah'}</button>
+        <button class="chip">${isAr ? 'عشوائي' : 'Random'}</button>
+        <button class="chip">${isAr ? 'من سورة محددة' : 'From Surah'}</button>
+        <button class="chip">${isAr ? 'تسلسلي' : 'Sequential'}</button>
+      </div>
+      <div style="margin-top:10px;font-size:12.5px;color:var(--text-muted);">${isAr ? 'السورة: طه (٢٠) · الآية ١١٤' : 'Surah: Ta-Ha (20) · Ayah 114'}</div>
+    `;
+  } else if (state.wpTab === 'auto') {
+    tabContent = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:13.5px;font-weight:600;">${t.wallpaperAuto}</span>
+        <span class="badge success">${isAr ? 'مفعّل' : 'Active'}</span>
+      </div>
+      <div class="chip-wrap">
+        <button class="chip">30m</button><button class="chip">1h</button><button class="chip">3h</button><button class="chip active">6h</button><button class="chip">12h</button><button class="chip">24h</button>
+      </div>
+    `;
+  } else {
+    tabContent = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+        <div>
+          <div style="font-size:13.5px;font-weight:600;">${t.wallpaperRef}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);">${isAr ? 'اليوم · كلاهما · نجح' : 'Today · Both · Success'}</div>
+        </div>
+        <button class="pill-btn sm tonal" onclick="showToast('${t.wpApplied}')">${isAr ? 'إعادة تطبيق' : 'Reapply'}</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="topbar">
+      <div class="topbar-title">${t.wpTitle}</div>
+      <span class="badge gold">${t.wallpaperAuto}</span>
+    </div>
+    <div class="screen-body studio-mode">
+      <div class="wp-stage">
+        <button class="icon-btn tonal" onclick="showToast('${isAr ? 'تم تبديل الآية' : 'Verse shuffled'}')">${icons.shuffle}</button>
+        <div class="wp-preview" style="background:${tpl.bg};color:${tpl.text};">
+          <div style="font-family:var(--font-quran);font-size:${state.wpFontSize}px;line-height:1.75;direction:rtl;">وَقُل رَّبِّ زِدْنِي عِلْمًا</div>
+          <div style="font-size:10px;color:${tpl.ref};margin-top:10px;">${isAr ? 'طه · ٢٠:١١٤' : 'Ta-Ha · 20:114'}</div>
+        </div>
+        <button class="icon-btn tonal" onclick="showToast('${isAr ? 'معاينة ملء الشاشة' : 'Fullscreen preview'}')">${icons.expand}</button>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div class="seg-row">
+          ${[['style', t.wpStyle], ['verse', t.wpVerse], ['auto', t.wpAuto], ['history', t.wpHistory]].map(([k, lbl]) => `
+            <button class="seg-btn ${state.wpTab === k ? 'active' : ''}" onclick="state.wpTab='${k}';render()">${lbl}</button>
+          `).join('')}
+        </div>
+        <div class="card" style="padding:12px;">${tabContent}</div>
+      </div>
+
+      <div style="padding:8px 16px 10px;border-top:1px solid var(--outline-variant);background:var(--surface);display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+        <div class="seg-row">
+          ${[['home', t.destHome], ['lock', t.destLock], ['both', t.destBoth]].map(([k, lbl]) => `
+            <button class="seg-btn ${state.wpDest === k ? 'active' : ''}" style="padding:6px;" onclick="state.wpDest='${k}';render()">${lbl}</button>
+          `).join('')}
+        </div>
+        <button class="pill-btn primary" style="width:100%;" onclick="showToast('${t.wpApplied}')">${t.applyWp}</button>
+      </div>
+    </div>
+    ${renderBottomNav('wallpapers', t)}
+  `;
+}
+
+function renderSettings(t) {
+  const isAr = state.lang === 'ar';
+  return `
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="icon-btn" onclick="go('home')">${isAr ? icons.backRtl : icons.back}</button>
+        <div class="topbar-title">${t.settingsTitle}</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div class="section-hdr"><span>${t.appearance}</span></div>
+      <div class="theme-cards">
+        <div class="theme-card" onclick="setTheme('light')">
+          <div class="mini-ui-thumb"><div style="flex:1;background:#F6F2E9;"></div><div style="flex:1;background:#0C1210;"></div></div>
+          <span>${t.themeSystem}</span>
+        </div>
+        <div class="theme-card ${state.theme === 'light' ? 'active' : ''}" onclick="setTheme('light')">
+          <div class="mini-ui-thumb" style="background:#F6F2E9;padding:5px;"><div style="width:100%;height:10px;border-radius:3px;background:#0F3D32;"></div></div>
+          <span>${t.themeLight}</span>
+        </div>
+        <div class="theme-card ${state.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark')">
+          <div class="mini-ui-thumb" style="background:#0C1210;padding:5px;"><div style="width:100%;height:10px;border-radius:3px;background:#D6B66B;"></div></div>
+          <span>${t.themeDark}</span>
+        </div>
+      </div>
+
+      <div class="section-hdr"><span>${t.language}</span></div>
+      <div class="seg-row">
+        <button class="seg-btn ${isAr ? 'active' : ''}" onclick="setLang('ar')">العربية</button>
+        <button class="seg-btn ${!isAr ? 'active' : ''}" onclick="setLang('en')">English</button>
+      </div>
+
+      <div class="section-hdr"><span>${t.prefsTitle}</span></div>
+      <div class="card" style="padding:0;">
+        <div class="setting-row" onclick="go('reader')">
+          <div class="setting-icon">${icons.quran}</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${t.prefReading}</div><div style="font-size:12px;color:var(--text-muted);">${t.prefReadingSub}</div></div>
+        </div>
+        <div class="setting-row" onclick="go('audio')">
+          <div class="setting-icon">${icons.audio}</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${t.prefAudio}</div><div style="font-size:12px;color:var(--text-muted);">${t.prefAudioSub}</div></div>
+        </div>
+        <div class="setting-row" onclick="go('prayer')">
+          <div class="setting-icon">${icons.prayer}</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${t.prefPrayer}</div><div style="font-size:12px;color:var(--text-muted);">${t.prefPrayerSub}</div></div>
+        </div>
+        <div class="setting-row" onclick="showToast('${t.prefUpdatesSub}')">
+          <div class="setting-icon">${icons.download}</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${t.prefUpdates}</div><div style="font-size:12px;color:var(--success);">${t.prefUpdatesSub}</div></div>
+        </div>
+      </div>
+
+      <div class="section-hdr"><span>${t.aboutTitle}</span></div>
+      <div class="card" style="padding:0;">
+        <div class="setting-row" style="cursor:default;">
+          <div style="flex:1;font-size:14px;font-weight:600;">${t.versionLbl}</div>
+          <div style="font-size:13.5px;color:var(--text-muted);" class="ltr-iso tnum">1.0.0-beta.6</div>
+        </div>
+        <div class="setting-row" onclick="showToast('Tanzil Uthmani CC-BY 3.0 · Amiri SIL OFL 1.1 · Wikimedia · GeoNames')">
+          <div style="flex:1;font-size:14px;font-weight:600;">${t.licensesLbl}</div>
+          <span style="font-size:12px;color:var(--primary);font-weight:600;">${isAr ? 'عرض' : 'View'}</span>
+        </div>
+      </div>
+    </div>
+    ${renderMiniPlayer(t)}
+  `;
+}
+
+function renderScreenContent(id, t) {
+  switch (id) {
+    case 'home': return renderHome(t);
+    case 'quran': return renderQuran(t);
+    case 'reader': return renderReader(t);
+    case 'audio': return renderAudio(t);
+    case 'nowplaying': return renderNowPlaying(t);
+    case 'prayer': return renderPrayer(t);
+    case 'wallpapers': return renderWallpapers(t);
+    case 'settings': return renderSettings(t);
+    default: return renderHome(t);
+  }
+}
+
+function render() {
+  const t = T[state.lang];
+  document.getElementById('studioSubtitle').textContent = t.subtitle;
+  const screenOrder = ['home', 'quran', 'reader', 'audio', 'nowplaying', 'prayer', 'wallpapers', 'settings'];
+
+  const pillsEl = document.getElementById('screenPills');
+  pillsEl.style.display = state.viewMode === 'single' ? 'flex' : 'none';
+  pillsEl.innerHTML = screenOrder.map(id => `
+    <button class="screen-pill ${state.screen === id ? 'active' : ''}" onclick="go('${id}')">${t.screens[id]}</button>
+  `).join('');
+
+  const stage = document.getElementById('stage');
+  const idsToRender = state.viewMode === 'single' ? [state.screen] : screenOrder;
+  stage.innerHTML = idsToRender.map(id => `
+    <div class="phone-wrap">
+      ${state.viewMode === 'all' ? `<div class="phone-caption">${t.screens[id]}</div>` : ''}
+      <div class="phone">
+        ${renderStatusBar()}
+        ${renderScreenContent(id, t)}
+        ${state.toastMsg && (state.viewMode === 'single' || id === state.screen) ? `<div class="toast">${state.toastMsg}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+render();
+</script>
+</body>
+</html>

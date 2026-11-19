@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ayah Redesign — Creative Directions Comparison Board (A / B / C / Recommended D)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
+  background: #E9E5DC;
+  color: #151C18;
+  padding-bottom: 48px;
+}
+[data-theme="dark"] body, body[data-theme="dark"] {
+  background: #090D0B;
+  color: #F2EEE5;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(250, 247, 240, 0.96);
+  border-bottom: 1px solid #D5CEBF;
+  padding: 14px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+[data-theme="dark"] .topbar {
+  background: rgba(16, 22, 19, 0.96);
+  border-color: #24302A;
+}
+.title-wrap h1 {
+  font-family: 'Amiri', Georgia, serif;
+  font-size: 26px;
+  color: #0F3D32;
+}
+[data-theme="dark"] .title-wrap h1 { color: #D6B66B; }
+.title-wrap p { font-size: 13px; opacity: 0.72; }
+.toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg {
+  display: inline-flex;
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+[data-theme="dark"] .seg { background: rgba(255,255,255,0.08); }
+.seg button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.seg button.active { background: #0F3D32; color: #FAF7F0; }
+[data-theme="dark"] .seg button.active { background: #D6B66B; color: #151C18; }
+.board {
+  max-width: 1460px;
+  margin: 24px auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 20px;
+}
+.dir-col {
+  border-radius: 24px;
+  padding: 18px;
+  background: #FAF8F2;
+  border: 1.5px solid #D9D2C4;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+[data-theme="dark"] .dir-col {
+  background: #121916;
+  border-color: #25312B;
+}
+.dir-col.recommended {
+  border: 2.5px solid #0F3D32;
+  box-shadow: 0 12px 34px rgba(15, 61, 50, 0.14);
+}
+[data-theme="dark"] .dir-col.recommended {
+  border-color: #D6B66B;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+}
+.dir-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 61, 50, 0.12);
+  color: #0F3D32;
+}
+[data-theme="dark"] .dir-badge {
+  background: rgba(214, 182, 107, 0.18);
+  color: #D6B66B;
+}
+.dir-col.recommended .dir-badge {
+  background: #0F3D32;
+  color: #FAF7F0;
+}
+[data-theme="dark"] .dir-col.recommended .dir-badge {
+  background: #D6B66B;
+  color: #16201B;
+}
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+.swatch {
+  flex: 1;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(128,128,128,0.22);
+}
+.mini-phone {
+  border-radius: 26px;
+  border: 5px solid #1C221F;
+  overflow: hidden;
+  padding: 14px;
+  min-height: 410px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.meta-list {
+  font-size: 12.5px;
+  line-height: 1.65;
+  opacity: 0.88;
+  padding-inline-start: 16px;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="title-wrap">
+    <h1 id="hdrTitle">مقارنة الاتجاهات الإبداعية — آية</h1>
+    <p id="hdrSub">استكشاف ٤ اتجاهات بصرية مختلفة لاختيار الهوية المثلى قبل التنفيذ</p>
+  </div>
+  <div class="toggles">
+    <div class="seg">
+      <button class="active" id="tAr" onclick="setLang('ar')">العربية RTL</button>
+      <button id="tEn" onclick="setLang('en')">English LTR</button>
+    </div>
+    <div class="seg">
+      <button class="active" id="tLight" onclick="setTheme('light')">Light</button>
+      <button id="tDark" onclick="setTheme('dark')">Dark</button>
+    </div>
+  </div>
+</div>
+
+<section class="board" id="board"></section>
+
+<script>
+let lang = 'ar';
+let theme = 'light';
+
+const directions = [
+  {
+    key: 'A',
+    recommended: false,
+    tagAr: 'الاتجاه أ · الفخامة الهادئة',
+    tagEn: 'Direction A · Quiet Luxury',
+    nameAr: 'الورق — Al-Waraq',
+    nameEn: 'Al-Waraq (Manuscript Luxury)',
+    descAr: 'دفء المخطوطة الكلاسيكية، زمرد داكن وذهب عتيق وإطارات شعرية.',
+    descEn: 'Classical illuminated manuscript warmth, deep emerald, antique gold hairlines.',
+    light: { bg: '#F7F2E7', card: '#FDFBF5', hero: '#0F3D32', heroTxt: '#F9F5EB', accent: '#B89342', txt: '#161D19', muted: '#5B655E', border: '#DFD6C3', radius: '22px' },
+    dark:  { bg: '#0B110E', card: '#131C18', hero: '#14352B', heroTxt: '#F5F1E8', accent: '#D9B96E', txt: '#F3EEE3', muted: '#9CA8A1', border: '#27342D', radius: '22px' },
+    prosAr: ['هوية روحانية دافئة وأصيلة', 'توافق كامل مع قوالب الخلفيات', 'راحة فائقة للقراءة الطويلة'],
+    prosEn: ['Deep spiritual warmth & distinction', 'Native harmony with wallpaper templates', 'Exceptional long-reading comfort']
+  },
+  {
+    key: 'B',
+    recommended: false,
+    tagAr: 'الاتجاه ب · التحريري الحديث',
+    tagEn: 'Direction B · Modern Editorial',
+    nameAr: 'البيان — Al-Bayan',
+    nameEn: 'Al-Bayan (Typographic Editorial)',
+    descAr: 'تباين حبر وورق حاد، عناوين أميري كبيرة وفواصل شعرية بدون بطاقات.',
+    descEn: 'High-contrast ink on gallery ivory, oversized Amiri headers, crisp rules without heavy cards.',
+    light: { bg: '#FAF9F6', card: '#FFFFFF', hero: '#161A18', heroTxt: '#FAF9F6', accent: '#9A5B2C', txt: '#111312', muted: '#636764', border: '#DEDBD4', radius: '8px' },
+    dark:  { bg: '#101211', card: '#181B1A', hero: '#1F2422', heroTxt: '#F4F3EF', accent: '#E3C099', txt: '#F4F3EF', muted: '#9A9F9C', border: '#2B302E', radius: '8px' },
+    prosAr: ['تدرج طباعي جريء وفريد', 'وضوح ممتاز للقوائم الكثيفة', 'خالي تماماً من قوالب Material النمطية'],
+    prosEn: ['Bold typographic authority', 'Razor-sharp list scannability', 'Distinctly non-generic layout']
+  },
+  {
+    key: 'C',
+    recommended: false,
+    tagAr: 'الاتجاه ج · التبسيط المعاصر',
+    tagEn: 'Direction C · Contemporary Minimal',
+    nameAr: 'النور — Al-Noor',
+    nameEn: 'Al-Noor (Daylight Minimal)',
+    descAr: 'مساحات بيضاء رحبة، أخضر نباتي ناعم وأزرار كبسولية شديدة الوضوح.',
+    descEn: 'Ultra-airy mist canvas, botanical pine, soft pill controls built first for beginners.',
+    light: { bg: '#F9FAF8', card: '#FFFFFF', hero: '#EBF2EE', heroTxt: '#14382E', accent: '#195A48', txt: '#141A17', muted: '#5D6963', border: '#E3E9E5', radius: '18px' },
+    dark:  { bg: '#111514', card: '#1A201E', hero: '#1E332C', heroTxt: '#EBF4F0', accent: '#78C2A8', txt: '#F2F4F2', muted: '#9BA8A2', border: '#28332F', radius: '18px' },
+    prosAr: ['أعلى سهولة استخدام لكبار السن', 'انعدام الضوضاء البصرية', 'مثالي لشاشات الإعدادات والصوت'],
+    prosEn: ['Peak clarity for older & new users', 'Zero visual noise', 'Ideal for settings & audio utility']
+  },
+  {
+    key: 'D',
+    recommended: true,
+    tagAr: 'الموصى به · دمج أ + ب + ج',
+    tagEn: 'RECOMMENDED · Synthesis of A + B + C',
+    nameAr: 'المصحف الحديث — Al-Mushaf Al-Hadith',
+    nameEn: 'Al-Mushaf Al-Hadith (Refined Sanctuary)',
+    descAr: 'دفء الزمرد والذهب العتيق (أ) + سلطة الخط العربي (ب) + بساطة وسهولة الاستخدام القصوى (ج).',
+    descEn: 'Emerald & Antique Gold warmth (A) + Arabic editorial craft (B) + effortless modern usability (C).',
+    light: { bg: '#F6F2E9', card: '#FCF9F2', hero: '#0F3D32', heroTxt: '#F9F5EB', accent: '#C4A052', txt: '#151C18', muted: '#525C56', border: '#DDD7CA', radius: '18px' },
+    dark:  { bg: '#0C1210', card: '#131B17', hero: '#122D25', heroTxt: '#F5F1E8', accent: '#D6B66B', txt: '#F2EEE5', muted: '#A7B2AC', border: '#24302A', radius: '18px' },
+    prosAr: ['هوية آية الأصيلة بمستوى عالمي', 'توازن مثالي بين الجمال والوضوح', 'مصحف هادئ + ٥ تبويبات مريحة + شريط صوت سفلي'],
+    prosEn: ['Unmistakably Ayah at world-class craft', 'Balanced beauty and daily usability', 'Calm Mushaf + 5 tabs + docked mini-player']
+  }
+];
+
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+  document.getElementById('tAr').classList.toggle('active', l === 'ar');
+  document.getElementById('tEn').classList.toggle('active', l === 'en');
+  render();
+}
+
+function setTheme(th) {
+  theme = th;
+  document.documentElement.setAttribute('data-theme', th);
+  document.getElementById('tLight').classList.toggle('active', th === 'light');
+  document.getElementById('tDark').classList.toggle('active', th === 'dark');
+  render();
+}
+
+function render() {
+  const isAr = lang === 'ar';
+  document.getElementById('hdrTitle').textContent = isAr ? 'مقارنة الاتجاهات الإبداعية — آية' : 'Ayah Creative Directions Comparison Board';
+  document.getElementById('hdrSub').textContent = isAr ? 'استكشاف ٤ اتجاهات بصرية مختلفة قبل اعتماد النظام النهائي' : 'Compare 4 distinct product directions across Light/Dark & RTL/LTR before implementation';
+
+  document.getElementById('board').innerHTML = directions.map(d => {
+    const p = theme === 'dark' ? d.dark : d.light;
+    const swatches = [p.bg, p.card, p.hero, p.accent, p.txt];
+    return `
+      <article class="dir-col ${d.recommended ? 'recommended' : ''}">
+        <div>
+          <span class="dir-badge">${isAr ? d.tagAr : d.tagEn}</span>
+          <h2 style="font-size:18px;margin-top:8px;">${isAr ? d.nameAr : d.nameEn}</h2>
+          <p style="font-size:12.5px;opacity:0.78;margin-top:4px;line-height:1.55;">${isAr ? d.descAr : d.descEn}</p>
+        </div>
+
+        <div class="swatches">
+          ${swatches.map(c => `<div class="swatch" style="background:${c};" title="${c}"></div>`).join('')}
+        </div>
+
+        <div class="mini-phone" style="background:${p.bg};color:${p.txt};">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-family:'Amiri',serif;font-size:24px;font-weight:700;color:${p.accent === '#195A48' ? p.accent : (theme === 'dark' ? p.accent : p.hero)};">${isAr ? 'آية' : 'Ayah'}</span>
+            <span style="font-size:11px;color:${p.muted};">${isAr ? '١٩ جمادى الأولى' : '19 Jumada I'}</span>
+          </div>
+
+          <div style="background:${p.hero};color:${p.heroTxt};border-radius:${p.radius};padding:14px;border:1px solid ${p.border};">
+            <div style="font-size:10.5px;color:${p.accent};font-weight:600;">${isAr ? 'متابعة القراءة' : 'CONTINUE READING'}</div>
+            <div style="font-family:'Amiri',serif;font-size:22px;font-weight:700;margin:2px 0;">${isAr ? 'سورة الكهف' : 'Al-Kahf'}</div>
+            <div style="font-size:11px;opacity:0.8;margin-bottom:10px;">${isAr ? 'صفحة ٢٩٣ · الآية ١ من ١١٠' : 'Page 293 · Ayah 1 of 110'}</div>
+            <div style="height:4px;border-radius:99px;background:rgba(255,255,255,0.2);overflow:hidden;">
+              <div style="height:100%;width:32%;background:${p.accent};"></div>
+            </div>
+          </div>
+
+          <div style="background:${p.card};border:1px solid ${p.border};border-radius:${p.radius};padding:12px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:10.5px;color:${p.muted};">${isAr ? 'الصلاة القادمة' : 'Next Prayer'}</div>
+              <div style="font-family:'Amiri',serif;font-size:19px;font-weight:700;">${isAr ? 'المغرب' : 'Maghrib'}</div>
+            </div>
+            <div style="text-align:end;">
+              <div class="tnum" style="font-size:16px;font-weight:700;color:${p.accent};direction:ltr;">00:42:18</div>
+              <div class="tnum" style="font-size:11px;color:${p.muted};">17:46</div>
+            </div>
+          </div>
+
+          <div style="background:${p.card};border:1px solid ${p.border};border-radius:${p.radius};padding:12px;">
+            <div style="font-family:'Amiri',serif;font-size:17px;line-height:1.85;direction:rtl;text-align:justify;">
+              ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ <span style="color:${p.accent};">﴿٢﴾</span>
+              <span style="background:rgba(196,160,82,0.22);border-radius:4px;padding:0 3px;">ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ <span style="color:${p.accent};">﴿٦﴾</span></span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto;padding-top:8px;border-top:1px solid ${p.border};display:flex;justify-content:space-around;font-size:10.5px;color:${p.muted};">
+            <span style="color:${p.accent};font-weight:700;">${isAr ? 'الرئيسية' : 'Home'}</span>
+            <span>${isAr ? 'القرآن' : 'Quran'}</span>
+            <span>${isAr ? 'الصلوات' : 'Prayer'}</span>
+            <span>${isAr ? 'الصوت' : 'Audio'}</span>
+            <span>${isAr ? 'الخلفيات' : 'Wallpapers'}</span>
+          </div>
+        </div>
+
+        <ul class="meta-list">
+          ${(isAr ? d.prosAr : d.prosEn).map(x => `<li>${x}</li>`).join('')}
+        </ul>
+      </article>
+    `;
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>

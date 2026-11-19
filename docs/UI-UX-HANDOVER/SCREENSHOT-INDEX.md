@@ -9,7 +9,7 @@ same builds — equally authentic, unmodified).
 | File | Screen | Navigation path | State/notes |
 |---|---|---|---|
 | `home/01_home_dashboard.png` | Home dashboard | cold launch | onboarding card + continue-reading + wallpaper hint |
-| `quran/15_quran_list.png` | Quran surah list | tab القرآن | fresh install (import done), search field |
+| `quran/15_quran_list.png` | Quran surah list | tab القرآن | fresh install (import done), search field; re-captured before UI-1 (replaced mislabeled PrayerSettings capture) |
 | `reader/02_mushaf_page_mode.png` | Mushaf page mode | Quran list → الفاتحة | page 1 من 604, top bar with play/bookmark/mode |
 | `reader/03_continuous_reader.png` | Continuous reader | mushaf → "وضع النص المتغير" | Al-Fatihah text + surah header |
 | `reader/04_reader_play_from_ayah.png` **[session reuse]** | Continuous reader play-from-ayah | tap ayah → play bar | recitation from selected ayah |
