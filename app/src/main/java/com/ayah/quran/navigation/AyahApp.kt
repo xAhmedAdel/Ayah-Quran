@@ -229,6 +229,11 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     onOpenBookmarks = { navController.navigate(Routes.BOOKMARKS) },
                     onOpenWallpapers = { navController.navigateToTopLevel(TopLevelDestination.WALLPAPERS.route) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenPrayer = { navController.navigateToTopLevel(TopLevelDestination.PRAYER.route) },
+                    onOpenAudio = { navController.navigateToTopLevel(TopLevelDestination.AUDIO.route) },
+                    onOpenWallpaperPreview = { surahId, ayahNumber ->
+                        navController.navigate(Routes.fullscreenPreview(surahId, ayahNumber))
+                    },
                     showPrayerOnboardingCard = !onboardingCompleted,
                     onOpenPrayerOnboarding = { navController.navigate(Routes.PRAYER_ONBOARDING) },
                 )
@@ -256,6 +261,15 @@ fun AyahApp(modifier: Modifier = Modifier) {
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
+                    onOpenPrayerSettings = { navController.navigate(Routes.PRAYER_SETTINGS) },
+                    onOpenAudio = {
+                        navController.popBackStack()
+                        navController.navigateToTopLevel(TopLevelDestination.AUDIO.route)
+                    },
+                    onOpenWallpapers = {
+                        navController.popBackStack()
+                        navController.navigateToTopLevel(TopLevelDestination.WALLPAPERS.route)
+                    },
                 )
             }
             composable(
