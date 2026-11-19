@@ -394,6 +394,15 @@
     <string name="settings_audio_title">الصوت والتلاوات</string>
     <string name="settings_prayer_not_set">لم يتم اختيار مدينة</string>
     <string name="settings_licenses_view">عرض</string>
+    <string name="quran_tab_surahs">السور</string>
+    <string name="quran_tab_juz">الأجزاء</string>
+    <string name="quran_tab_bookmarks">المحفوظات</string>
+    <string name="quran_page_badge">ص %1$d</string>
+    <string name="quran_page_range_badge">ص %1$s</string>
+    <string name="quran_juz_title">الجزء %1$d</string>
+    <string name="bookmarks_remove">إزالة العلامة المرجعية</string>
+    <string name="bookmarks_removed_snackbar">تمت إزالة العلامة المرجعية</string>
+    <string name="action_undo">تراجع</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="zero">لا توجد آيات</item>

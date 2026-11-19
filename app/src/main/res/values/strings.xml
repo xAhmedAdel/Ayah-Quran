@@ -399,6 +399,15 @@
     <string name="settings_audio_title">Audio &amp; Recitations</string>
     <string name="settings_prayer_not_set">No city selected</string>
     <string name="settings_licenses_view">View</string>
+    <string name="quran_tab_surahs">Surahs</string>
+    <string name="quran_tab_juz">Juz</string>
+    <string name="quran_tab_bookmarks">Bookmarks</string>
+    <string name="quran_page_badge">p. %1$d</string>
+    <string name="quran_page_range_badge">p. %1$s</string>
+    <string name="quran_juz_title">Juz %1$d</string>
+    <string name="bookmarks_remove">Remove bookmark</string>
+    <string name="bookmarks_removed_snackbar">Bookmark removed</string>
+    <string name="action_undo">Undo</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="one">%1$d ayah</item>
