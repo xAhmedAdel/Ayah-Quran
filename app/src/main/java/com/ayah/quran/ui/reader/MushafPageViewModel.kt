@@ -110,6 +110,72 @@ class MushafPageViewModel @Inject constructor(
 
     fun page(pageNumber: Int): MushafPage? = _pages.value[pageNumber]
 
+    // ---- slice 3: automatic page navigation during recitation ----
+
+    /** (surahId, ayahInSurah) currently recited; null when idle. */
+    val recitedAyah: StateFlow<Pair<Int, Int>?> = ayahPlayer.state
+        .map { st -> if (st.isIdle) null else st.surah to (st.ayahIndex + 1) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null,
+        )
+
+    /**
+     * The user's live ayah selection (tap) — their reading intent overrides
+     * following WHILE IT LASTS. It expires when playback advances to a
+     * different ayah (stale selection), so following resumes exactly when
+     * the recitation moves on. The navigation-arg highlight (e.g. "continue
+     * reading") is display-only and never blocks recitation following.
+     */
+    private val _userSelection = MutableStateFlow<Pair<Int, Int>?>(null)
+    val userSelectionActive: StateFlow<Boolean> = _userSelection
+        .map { it != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    /** Last ayah this policy navigated for (anti-loop / manual-nav respect). */
+    private var lastFollowedAyah: Pair<Int, Int>? = null
+
+    /**
+     * Evaluates the follow policy against the DISPLAYED page; returns the
+     * target page to navigate to, or null to stay put. One navigation per
+     * recited ayah — manual browsing is never yanked back (see
+     * [MushafFollowPolicy]).
+     */
+    suspend fun evaluateRecitationFollow(displayedPage: Int?): Int? {
+        val recited = recitedAyah.value ?: return null
+        // A user selection EXPIRES when playback moves to another ayah:
+        // their intent applied to the ayah they tapped, and following
+        // resumes exactly when the recitation advances (spec §4).
+        if (_userSelection.value != null && _userSelection.value != recited) {
+            _userSelection.value = null
+        }
+        val targetPage = pageForAyah(recited.first, recited.second) ?: return null
+        val decision = MushafFollowPolicy.shouldNavigate(
+            MushafFollowPolicy.Inputs(
+                displayedPage = displayedPage,
+                recitedPage = targetPage,
+                recitedAyah = MushafFollowPolicy.RecitedAyah(
+                    recited.first, recited.second,
+                ),
+                lastFollowedAyah = lastFollowedAyah,
+                userSelectionActive = userSelectionActive.value,
+            ),
+        )
+        if (decision) {
+            lastFollowedAyah = recited
+            return targetPage
+        }
+        // Settled on the recited page (by hand or by us): adopt the key so
+        // browsing away later is not immediately undone for the SAME ayah.
+        if (targetPage == displayedPage) lastFollowedAyah = recited
+        return null
+    }
+
     /** Loads [pageNumber] and its near neighbors; cheap and idempotent. */
     fun ensureLoaded(pageNumber: Int) {
         viewModelScope.launch {
@@ -143,11 +209,9 @@ class MushafPageViewModel @Inject constructor(
     }
 
     fun onAyahTap(surahId: Int, ayahNumber: Int) {
-        _highlight.value = if (_highlight.value == surahId to ayahNumber) {
-            null
-        } else {
-            surahId to ayahNumber
-        }
+        val tapped = surahId to ayahNumber
+        _highlight.value = if (_highlight.value == tapped) null else tapped
+        _userSelection.value = if (_userSelection.value == tapped) null else tapped
     }
 
     fun observeIsBookmarked(): Flow<Boolean> {

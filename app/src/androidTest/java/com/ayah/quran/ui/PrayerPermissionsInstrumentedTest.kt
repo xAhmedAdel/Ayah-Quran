@@ -61,8 +61,14 @@ class PrayerPermissionsInstrumentedTest {
             it.postTest()
         }
 
-        val active = manager.activeNotifications.any {
-            it.id == com.ayah.quran.prayer.PrayerNotifications.NOTIFICATION_ID_TEST
+        // Posting is asynchronous through the system service — poll briefly
+        // instead of asserting the shade state in the same instant.
+        var active = false
+        repeat(10) {
+            active = manager.activeNotifications.any {
+                it.id == com.ayah.quran.prayer.PrayerNotifications.NOTIFICATION_ID_TEST
+            }
+            if (!active) Thread.sleep(300)
         }
         assertTrue("test notification must be visible in the shade", active)
     }

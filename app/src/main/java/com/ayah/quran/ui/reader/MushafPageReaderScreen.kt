@@ -109,6 +109,22 @@ fun MushafPageReaderScreen(
         viewModel.onPageSettled(settledPage)
     }
 
+    // Slice 3: follow the recited ayah across pages (policy-guarded — one
+    // navigation per recited ayah; manual browsing is respected; smooth).
+    val recitedAyah by viewModel.recitedAyah.collectAsStateWithLifecycle()
+    val userSelectionActive by viewModel.userSelectionActive
+        .collectAsStateWithLifecycle()
+    LaunchedEffect(recitedAyah, settledPage, userSelectionActive) {
+        val target = viewModel.evaluateRecitationFollow(settledPage)
+        if (target != null && target in 1..pageCount &&
+            target != pagerState.settledPage + 1
+        ) {
+            // Preload the target (and neighbors) so the turn never flashes.
+            viewModel.ensureLoaded(target)
+            pagerState.animateScrollToPage(target - 1)
+        }
+    }
+
     // Pinch-zoom disables pager swiping while zoomed in.
     var pageZoomed by remember { mutableStateOf(false) }
 
