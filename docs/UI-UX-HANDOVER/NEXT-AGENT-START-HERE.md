@@ -9,7 +9,7 @@ redesign **while preserving every behavior**.
 
 - Arabic-first Quran app (Arabic is the DEFAULT locale; English switchable
   in-app — the activity recreates on switch).
-- Five bottom tabs (RTL order right→left): الرئيسية (Home) · القرآن (Quran)
+- Six bottom tabs (RTL order right→left): الرئيسية (Home) · القرآن (Quran)
   · الصلوات (Prayers) · الخلفيات (Wallpapers) · الصوت (Audio) · الإعدادات
   (Settings).
 - Working features you MUST keep working: mushaf page reader (authentic

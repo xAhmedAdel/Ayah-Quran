@@ -18,7 +18,7 @@ same builds — equally authentic, unmodified).
 | `audio/05_mini_player_home.png` | Mini player | play from Audio tab → Home | playing Al-Fatihah, ayah counter |
 | `audio/06_now_playing.png` | Now Playing screen | mini player tap | full controls visible |
 | `audio/07_mini_player_restore.png` **[session reuse]** | Mini player restore hint | after process kill + relaunch | "اضغط للتشغيل للمتابعة" |
-| `audio/08_audio_nowplaying_bar.png` **[session reuse]** | Audio tab now-playing bar | during Malik recitation | repeat-ayah chip visible |
+| `audio/08_audio_nowplaying_bar.png` | Audio tab now-playing bar | play from Audio tab (Al-Fatihah) | recited-ayah bar + repeat-ayah chip; re-captured fresh during cleanup (replaced a zero-byte file) |
 | `prayer/07_prayer_times.png` | Prayer times tab | tab الصلوات | location setup + times |
 | `prayer/08_prayer_settings_top.png` | Prayer settings (top) | gear icon | location/method sections |
 | `prayer/09_prayer_settings_adhan.png` | Prayer settings (adhan/diagnostics) | scroll | custom file + test buttons |
