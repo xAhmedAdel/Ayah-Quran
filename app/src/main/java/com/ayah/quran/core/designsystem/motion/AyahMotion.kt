@@ -1,19 +1,21 @@
 package com.ayah.quran.core.designsystem.motion
 
+import android.content.Context
 import android.provider.Settings
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
-/**
- * Motion helpers that respect the system animation-scale accessibility
- * setting: when animations are disabled (scale 0) — a common reduced-motion
- * preference — durations collapse to zero.
- */
 object AyahMotion {
 
-    /** Reads the system animator duration scale ("0" = reduced motion). */
-    fun animationScale(context: android.content.Context): Float =
+    fun animationScale(context: Context): Float =
         Settings.Global.getFloat(
             context.contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
@@ -21,19 +23,35 @@ object AyahMotion {
         )
 }
 
-/**
- * True when motion should be animated (system animation scale > 0).
- * Callers multiply durations by [MotionDurations.scale] or branch on this.
- */
 @Composable
 fun rememberMotionEnabled(): Boolean {
     val context = LocalContext.current
     return remember { AyahMotion.animationScale(context) > 0f }
 }
 
-/** Standard Ayah motion durations (already in sp-of-time ms). */
 object MotionDurations {
-    const val FAST = 150
-    const val MEDIUM = 220
+    const val MICRO = 120
+    const val FAST = 180
+    const val MEDIUM = 240
     const val SLOW = 300
+
+    fun resolve(millis: Int, motionEnabled: Boolean): Int = if (motionEnabled) millis else 0
+}
+
+object AyahMotionSpecs {
+    val EmphasizedDecelerate: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    val SheetReveal: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+    fun <T> standardTween(
+        durationMillis: Int = MotionDurations.FAST,
+        motionEnabled: Boolean = true,
+    ): TweenSpec<T> = tween(
+        durationMillis = MotionDurations.resolve(durationMillis, motionEnabled),
+        easing = EmphasizedDecelerate,
+    )
+
+    fun <T> gentleSpring(): SpringSpec<T> = spring(
+        dampingRatio = 0.88f,
+        stiffness = Spring.StiffnessMediumLow,
+    )
 }

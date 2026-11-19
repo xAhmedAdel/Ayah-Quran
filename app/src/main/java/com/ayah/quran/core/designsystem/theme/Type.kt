@@ -8,112 +8,120 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.ayah.quran.R
 
-/**
- * Arabic display family: Amiri (SIL OFL 1.1).
- *
- * Amiri is used for Arabic/ Quranic display text and the wordmark. It is NOT
- * forced onto Latin UI text, whose default system family keeps UI dense
- * views crisp. The dedicated Quranic rendering font for the wallpaper
- * engine (Phase 3) will be a Uthmani-script font chosen during the data
- * phase; Amiri here covers UI display needs.
- */
 val QuranTextFontFamily: FontFamily = FontFamily(
     Font(R.font.amiri_regular, FontWeight.Normal),
     Font(R.font.amiri_bold, FontWeight.Bold),
 )
 
-/** Wordmark / hero style: Amiri, used where the brand appears. */
+val AyahUiFontFamily: FontFamily = FontFamily(
+    Font(R.font.ibm_plex_sans_arabic_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_sans_arabic_medium, FontWeight.Medium),
+    Font(R.font.ibm_plex_sans_arabic_semibold, FontWeight.SemiBold),
+    Font(R.font.ibm_plex_sans_arabic_bold, FontWeight.Bold),
+)
+
 val AyahWordmarkStyle = TextStyle(
     fontFamily = QuranTextFontFamily,
     fontWeight = FontWeight.Bold,
-    fontSize = 40.sp,
-    lineHeight = 48.sp,
+    fontSize = 36.sp,
+    lineHeight = 46.sp,
 )
 
-private val Default = FontFamily.Default
+val AyahSurahDisplayStyle = TextStyle(
+    fontFamily = QuranTextFontFamily,
+    fontWeight = FontWeight.Bold,
+    fontSize = 30.sp,
+    lineHeight = 44.sp,
+)
 
-/**
- * Material 3 type scale with the system family and slightly tightened
- * spacing for a calmer, premium rhythm.
- */
+val AyahTabularCountdownStyle = TextStyle(
+    fontFamily = AyahUiFontFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 34.sp,
+    lineHeight = 40.sp,
+    fontFeatureSettings = "tnum",
+)
+
+fun TextStyle.withTabularNumbers(): TextStyle = copy(fontFeatureSettings = "tnum")
+
 val AyahTypography = Typography(
     displayMedium = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 44.sp,
+        fontSize = 42.sp,
         lineHeight = 50.sp,
     ),
     displaySmall = TextStyle(
-        fontFamily = Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 34.sp,
+        fontFamily = AyahUiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 32.sp,
         lineHeight = 40.sp,
+        fontFeatureSettings = "tnum",
     ),
     headlineMedium = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
+        fontSize = 24.sp,
+        lineHeight = 34.sp,
     ),
     headlineSmall = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 21.sp,
+        lineHeight = 30.sp,
     ),
     titleLarge = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontSize = 19.sp,
+        lineHeight = 28.sp,
     ),
     titleMedium = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.1.sp,
+        lineHeight = 24.sp,
     ),
     titleSmall = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
     bodyLarge = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
+        lineHeight = 25.sp,
     ),
     bodyMedium = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp,
+        lineHeight = 22.sp,
     ),
     bodySmall = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontSize = 12.5.sp,
+        lineHeight = 19.sp,
     ),
     labelLarge = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
     labelMedium = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = Default,
+        fontFamily = AyahUiFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
+        fontSize = 11.5.sp,
         lineHeight = 16.sp,
     ),
 )

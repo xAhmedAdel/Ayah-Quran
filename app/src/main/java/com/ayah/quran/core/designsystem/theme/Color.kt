@@ -2,91 +2,150 @@ package com.ayah.quran.core.designsystem.theme
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// ---- Brand palette (from the Ayah design specification) ----
-val Emerald = Color(0xFF153D32)
-val EmeraldDeep = Color(0xFF0E2B23)
-val EmeraldBright = Color(0xFF1E5A49)
-val Gold = Color(0xFFD5B56A)
-val GoldSoft = Color(0xFFE8D3A2)
-val GoldDeep = Color(0xFFA88C4C)
-val Cream = Color(0xFFF7F2E8)
-val CreamBright = Color(0xFFFCF9F2)
-val Ink = Color(0xFF111714)
-val InkSurface = Color(0xFF161D19)
-val InkSurfaceVariant = Color(0xFF1D2621)
-val TextPrimaryDark = Color(0xFFF5F2EA)
-val TextSecondaryDark = Color(0xFFC0C9C3)
+val SanctuaryEmerald = Color(0xFF0F3D32)
+val SanctuaryEmeraldDeep = Color(0xFF0A2921)
+val SanctuaryEmeraldMuted = Color(0xFF1C5949)
+val AntiqueGold = Color(0xFFC4A052)
+val AntiqueGoldDeep = Color(0xFF8F6E2A)
+val AntiqueGoldSoft = Color(0xFFE6D29E)
+val ParchmentCanvas = Color(0xFFF6F2E9)
+val ParchmentSurface = Color(0xFFFCF9F2)
+val ObsidianCanvas = Color(0xFF0C1210)
+val ObsidianSurface = Color(0xFF131B17)
 
-// Derived supporting tones (kept alongside the brand palette so all scheme
-// colors are visible in one place).
-val EmeraldContainerLight = Color(0xFFD2E3DB)
-val GoldContainerLight = Color(0xFFF1E3C4)
-val TextPrimaryLight = Color(0xFF17201B)
-val TextSecondaryLight = Color(0xFF47514B)
-val OutlineLight = Color(0xFF7A857E)
-val OutlineDark = Color(0xFF8A938D)
+val Emerald = SanctuaryEmerald
+val EmeraldDeep = SanctuaryEmeraldDeep
+val EmeraldBright = SanctuaryEmeraldMuted
+val Gold = Color(0xFFD6B66B)
+val GoldSoft = AntiqueGoldSoft
+val GoldDeep = AntiqueGoldDeep
+val Cream = ParchmentCanvas
+val CreamBright = ParchmentSurface
+val Ink = ObsidianCanvas
+val InkSurface = ObsidianSurface
+val InkSurfaceVariant = Color(0xFF1C2621)
+val TextPrimaryDark = Color(0xFFF2EEE5)
+val TextSecondaryDark = Color(0xFFA7B2AC)
+val EmeraldContainerLight = Color(0xFFDCEAE4)
+val GoldContainerLight = Color(0xFFF2E5C6)
+val TextPrimaryLight = Color(0xFF151C18)
+val TextSecondaryLight = Color(0xFF525C56)
+val OutlineLight = Color(0xFF838D87)
+val OutlineDark = Color(0xFF6F7A74)
 
-/**
- * Light scheme. Dynamic (Material You) color extraction is deliberately NOT
- * used: Ayah has a fixed premium identity and must look identical on every
- * device.
- */
 val AyahLightColors = lightColorScheme(
-    primary = Emerald,
-    onPrimary = TextPrimaryDark,
+    primary = SanctuaryEmerald,
+    onPrimary = Color(0xFFFAF7F0),
     primaryContainer = EmeraldContainerLight,
-    onPrimaryContainer = EmeraldDeep,
-    secondary = GoldDeep,
-    onSecondary = Cream,
+    onPrimaryContainer = SanctuaryEmeraldDeep,
+    secondary = AntiqueGoldDeep,
+    onSecondary = Color(0xFFFFFDF8),
     secondaryContainer = GoldContainerLight,
-    onSecondaryContainer = Color(0xFF4A3B15),
-    tertiary = EmeraldBright,
-    onTertiary = Cream,
-    background = Cream,
+    onSecondaryContainer = Color(0xFF43320E),
+    tertiary = SanctuaryEmeraldMuted,
+    onTertiary = Color(0xFFFAF7F0),
+    background = ParchmentCanvas,
     onBackground = TextPrimaryLight,
-    surface = CreamBright,
+    surface = ParchmentSurface,
     onSurface = TextPrimaryLight,
-    surfaceVariant = Color(0xFFE4DED0),
+    surfaceVariant = Color(0xFFEAE4D7),
     onSurfaceVariant = TextSecondaryLight,
     outline = OutlineLight,
-    outlineVariant = Color(0xFFCBCFC9),
-    surfaceTint = Emerald,
+    outlineVariant = Color(0xFFDDD7CA),
+    error = Color(0xFFB33A3A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE8E8),
+    onErrorContainer = Color(0xFF6E1B1B),
+    surfaceTint = SanctuaryEmerald,
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFBF7ED),
-    surfaceContainer = Color(0xFFF5F1E6),
-    surfaceContainerHigh = Color(0xFFEFEBDF),
-    surfaceContainerHighest = Color(0xFFEAE5D6),
+    surfaceContainerLow = Color(0xFFFAF7EF),
+    surfaceContainer = Color(0xFFF3EFE4),
+    surfaceContainerHigh = Color(0xFFECE7DA),
+    surfaceContainerHighest = Color(0xFFE4DEC0),
 )
 
-/** Dark scheme, anchored on the spec's Ink background and Gold accent. */
 val AyahDarkColors = darkColorScheme(
     primary = Gold,
-    onPrimary = Color(0xFF1F2B25),
-    primaryContainer = Color(0xFF23463A),
-    onPrimaryContainer = GoldSoft,
-    secondary = GoldSoft,
-    onSecondary = Color(0xFF33290F),
-    secondaryContainer = Color(0xFF4A3D1E),
-    onSecondaryContainer = GoldContainerLight,
-    tertiary = EmeraldBright,
-    onTertiary = Ink,
-    background = Ink,
+    onPrimary = Color(0xFF16201B),
+    primaryContainer = Color(0xFF1B3B31),
+    onPrimaryContainer = AntiqueGoldSoft,
+    secondary = Color(0xFFE2C887),
+    onSecondary = Color(0xFF261E0A),
+    secondaryContainer = Color(0xFF3A2F16),
+    onSecondaryContainer = Color(0xFFF4E5BF),
+    tertiary = Color(0xFF6DBAA2),
+    onTertiary = Color(0xFF0B221B),
+    background = ObsidianCanvas,
     onBackground = TextPrimaryDark,
-    surface = InkSurface,
+    surface = ObsidianSurface,
     onSurface = TextPrimaryDark,
     surfaceVariant = InkSurfaceVariant,
     onSurfaceVariant = TextSecondaryDark,
     outline = OutlineDark,
-    outlineVariant = Color(0xFF3A423D),
+    outlineVariant = Color(0xFF24302A),
+    error = Color(0xFFF08A8A),
+    onError = Color(0xFF3B0B0B),
+    errorContainer = Color(0xFF441B1B),
+    onErrorContainer = Color(0xFFFADADA),
     surfaceTint = Gold,
-    // Green-tinted Ink tones — without these, M3 falls back to neutral gray
-    // defaults for filled Cards, chips and the NavigationBar, which breaks
-    // the brand palette in dark mode.
-    surfaceContainerLowest = Color(0xFF0D1310),
-    surfaceContainerLow = Color(0xFF161D19),
-    surfaceContainer = Color(0xFF1A211D),
-    surfaceContainerHigh = Color(0xFF202824),
-    surfaceContainerHighest = Color(0xFF262E29),
+    surfaceContainerLowest = Color(0xFF090E0C),
+    surfaceContainerLow = Color(0xFF111815),
+    surfaceContainer = Color(0xFF161F1B),
+    surfaceContainerHigh = Color(0xFF1D2722),
+    surfaceContainerHighest = Color(0xFF25312B),
 )
+
+@Immutable
+data class AyahExtendedColors(
+    val heroSurface: Color,
+    val heroSurfaceDeep: Color,
+    val heroOnSurface: Color,
+    val heroAccent: Color,
+    val heroMuted: Color,
+    val mushafCanvas: Color,
+    val mushafAyahHighlight: Color,
+    val mushafMarker: Color,
+    val statusSuccess: Color,
+    val statusSuccessContainer: Color,
+    val statusWarning: Color,
+    val statusWarningContainer: Color,
+    val scrim: Color,
+)
+
+val AyahLightExtendedColors = AyahExtendedColors(
+    heroSurface = SanctuaryEmerald,
+    heroSurfaceDeep = SanctuaryEmeraldDeep,
+    heroOnSurface = Color(0xFFF9F5EB),
+    heroAccent = Color(0xFFDFC178),
+    heroMuted = Color(0xFFB7CEC6),
+    mushafCanvas = Color(0xFFFBF7EE),
+    mushafAyahHighlight = Color(0x38C4A052),
+    mushafMarker = Color(0xFF9A762D),
+    statusSuccess = Color(0xFF1C6B4E),
+    statusSuccessContainer = Color(0xFFE1F2EB),
+    statusWarning = Color(0xFF8C560B),
+    statusWarningContainer = Color(0xFFFBF0DC),
+    scrim = Color(0x8C0C1210),
+)
+
+val AyahDarkExtendedColors = AyahExtendedColors(
+    heroSurface = Color(0xFF122D25),
+    heroSurfaceDeep = Color(0xFF0B1D17),
+    heroOnSurface = Color(0xFFF5F1E8),
+    heroAccent = Color(0xFFDFC178),
+    heroMuted = Color(0xFFA5BEB5),
+    mushafCanvas = Color(0xFF101613),
+    mushafAyahHighlight = Color(0x33D6B66B),
+    mushafMarker = Color(0xFFD6B66B),
+    statusSuccess = Color(0xFF68C79F),
+    statusSuccessContainer = Color(0xFF143327),
+    statusWarning = Color(0xFFEBB45B),
+    statusWarningContainer = Color(0xFF362812),
+    scrim = Color(0xA6000000),
+)
+
+val LocalAyahColors = staticCompositionLocalOf { AyahLightExtendedColors }

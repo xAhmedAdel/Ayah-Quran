@@ -7,6 +7,12 @@
   License 1.1** (with font-exception wording). The full OFL text ships with
   the release bundle; source: https://github.com/google/fonts/tree/main/ofl/amiri
   License text: https://openfontlicense.org
+- **IBM Plex Sans Arabic** (`app/src/main/res/font/ibm_plex_sans_arabic_regular.ttf`,
+  `ibm_plex_sans_arabic_medium.ttf`, `ibm_plex_sans_arabic_semibold.ttf`,
+  `ibm_plex_sans_arabic_bold.ttf`) — Copyright (c) 2017 IBM Corp. with Reserved
+  Font Name "Plex", licensed under the **SIL Open Font License 1.1**.
+  Full OFL text stored at `docs/licenses/ibm-plex-sans-arabic/OFL.txt`;
+  official source: https://github.com/google/fonts/tree/main/ofl/ibmplexsansarabic
 
 ## Quran text (to be completed at Phase 2 import)
 
