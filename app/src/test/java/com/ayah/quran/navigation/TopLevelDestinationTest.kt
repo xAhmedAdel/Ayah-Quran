@@ -7,10 +7,10 @@ import org.junit.Test
 class TopLevelDestinationTest {
 
     @Test
-    fun `exposes exactly the six product sections in order`() {
+    fun `exposes exactly the five daily product sections in order`() {
         val names = TopLevelDestination.entries.map { it.name }
         assertEquals(
-            listOf("HOME", "QURAN", "PRAYER", "WALLPAPERS", "AUDIO", "SETTINGS"),
+            listOf("HOME", "QURAN", "PRAYER", "AUDIO", "WALLPAPERS"),
             names,
         )
     }
@@ -25,5 +25,10 @@ class TopLevelDestinationTest {
     @Test
     fun `home is the start destination`() {
         assertEquals("home", TopLevelDestination.entries.first().route)
+    }
+
+    @Test
+    fun `settings route remains registered for header navigation`() {
+        assertEquals("settings", Routes.SETTINGS)
     }
 }

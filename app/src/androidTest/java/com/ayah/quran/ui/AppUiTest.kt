@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -153,17 +154,25 @@ class AppUiTest {
 
     @Test
     fun bottomNavigationBarIconsExposeContentDescriptions() {
-        // Accessibility: each nav item exposes its label to TalkBack. The
-        // item merges descendants, so the unmerged tree is queried.
         listOf(
             R.string.nav_home,
             R.string.nav_quran,
-            R.string.nav_wallpapers,
+            R.string.nav_prayer,
             R.string.nav_audio,
-            R.string.nav_settings,
+            R.string.nav_wallpapers,
         ).forEach { resId ->
             composeRule.onNodeWithContentDescription(s(resId), useUnmergedTree = true).assertExists()
         }
+    }
+
+    @Test
+    fun homeHeaderSettingsOpensSettingsScreenAndNavigatesBack() {
+        composeRule.onNodeWithTag("home_settings_button").performClick()
+        waitForText(s(R.string.settings_appearance))
+        composeRule.onNodeWithText(s(R.string.settings_language)).assertExists()
+        androidx.test.espresso.Espresso.pressBack()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("home_settings_button").assertExists()
     }
 
     private fun assertTrue(message: String, condition: Boolean) {
