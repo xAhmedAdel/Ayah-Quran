@@ -86,6 +86,28 @@ class AppUiTest {
         // The surah list populates after the async import completes.
         waitForText(faatiha())
         composeRule.onNodeWithText(s(R.string.quran_search_hint)).assertExists()
+        composeRule.onNodeWithTag("quran_tab_surahs").assertExists()
+        composeRule.onNodeWithTag("quran_tab_juz").assertExists()
+        composeRule.onNodeWithTag("quran_tab_bookmarks").assertExists()
+        composeRule.onNodeWithTag("quran_page_jump_button").assertExists()
+    }
+
+    @Test
+    fun quranHubSwitchesAcrossJuzAndBookmarksAndOpensPageJump() {
+        composeRule.onAllNodesWithText(s(R.string.nav_quran)).onFirst().performClick()
+        waitForText(faatiha())
+
+        composeRule.onNodeWithTag("quran_tab_juz").performClick()
+        waitForText(s(R.string.quran_juz_title, 1))
+        composeRule.onNodeWithTag("juz_row_1").assertExists()
+
+        composeRule.onNodeWithTag("quran_tab_bookmarks").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("quran_page_jump_button").performClick()
+        waitForText(s(R.string.mushaf_page_jump_hint))
+        composeRule.onNodeWithText(s(R.string.action_cancel)).performClick()
+        composeRule.waitForIdle()
     }
 
     @Test
