@@ -241,6 +241,8 @@ fun AyahApp(modifier: Modifier = Modifier) {
             composable(TopLevelDestination.QURAN.route) {
                 QuranScreen(
                     onOpenSurah = { surahId -> openReadingPosition(surahId, null) },
+                    onOpenAyah = { surahId, ayahNumber -> openReadingPosition(surahId, ayahNumber) },
+                    onOpenPage = { page -> navController.navigate(Routes.mushaf(page = page)) },
                 )
             }
             composable(TopLevelDestination.PRAYER.route) {
