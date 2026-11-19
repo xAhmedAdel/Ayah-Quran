@@ -221,7 +221,7 @@
     <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz/page layout data from the Madani mushaf via quran.com. Amiri and IBM Plex Sans Arabic typefaces under SIL Open Font License 1.1. Full details in docs/QURAN_DATA.md and docs/LICENSES.md. Adhan recordings (Wikimedia Commons): CC0 by Adam-synagda; Sabah Fakhri recording (public domain); CC BY-SA 4.0 by Andrewler and Mahfoudou. City data from GeoNames (CC-BY 4.0).</string>
 
     <!-- Prayer times & adhan (Phase 12) -->
-    <string name="nav_prayer">Prayer times</string>
+    <string name="nav_prayer">Prayer</string>
     <string name="prayer_title">Prayer times</string>
     <string name="prayer_channel_playback">Adhan playback</string>
     <string name="prayer_channel_alert">Prayer-time notifications</string>

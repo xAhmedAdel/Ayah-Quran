@@ -13,11 +13,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.BuildConfig
 import com.ayah.quran.R
+import com.ayah.quran.core.designsystem.AyahIcons
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
@@ -43,30 +49,49 @@ import com.ayah.quran.domain.model.ThemeMode
  * Settings screen. Appearance (Phase 1) and app language (Phase 10) are fully
  * functional; wallpaper and data sections join in later phases.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val languageTag by viewModel.languageTag.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // A persisted language change applies on the next activity creation, so
-    // recreate immediately; attachBaseContext re-reads the tag synchronously.
     LaunchedEffect(Unit) {
         viewModel.languageApplied.collect {
             (context.findActivity() as? Activity)?.recreate()
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.l),
-        verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
-    ) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = AyahIcons.Back,
+                                contentDescription = stringResource(R.string.reader_back),
+                            )
+                        }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+        ) {
         SectionHeader(text = stringResource(R.string.settings_appearance))
 
         AyahCard {
@@ -156,6 +181,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
         }
     }
 }

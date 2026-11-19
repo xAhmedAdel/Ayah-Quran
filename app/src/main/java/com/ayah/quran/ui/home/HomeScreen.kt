@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
+import com.ayah.quran.core.designsystem.AyahIcons
 import com.ayah.quran.core.designsystem.component.AyahCard
 import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
@@ -67,7 +71,7 @@ fun HomeScreen(
     onOpenBookmarks: () -> Unit,
     onOpenWallpapers: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Phase 14: true until the permissions onboarding is finished/skipped. */
+    onOpenSettings: () -> Unit = {},
     showPrayerOnboardingCard: Boolean = false,
     onOpenPrayerOnboarding: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
@@ -77,11 +81,40 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.l),
+            .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.m),
         verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
     ) {
-        // Phase 14: permissions onboarding entry (until finished/skipped).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = AyahWordmarkStyle,
+                    fontFamily = QuranTextFontFamily,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(R.string.app_tagline),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            FilledTonalIconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.testTag("home_settings_button"),
+            ) {
+                Icon(
+                    imageVector = AyahIcons.Settings,
+                    contentDescription = stringResource(R.string.nav_settings),
+                )
+            }
+        }
+
         if (showPrayerOnboardingCard) {
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -110,25 +143,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-
-        // Brand hero.
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = AyahWordmarkStyle,
-                fontFamily = QuranTextFontFamily,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = stringResource(R.string.app_tagline),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
         }
 
         SectionHeader(text = stringResource(R.string.home_continue_reading_title))
