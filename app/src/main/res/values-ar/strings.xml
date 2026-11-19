@@ -403,6 +403,11 @@
     <string name="bookmarks_remove">إزالة العلامة المرجعية</string>
     <string name="bookmarks_removed_snackbar">تمت إزالة العلامة المرجعية</string>
     <string name="action_undo">تراجع</string>
+    <string name="reader_repeat_from">من الآية</string>
+    <string name="reader_repeat_to">إلى الآية</string>
+    <string name="reader_repeat_start">بدء التكرار</string>
+    <string name="reader_repeat_clear">إيقاف التكرار</string>
+    <string name="reader_repeat_invalid">أدخل أرقام آيات صحيحة (1–%1$d)</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="zero">لا توجد آيات</item>

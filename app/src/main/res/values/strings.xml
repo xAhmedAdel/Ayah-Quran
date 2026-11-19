@@ -408,6 +408,11 @@
     <string name="bookmarks_remove">Remove bookmark</string>
     <string name="bookmarks_removed_snackbar">Bookmark removed</string>
     <string name="action_undo">Undo</string>
+    <string name="reader_repeat_from">From ayah</string>
+    <string name="reader_repeat_to">To ayah</string>
+    <string name="reader_repeat_start">Start repeat</string>
+    <string name="reader_repeat_clear">Clear repeat</string>
+    <string name="reader_repeat_invalid">Enter valid ayah numbers (1–%1$d)</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="one">%1$d ayah</item>

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,9 @@ fun ReaderAyahActionPill(
     val hasSecondaryActions = onRepeatRange != null || onCreateWallpaper != null
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("reader_ayah_action_pill"),
         shape = RoundedCornerShape(AyahRadii.pill),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant),
@@ -83,6 +86,7 @@ fun ReaderAyahActionPill(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
+                modifier = Modifier.testTag("reader_pill_play"),
             ) {
                 Icon(
                     imageVector = AyahIcons.Play,
@@ -99,6 +103,7 @@ fun ReaderAyahActionPill(
                 onClick = onToggleBookmark,
                 shape = RoundedCornerShape(AyahRadii.pill),
                 contentPadding = PaddingValues(horizontal = AyahSpacing.sm, vertical = AyahSpacing.xs),
+                modifier = Modifier.testTag("reader_pill_bookmark"),
             ) {
                 Icon(
                     imageVector = if (isBookmarked) {
@@ -112,7 +117,10 @@ fun ReaderAyahActionPill(
             }
             if (hasSecondaryActions) {
                 Box {
-                    IconButton(onClick = { moreExpanded = true }) {
+                    IconButton(
+                        onClick = { moreExpanded = true },
+                        modifier = Modifier.testTag("reader_pill_more"),
+                    ) {
                         Icon(
                             imageVector = AyahIcons.More,
                             contentDescription = stringResource(R.string.action_more),
@@ -149,8 +157,12 @@ fun ReaderAyahActionPill(
                         }
                     }
                 }
-            } else if (onDismiss != null) {
-                IconButton(onClick = onDismiss) {
+            }
+            if (onDismiss != null) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("reader_pill_dismiss"),
+                ) {
                     Icon(
                         imageVector = AyahIcons.Close,
                         contentDescription = stringResource(R.string.action_dismiss),

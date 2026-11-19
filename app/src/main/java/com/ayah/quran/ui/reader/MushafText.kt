@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.theme.LocalAyahColors
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
 
 /** One ayah for the mushaf text builder. */
@@ -108,8 +109,9 @@ fun MushafText(
     onAyahTap: (MushafAyahRange) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val highlightColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-    val markerColor = MaterialTheme.colorScheme.secondary
+    val extended = LocalAyahColors.current
+    val highlightColor = extended.mushafAyahHighlight
+    val markerColor = extended.mushafMarker
     val textColor = MaterialTheme.colorScheme.onSurface
 
     val (annotatedString, ranges) = remember(
