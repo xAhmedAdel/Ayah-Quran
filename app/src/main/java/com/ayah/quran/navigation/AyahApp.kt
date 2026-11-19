@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ object Routes {
     const val PRAYER_VOICE = "prayer/adhan-voice"
     const val PRAYER_ONBOARDING = "prayer/onboarding"
     const val PRAYER_ADHAN_LIBRARY = "prayer/adhan-library/{prayer}"
+    const val NOW_PLAYING = "audio/now-playing"
     const val FULLSCREEN_PREVIEW = "preview/{surahId}/{ayahNumber}"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
@@ -141,10 +143,32 @@ fun AyahApp(modifier: Modifier = Modifier) {
             }
         },
     ) { innerPadding ->
+        // Phase 17 slice 2: persistent mini player above the destination —
+        // hidden on the Audio tab (its Now Playing surface owns controls).
+        Column(modifier = Modifier.padding(innerPadding)) {
+        if (currentRoute != TopLevelDestination.AUDIO.route) {
+            val miniViewModel: com.ayah.quran.ui.audio.MiniPlayerViewModel =
+                hiltViewModel()
+            val miniState by miniViewModel.uiState.collectAsStateWithLifecycle()
+            com.ayah.quran.ui.audio.MiniPlayerBar(
+                state = miniState,
+                onOpen = { navController.navigate(Routes.NOW_PLAYING) },
+                onPauseResume = {
+                    when {
+                        // Restored snapshot: "play" resumes that surah.
+                        miniState.playback.restorable != null &&
+                            miniState.playback.surah == 0 ->
+                            miniViewModel.resumeLast()
+                        miniState.playback.isPlaying -> miniViewModel.pause()
+                        else -> miniViewModel.resume()
+                    }
+                },
+            )
+        }
         NavHost(
             navController = navController,
             startDestination = TopLevelDestination.HOME.route,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier,
             enterTransition = {
                 fadeIn(tween(dur(MotionDurations.MEDIUM))) +
                     slideInVertically(tween(dur(MotionDurations.MEDIUM))) { it / 12 }
@@ -187,6 +211,11 @@ fun AyahApp(modifier: Modifier = Modifier) {
             }
             composable(TopLevelDestination.AUDIO.route) {
                 AudioScreen()
+            }
+            composable(Routes.NOW_PLAYING) {
+                com.ayah.quran.ui.audio.NowPlayingScreen(
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(TopLevelDestination.SETTINGS.route) {
                 SettingsScreen()
@@ -337,6 +366,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     onBack = { navController.popBackStack() },
                 )
             }
+        }
         }
     }
 }

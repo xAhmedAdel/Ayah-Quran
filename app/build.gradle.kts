@@ -42,10 +42,10 @@ android {
         targetSdk = 36
         // AGP 8 removed BuildConfig.VERSION_CODE; expose it explicitly so the
         // in-app updater can compare against release metadata.
-        val code = 5
+        val code = 6
         versionCode = code
         buildConfigField("int", "VERSION_CODE", "$code")
-        versionName = "1.0.0-beta.4"
+        versionName = "1.0.0-beta.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -145,6 +145,9 @@ dependencies {
 
     // ---- Audio foundation (Media3/ExoPlayer, Phase 5) ----
     implementation(libs.androidx.media3.exoplayer)
+    // Phase 17 slice 2: MediaSessionService — background playback, media
+    // notification, lock-screen controls.
+    implementation(libs.androidx.media3.session)
 
     // ---- Prayer times (Phase 12) — adhan-java, MIT, fully offline ----
     implementation("com.batoulapps.adhan:adhan:1.2.1")

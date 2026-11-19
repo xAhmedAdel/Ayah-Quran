@@ -10,12 +10,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -62,12 +66,21 @@ fun ReaderScreen(
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val autoScroll by viewModel.autoScroll.collectAsStateWithLifecycle()
     var showFontControls by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     LaunchedEffect(state.ayahs, viewModel.targetAyah) {
         if (state.ayahs.isNotEmpty() && viewModel.targetAyah in 1..state.ayahs.size) {
             scrollState.scrollTo(viewModel.targetAyah * 40)
+        }
+    }
+
+    // Recitation follow (Phase 17 slice 2): keep the recited ayah visible.
+    LaunchedEffect(state.playingAyah, autoScroll) {
+        val ayah = state.playingAyah ?: return@LaunchedEffect
+        if (autoScroll && ayah in 1..state.ayahs.size) {
+            scrollState.animateScrollTo(ayah * 40)
         }
     }
 
@@ -104,6 +117,18 @@ fun ReaderScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.MenuBook,
                         contentDescription = stringResource(R.string.mushaf_mode_cd),
+                    )
+                }
+                // Recitation-follow toggle (enabled while a recitation exists).
+                IconButton(onClick = viewModel::toggleAutoScroll) {
+                    Icon(
+                        Icons.Filled.ScreenRotation,
+                        contentDescription = stringResource(R.string.reader_auto_scroll_cd),
+                        tint = if (autoScroll) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            LocalContentColor.current
+                        },
                     )
                 }
                 IconButton(
@@ -185,13 +210,33 @@ fun ReaderScreen(
                         MushafAyahData(surahId = viewModel.surahId, ayahNumber = it.ayahNumber, displayText = it.displayText)
                     },
                     highlightSurahId = viewModel.surahId,
-                    highlightAyahNumber = state.selectedAyah,
+                    // Tap-selection wins; otherwise follow the recited ayah.
+                    highlightAyahNumber = state.selectedAyah ?: state.playingAyah,
                     fontSize = (state.fontScale * 26).sp,
                     onAyahTap = { range -> viewModel.onAyahTap(range.ayahNumber) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = AyahSpacing.l, vertical = AyahSpacing.l),
                 )
+
+                // Play-from-ayah affordance (Phase 17 slice 2).
+                state.selectedAyah?.let { ayah ->
+                    Button(
+                        onClick = {
+                            viewModel.playFromAyah(ayah)
+                            viewModel.onAyahTap(ayah) // deselect
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                        Text(" ")
+                        Text(
+                            text = stringResource(
+                                R.string.reader_play_from_ayah, ayah,
+                            ),
+                        )
+                    }
+                }
             }
         }
     }

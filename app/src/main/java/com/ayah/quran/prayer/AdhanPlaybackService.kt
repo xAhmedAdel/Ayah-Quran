@@ -132,6 +132,15 @@ class AdhanPlaybackService : android.app.Service() {
             it.prepare()
             it.play()
         }
+        isAdhanActive = true
+        // Conflict policy (Phase 17 slice 2): stop Quran recitation — the
+        // adhan never overlaps it.
+        runCatching {
+            startService(
+                Intent(this, com.ayah.quran.data.audio.QuranPlaybackService::class.java)
+                    .setAction(com.ayah.quran.data.audio.QuranPlaybackService.ACTION_STOP_QURAN),
+            )
+        }
         return START_NOT_STICKY
     }
 
@@ -212,6 +221,7 @@ class AdhanPlaybackService : android.app.Service() {
     }
 
     private fun cleanup() {
+        isAdhanActive = false
         player?.run {
             runCatching { stop() }
             runCatching { release() }
@@ -230,5 +240,14 @@ class AdhanPlaybackService : android.app.Service() {
         const val EXTRA_PRAYER = "prayer"
         const val EXTRA_TEST = "test"
         const val ACTION_STOP = "com.ayah.quran.prayer.STOP_ADHAN"
+
+        /**
+         * Slice-2 audio conflict policy: TRUE while adhan audio is actually
+         * playing. Quran recitation refuses to start during the adhan, and
+         * an incoming adhan stops Quran playback first (the adhan wins).
+         */
+        @Volatile
+        var isAdhanActive: Boolean = false
+            private set
     }
 }

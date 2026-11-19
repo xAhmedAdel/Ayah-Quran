@@ -139,6 +139,13 @@ fun AudioScreen(
 
             // Surah list with offline download + per-ayah playback.
             SectionCard(title = stringResource(R.string.audio_header_tagline)) {
+                if (state.ayahPlayback.blockedByAdhan) {
+                    Text(
+                        text = stringResource(R.string.audio_blocked_by_adhan),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (state.surahRows.isEmpty()) {
                     EmptyState(
                         icon = Icons.Outlined.GraphicEq,

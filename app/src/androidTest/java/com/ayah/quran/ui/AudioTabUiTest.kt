@@ -13,6 +13,7 @@ import com.ayah.quran.R
 import com.ayah.quran.data.audio.QuranAudioCatalog
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -36,6 +37,16 @@ class AudioTabUiTest {
     private fun openAudioTab() {
         composeRule.onAllNodesWithText(s(R.string.nav_audio)).onFirst().performClick()
         composeRule.onNodeWithText(s(R.string.audio_reciters_section)).assertExists()
+    }
+
+    @Before
+    fun resetPersistedPlayback() {
+        // A previous session's mini-player restore snapshot leaks text into
+        // list queries ("الفاتحة" appears in both the mini player and the
+        // surah list). Tests start from an idle playback world.
+        com.ayah.quran.di.AudioPlaybackEntryPoint.from(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext,
+        ).ayahPlaylistPlayer().clearRestore()
     }
 
     @Test

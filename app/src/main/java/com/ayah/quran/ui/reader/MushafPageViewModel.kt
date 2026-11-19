@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ayah.quran.domain.model.MushafPage
 import com.ayah.quran.domain.model.ReadingMode
+import com.ayah.quran.data.audio.ExoPlayerAyahPlaylistPlayer
+import com.ayah.quran.data.audio.QuranAudioCatalog
 import com.ayah.quran.domain.repository.ReaderPreferencesRepository
 import com.ayah.quran.domain.usecase.GetMushafPageUseCase
 import com.ayah.quran.domain.usecase.ObserveBookmarkStateUseCase
@@ -12,6 +14,7 @@ import com.ayah.quran.domain.usecase.PageForAyahUseCase
 import com.ayah.quran.domain.usecase.SaveReadingPositionUseCase
 import com.ayah.quran.domain.usecase.ToggleBookmarkUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,6 +43,7 @@ class MushafPageViewModel @Inject constructor(
     private val saveReadingPosition: SaveReadingPositionUseCase,
     private val observeBookmarkState: ObserveBookmarkStateUseCase,
     private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
+    private val ayahPlayer: ExoPlayerAyahPlaylistPlayer,
 ) : ViewModel() {
 
     private val argSurahId: Int = savedStateHandle[KEY_SURAH_ID] ?: 0
@@ -50,7 +54,20 @@ class MushafPageViewModel @Inject constructor(
     private val _highlight = MutableStateFlow<Pair<Int, Int>?>(
         if (argSurahId > 0 && argAyah > 0) argSurahId to argAyah else null,
     )
-    val highlight: StateFlow<Pair<Int, Int>?> = _highlight.asStateFlow()
+    val highlight: StateFlow<Pair<Int, Int>?> = combine(
+        _highlight,
+        ayahPlayer.state,
+    ) { userSelected, playback ->
+        // Live recitation highlight wins when the user has not tapped a
+        // specific ayah — the reader follows the recited ayah on this page.
+        userSelected ?: playback.let {
+            if (it.isIdle) null else it.surah to (it.ayahIndex + 1)
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        _highlight.value,
+    )
 
     private val _pages = MutableStateFlow<Map<Int, MushafPage>>(emptyMap())
     val pages: StateFlow<Map<Int, MushafPage>> = _pages.asStateFlow()
@@ -115,6 +132,14 @@ class MushafPageViewModel @Inject constructor(
         viewModelScope.launch {
             saveReadingPosition(first.surahId, first.ayahNumber)
         }
+    }
+
+    /** Start recitation from the highlighted ayah (Phase 17 slice 2). */
+    fun playFromAyah(surahId: Int, ayahNumber: Int) {
+        val edition = QuranAudioCatalog.byEdition(
+            ayahPlayer.state.value.editionId,
+        )
+        ayahPlayer.play(edition, surahId, ayahNumber)
     }
 
     fun onAyahTap(surahId: Int, ayahNumber: Int) {

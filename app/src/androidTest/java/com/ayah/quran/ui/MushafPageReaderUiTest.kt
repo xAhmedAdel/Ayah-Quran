@@ -21,6 +21,7 @@ import com.ayah.quran.MainActivity
 import com.ayah.quran.R
 import com.ayah.quran.core.locale.AppLocale
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -59,6 +60,16 @@ class MushafPageReaderUiTest {
         waitForText(faatiha())
         composeRule.onNodeWithText(faatiha()).performClick()
         waitForText(indicator(1))
+    }
+
+    @Before
+    fun resetPersistedPlayback() {
+        // A previous session's mini-player restore snapshot leaks text into
+        // list queries ("الفاتحة" appears in both the mini player and the
+        // surah list). Tests start from an idle playback world.
+        com.ayah.quran.di.AudioPlaybackEntryPoint.from(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext,
+        ).ayahPlaylistPlayer().clearRestore()
     }
 
     @Test

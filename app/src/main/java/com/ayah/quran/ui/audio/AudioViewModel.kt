@@ -8,6 +8,8 @@ import com.ayah.quran.data.audio.QuranAudioCatalog
 import com.ayah.quran.data.audio.QuranAudioDownloadRepository
 import com.ayah.quran.data.audio.QuranAudioState
 import com.ayah.quran.data.audio.QuranReciterEdition
+import com.ayah.quran.data.audio.QuranRepeatRange
+import com.ayah.quran.data.audio.QuranSleepMode
 import com.ayah.quran.domain.model.Surah
 import com.ayah.quran.domain.model.audio.PlaybackState
 import com.ayah.quran.domain.model.audio.Reciter
@@ -193,6 +195,20 @@ class AudioViewModel @Inject constructor(
     fun seekAyah(index: Int) = ayahPlayer.seekToAyah(index)
 
     fun toggleRepeatAyah() = ayahPlayer.toggleRepeatAyah()
+
+    // ---- slice 2: sleep timer / repeat range / resume ----
+
+    fun setSleepTimer(mode: QuranSleepMode, minutes: Int = 0) =
+        ayahPlayer.setSleepTimer(mode, minutes)
+
+    fun setRepeatRange(range: QuranRepeatRange?) =
+        ayahPlayer.setRepeatRange(range)
+
+    fun resumeLast() = ayahPlayer.resumeLast()
+
+    fun seekNextAyah() = ayahPlayer.seekNextAyah()
+
+    fun seekPreviousAyah() = ayahPlayer.seekPreviousAyah()
 
     fun downloadSurah(surah: Int) {
         val edition = QuranAudioCatalog.byEdition(_selectedEdition.value)
