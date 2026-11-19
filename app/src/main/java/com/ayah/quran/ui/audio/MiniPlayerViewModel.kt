@@ -17,25 +17,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Mini player + Now Playing screen shared state. */
 data class MiniPlayerUiState(
     val playback: AyahPlaybackState = AyahPlaybackState(),
     val surahNameAr: String = "",
+    val surahNameTransliterated: String = "",
     val reciterNameAr: String = "",
-    /** True while playback is blocked by an active adhan (policy notice). */
+    val reciterNameEn: String = "",
     val blockedByAdhan: Boolean = false,
-    /** Persisted playback speed (drives the Now Playing speed chips). */
     val playbackSpeed: Float = 1.0f,
 ) {
     val isIdle: Boolean get() = playback.isIdle && playback.restorable == null
+
+    val progressFraction: Float
+        get() = if (playback.totalAyahs > 0) {
+            ((playback.ayahIndex + 1).toFloat() / playback.totalAyahs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
 }
 
-/**
- * Drives the persistent mini player and the Now Playing screen. Speed and
- * repeat-ayah persist through [AudioPreferencesRepository]; sleep timer and
- * repeat range live in the playback client (valid in background — the
- * foreground service keeps the process alive).
- */
 @HiltViewModel
 class MiniPlayerViewModel @Inject constructor(
     private val ayahPlayer: ExoPlayerAyahPlaylistPlayer,
@@ -44,7 +44,6 @@ class MiniPlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     init {
-        // Apply the persisted playback speed whenever it changes.
         viewModelScope.launch {
             preferencesRepository.preferences.collect { prefs ->
                 ayahPlayer.setPlaybackSpeed(prefs.playbackSpeed)
@@ -59,12 +58,15 @@ class MiniPlayerViewModel @Inject constructor(
         quranRepository.observeSurahs(),
         prefsFlow,
     ) { playback, surahs, prefs ->
+        val surah = surahs.firstOrNull { it.id == playback.surah }
+            ?: surahs.firstOrNull { it.id == playback.restorable?.surah }
+        val edition = QuranAudioCatalog.byEdition(playback.editionId)
         MiniPlayerUiState(
             playback = playback,
-            surahNameAr = surahs.firstOrNull { it.id == playback.surah }?.nameArabic
-                ?: surahs.firstOrNull { it.id == playback.restorable?.surah }?.nameArabic
-                ?: "",
-            reciterNameAr = QuranAudioCatalog.byEdition(playback.editionId).nameAr,
+            surahNameAr = surah?.nameArabic ?: "",
+            surahNameTransliterated = surah?.nameTransliterated ?: "",
+            reciterNameAr = edition.nameAr,
+            reciterNameEn = edition.nameEn,
             blockedByAdhan = playback.blockedByAdhan,
             playbackSpeed = prefs.playbackSpeed,
         )
@@ -73,8 +75,6 @@ class MiniPlayerViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = MiniPlayerUiState(),
     )
-
-    // ---- actions (thin delegation, same as AudioViewModel slice 2) ----
 
     fun playSurah(surah: Int) {
         val edition = currentEdition()
