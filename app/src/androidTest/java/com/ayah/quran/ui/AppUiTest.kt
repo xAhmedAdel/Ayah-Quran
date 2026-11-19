@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ayah.quran.MainActivity
 import com.ayah.quran.R
@@ -173,6 +174,29 @@ class AppUiTest {
         androidx.test.espresso.Espresso.pressBack()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("home_settings_button").assertExists()
+    }
+
+    @Test
+    fun homeSanctuaryShowsNextPrayerAndDailyAyah() {
+        composeRule.onNodeWithTag("home_continue_reading_card").assertExists()
+        composeRule.onNodeWithTag("home_next_prayer_card").assertExists()
+        composeRule.waitUntil(timeoutMillis = 20_000) {
+            composeRule.onAllNodesWithText(s(R.string.home_daily_ayah_title))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("home_daily_ayah_card").assertExists()
+    }
+
+    @Test
+    fun settingsHubShowsPreferencesAndOpensLicensesSheet() {
+        composeRule.onNodeWithTag("home_settings_button").performClick()
+        waitForText(s(R.string.settings_preferences_section))
+        composeRule.onNodeWithTag("settings_reading_row").assertExists()
+        composeRule.onNodeWithTag("settings_version_value").performScrollTo().assertExists()
+        composeRule.onNodeWithTag("settings_licenses_row").performScrollTo().performClick()
+        waitForText(s(R.string.settings_licenses_summary))
+        androidx.test.espresso.Espresso.pressBack()
+        composeRule.waitForIdle()
     }
 
     private fun assertTrue(message: String, condition: Boolean) {
