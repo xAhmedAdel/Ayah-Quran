@@ -80,6 +80,16 @@ android {
         // BuildConfig.VERSION_NAME is shown on the Settings > About screen.
         buildConfig = true
     }
+
+    androidResources {
+        // Bundled adhan audio in res/raw must stay UNCOMPRESSED — ExoPlayer's
+        // RawResourceDataSource needs a real file descriptor (openRawResourceFd),
+        // which fails with "probably compressed" when AAPT deflates the asset.
+        noCompress += "oga"
+        noCompress += "ogg"
+        noCompress += "wav"
+        noCompress += "mp3"
+    }
 }
 
 kotlin {
@@ -134,6 +144,10 @@ dependencies {
 
     // ---- Prayer times (Phase 12) — adhan-java, MIT, fully offline ----
     implementation("com.batoulapps.adhan:adhan:1.2.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // ---- Quran audio downloads (Phase 17) — OkHttp for reliable HTTPS ----
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // ---- Coroutines ----
     implementation(libs.kotlinx.coroutines.android)

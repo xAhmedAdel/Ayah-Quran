@@ -89,6 +89,16 @@ class PrayerPermissionsInstrumentedTest {
 
     @Test
     fun notificationDenialDisablesPostingPath() {
+        // Android 13+ KILLS the app process when a granted permission is
+        // revoked mid-run (same platform behavior as exact-alarm revocation)
+        // — the kill takes down the instrumentation itself, aborting the
+        // whole suite. The denied posting path is covered by the default-
+        // denied emulator state (see note above), so this test only runs
+        // where revoke does not destroy the runner (API < 33).
+        org.junit.Assume.assumeTrue(
+            "revoke kills the process on API 33+ — skipped there",
+            android.os.Build.VERSION.SDK_INT < 33,
+        )
         try {
             exec("pm revoke com.ayah.quran.debug android.permission.POST_NOTIFICATIONS")
             // The enabled-flag can lag the revoke slightly; poll briefly.

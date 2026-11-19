@@ -338,4 +338,5 @@
     <string name="prayer_download_retry">إعادة المحاولة</string>
     <string name="prayer_download_delete">حذف التحميل</string>
     <string name="prayer_download_failed">فشل التحميل</string>
+    <string name="prayer_download_done">متاح دون اتصال</string>
 </resources>

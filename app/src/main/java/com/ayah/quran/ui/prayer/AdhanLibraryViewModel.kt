@@ -54,6 +54,10 @@ class AdhanLibraryViewModel @Inject constructor(
     private val previewController: AdhanPreviewController,
 ) : ViewModel() {
 
+    /** Live preview playback state for the library cards. */
+    val preview: StateFlow<com.ayah.quran.data.prayer.AdhanPreviewState> =
+        previewController.state
+
     val prayer: Prayer = runCatching {
         Prayer.valueOf(savedStateHandle.get<String>(KEY_PRAYER) ?: Prayer.FAJR.name)
     }.getOrDefault(Prayer.FAJR)
@@ -67,12 +71,11 @@ class AdhanLibraryViewModel @Inject constructor(
 
     val uiState: StateFlow<AdhanLibraryUiState> = combine(
         preferencesRepository.preferences,
-        preferencesRepository.downloadedAdhanIds,
-        kotlinx.coroutines.flow.flowOf(emptyMap<String, com.ayah.quran.data.prayer.AdhanDownloadState>()),
+        downloadRepository.states,
         _searchQuery,
         combine(_categoryFilter, _downloadedOnly) { c, d -> c to d },
-    ) { prefs, downloadedIds, downloadStates, query, (category, downloadedOnly) ->
-        buildState(prefs, downloadedIds, downloadStates, query, category, downloadedOnly)
+    ) { prefs, downloadStates, query, (category, downloadedOnly) ->
+        buildState(prefs, downloadStates, query, category, downloadedOnly)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -81,7 +84,6 @@ class AdhanLibraryViewModel @Inject constructor(
 
     private fun buildState(
         prefs: PrayerPreferences,
-        downloadedIds: Set<String>,
         downloadStates: Map<String, com.ayah.quran.data.prayer.AdhanDownloadState>,
         query: String,
         category: AdhanCategory?,
@@ -89,7 +91,8 @@ class AdhanLibraryViewModel @Inject constructor(
     ): AdhanLibraryUiState {
         val selectedVoice = prefs.voiceSelection.voiceOf(prayer)
         val all = catalog.recordings.map { recording ->
-            val isDownloaded = recording.isBundled || recording.id in downloadedIds
+            val isDownloaded = recording.isBundled ||
+                downloadRepository.isDownloaded(recording)
             AdhanLibraryRow(
                 recording = recording,
                 isSelectedForPrayer = selectedVoice == recording.id,
@@ -150,7 +153,7 @@ class AdhanLibraryViewModel @Inject constructor(
     fun select(recording: AdhanRecording) {
         // A remote recording must be DOWNLOADED before it can be assigned for
         // offline scheduled playback (Phase 15 §4).
-        val downloaded = downloadRepository.isDownloaded(recording.id) || recording.isBundled
+        val downloaded = downloadRepository.isDownloaded(recording) || recording.isBundled
         if (!downloaded && !recording.isBundled) return
         viewModelScope.launch {
             preferencesRepository.setVoice(prayer, recording.id)

@@ -1,20 +1,23 @@
 package com.ayah.quran.data.prayer
 
 import android.content.Context
+import android.util.Log
 import com.ayah.quran.domain.model.prayer.AdhanRecording
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,13 +29,8 @@ sealed interface AdhanDownloadState {
 }
 
 /**
- * Downloads adhan audio using direct HTTPS with a browser User-Agent.
- *
- * This bypasses the system DownloadManager (which fails on HONOR/MagicOS)
- * by streaming directly from Wikimedia Commons via HttpsURLConnection.
- *
- * On download completion, the file is atomically renamed from .part to
- * its final name, ensuring partial downloads never appear as complete.
+ * Downloads adhan audio using OkHttp (direct HTTPS, reliable on ALL devices
+ * including HONOR/MagicOS). Saves to app-private storage for offline playback.
  */
 @Singleton
 class AdhanDownloadRepository @Inject constructor(
@@ -41,64 +39,79 @@ class AdhanDownloadRepository @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
     private val _states = MutableStateFlow<Map<String, AdhanDownloadState>>(emptyMap())
     val states: StateFlow<Map<String, AdhanDownloadState>> = _states.asStateFlow()
 
     private val audioDir: File
         get() = File(context.getExternalFilesDir(null), "adhan").also { it.mkdirs() }
 
-    fun isDownloaded(recordingId: String): Boolean =
-        getRecordingFile(recordingId)?.exists() == true
+    fun isDownloaded(recording: AdhanRecording): Boolean =
+        fileOf(recording).let { it.exists() && it.length() > 1000 }
+
+    private fun fileOf(recording: AdhanRecording): File =
+        File(audioDir, "${recording.id}.${recording.fileExtension}")
 
     fun downloadedFile(recordingId: String): File? =
-        getRecordingFile(recordingId)?.takeIf { it.exists() && it.length() > 1000 }
+        audioDir.listFiles()?.firstOrNull {
+            it.name.startsWith("$recordingId.") && it.length() > 1000
+        }
 
     /**
-     * Downloads the adhan audio directly via HTTPS with browser-like
-     * User-Agent headers. This bypasses the system DownloadManager
-     * (which fails on HONOR/MagicOS due to OEM download restrictions)
-     * by using a direct HTTPS connection instead.
+     * Downloads the adhan audio using OkHttp with browser-like User-Agent.
+     * OkHttp handles redirects, SSL, timeouts properly on all devices.
      */
     fun download(recording: AdhanRecording) {
         scope.launch {
+            Log.i(TAG, "download: start id=${recording.id} url=${recording.downloadUrl}")
             _states.value = _states.value + (
                 recording.id to AdhanDownloadState.Downloading(0f)
                 )
             val partFile = File(audioDir, "${recording.id}.part")
             try {
-                val connection = URL(recording.downloadUrl).openConnection() as java.net.HttpURLConnection
-                connection.connectTimeout = 30_000
-                connection.readTimeout = 120_000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent",
-                    "Mozilla/5.0 (Linux; Android 14; HONOR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
-                connection.setRequestProperty("Accept", "audio/ogg, audio/mpeg, audio/wav, */*")
+                val request = Request.Builder()
+                    .url(recording.downloadUrl ?: throw IOException("no download URL"))
+                    .header("User-Agent",
+                        "Mozilla/5.0 (Linux; Android 14; HONOR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                    .build()
 
-                val code = connection.responseCode
-                if (code != 200) {
-                    throw IOException("HTTP $code")
-                }
-
-                val total = connection.contentLengthLong
-                var done = 0L
-
-                connection.inputStream.use { input ->
-                    partFile.outputStream().use { output ->
-                        val buf = ByteArray(64_000)
-                        while (true) {
-                            val read = input.read(buf)
-                            if (read <= 0) break
-                            output.write(buf, 0, read)
-                            done += read
-                            if (total > 0) {
-                                _states.value = _states.value + (
-                                    recording.id to AdhanDownloadState.Downloading(
-                                        done.toFloat() / total
-                                    )
-                                    )
+                client.newCall(request).execute().use { response ->
+                    Log.i(TAG, "download: HTTP ${response.code} id=${recording.id}")
+                    if (!response.isSuccessful) {
+                        throw IOException("HTTP ${response.code} from ${recording.downloadUrl}")
+                    }
+                    val body = response.body ?: throw IOException("empty body")
+                    val contentLength = body.contentLength()
+                    var total = 0L
+                    var lastEmit = 0f
+                    body.byteStream().use { input ->
+                        partFile.outputStream().use { output ->
+                            val buf = ByteArray(64_000)
+                            while (true) {
+                                val read = input.read(buf)
+                                if (read <= 0) break
+                                output.write(buf, 0, read)
+                                total += read
+                                if (contentLength > 0) {
+                                    val progress = total.toFloat() / contentLength
+                                    if (progress - lastEmit >= 0.1f || progress >= 1f) {
+                                        lastEmit = progress
+                                        _states.value = _states.value + (
+                                            recording.id to
+                                                AdhanDownloadState.Downloading(progress)
+                                            )
+                                    }
+                                }
                             }
                         }
                     }
+                    Log.i(TAG, "download: bytes=$total id=${recording.id}")
                 }
 
                 // Verify the file is real audio (not an error page).
@@ -118,6 +131,7 @@ class AdhanDownloadRepository @Inject constructor(
                     recording.id to AdhanDownloadState.Downloaded
                     )
             } catch (e: Exception) {
+                Log.e(TAG, "download: FAILED id=${recording.id}", e)
                 partFile.delete()
                 _states.value = _states.value + (
                     recording.id to AdhanDownloadState.Failed(e.message ?: "unknown error")
@@ -126,38 +140,19 @@ class AdhanDownloadRepository @Inject constructor(
         }
     }
 
+    private companion object {
+        const val TAG = "AdhanDownload"
+    }
+
     fun cancelDownload(recordingId: String) {
         _states.value = _states.value - recordingId
         File(audioDir, "${recordingId}.part").delete()
     }
 
     fun deleteDownload(recordingId: String) {
-        val rec = findRecording(recordingId) ?: return
-        val file = File(audioDir, "${recordingId}.${rec.fileExtension}")
-        file.delete()
+        audioDir.listFiles()?.forEach { file ->
+            if (file.name.startsWith("$recordingId.")) file.delete()
+        }
         _states.value = _states.value - recordingId
-    }
-
-    private fun getRecordingFile(recordingId: String): File? {
-        val ext = fileExtensionFor(recordingId) ?: return null
-        val file = File(audioDir, "${recordingId}.${ext}")
-        return file.takeIf { it.exists() && it.length() > 1000 }
-    }
-
-    private fun findRecording(recordingId: String): AdhanRecording? {
-        // Simple catalog lookup without needing the full catalog injection.
-        return when (recordingId) {
-            "adhan_cc0_beautiful" -> null // resolved by caller
-            else -> null // other recordings resolved by caller
-        }
-    }
-
-    companion object {
-        /** Stable file extension per recording id (matches BundledAdhanCatalog). */
-        fun fileExtensionFor(id: String): String = when (id) {
-            "adhan_pd_sabah_fakhri" -> "mp3"
-            "adhan_casablanca_hassan2" -> "wav"
-            else -> "ogg"
-        }
     }
 }

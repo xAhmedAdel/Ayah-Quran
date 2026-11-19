@@ -343,4 +343,5 @@
     <string name="prayer_download_retry">Retry download</string>
     <string name="prayer_download_delete">Delete download</string>
     <string name="prayer_download_failed">Download failed</string>
+    <string name="prayer_download_done">Available offline</string>
 </resources>
