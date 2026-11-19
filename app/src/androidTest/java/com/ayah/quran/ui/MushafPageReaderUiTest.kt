@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -159,5 +160,25 @@ class MushafPageReaderUiTest {
         waitForText(indicator(300))
         // Page 300 lies mid-surah (Al-Kahf) — no surah starts on it.
         composeRule.onNodeWithText(surahName("الكهف", "Al-Kahf")).assertExists()
+    }
+
+    @Test
+    fun switchBetweenMushafAndContinuousAndCloseFontControls() {
+        openMushafAtFaatiha()
+        composeRule.onNodeWithTag("mushaf_switch_continuous").performClick()
+        waitForText(s(R.string.reader_surah_format, faatiha()))
+
+        composeRule.onNodeWithTag("reader_font_controls_button").performClick()
+        composeRule.onNodeWithTag("reader_font_controls_card").assertExists()
+
+        composeRule.onNodeWithTag("reader_close_font_controls").performClick()
+        composeRule.waitForIdle()
+        org.junit.Assert.assertTrue(
+            composeRule.onAllNodesWithText(s(R.string.reader_auto_scroll_cd))
+                .fetchSemanticsNodes().isEmpty(),
+        )
+
+        composeRule.onNodeWithTag("reader_switch_mushaf").performClick()
+        waitForText(indicator(1))
     }
 }
