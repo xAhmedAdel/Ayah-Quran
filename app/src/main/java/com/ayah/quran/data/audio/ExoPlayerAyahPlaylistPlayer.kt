@@ -9,18 +9,24 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.ayah.quran.di.ApplicationScope
+import com.ayah.quran.di.IoDispatcher
 import com.ayah.quran.prayer.AdhanPlaybackService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -95,8 +101,11 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
     private val downloadRepository: QuranAudioDownloadRepository?,
     private val appScope: CoroutineScope,
     private val mainDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val stopControllerAction: (() -> Unit)?,
     private val stopServiceAction: (() -> Unit)?,
+    private val playlistResolverOverride: (suspend (QuranReciterEdition, Int) -> List<MediaItem>)? = null,
+    private val startControllerAction: ((List<MediaItem>, Int) -> Unit)? = null,
     autoConnect: Boolean,
 ) {
 
@@ -105,13 +114,17 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
         @ApplicationContext appContext: Context,
         downloadRepository: QuranAudioDownloadRepository,
         @ApplicationScope appScope: CoroutineScope,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ) : this(
         context = appContext,
         downloadRepository = downloadRepository,
         appScope = appScope,
         mainDispatcher = Dispatchers.Main.immediate,
+        ioDispatcher = ioDispatcher,
         stopControllerAction = null,
         stopServiceAction = null,
+        playlistResolverOverride = null,
+        startControllerAction = null,
         autoConnect = true,
     )
 
@@ -131,6 +144,10 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
     private var pendingPlay: Triple<QuranReciterEdition, Int, Int>? = null
     private var controllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? =
         null
+
+    private val prepareLock = Any()
+    private var prepareGeneration: Long = 0L
+    private var prepareJob: Job? = null
 
     private val sleepTimerCoordinator = SleepTimerCoordinator(
         scope = appScope,
@@ -179,7 +196,7 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
     init {
         if (autoConnect) {
             connect()
-            appScope.launch { restoreSnapshot() }
+            appScope.launch(ioDispatcher) { restoreSnapshot() }
         }
     }
 
@@ -197,8 +214,7 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
                 c.addListener(controllerListener)
                 applyRepeatMode()
                 syncFromController()
-                pendingPlay?.let { (edition, surah, startAyah) ->
-                    pendingPlay = null
+                consumePendingPlay()?.let { (edition, surah, startAyah) ->
                     play(edition, surah, startAyah)
                 }
             } ?: run {
@@ -231,16 +247,82 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
         }
         _state.value = _state.value.copy(blockedByAdhan = false)
 
-        if (controller == null) {
-            pendingPlay = Triple(edition, surah, startAyahInSurah)
-            return
+        val jobToStart: Job = synchronized(prepareLock) {
+            prepareJob?.cancel()
+            prepareJob = null
+            prepareGeneration += 1L
+            val token = prepareGeneration
+
+            if (controller == null && startControllerAction == null) {
+                pendingPlay = Triple(edition, surah, startAyahInSurah)
+                return
+            }
+            pendingPlay = null
+
+            val job = appScope.launch(ioDispatcher, start = CoroutineStart.LAZY) {
+                try {
+                    val items = buildPlaylistItems(edition, surah)
+                    currentCoroutineContext().ensureActive()
+                    withContext(mainDispatcher) {
+                        val isLatest = synchronized(prepareLock) { token == prepareGeneration }
+                        if (!isLatest || !isActive) return@withContext
+                        if (AdhanPlaybackService.isAdhanActive) {
+                            _state.value = _state.value.copy(blockedByAdhan = true)
+                            return@withContext
+                        }
+                        val total = items.size
+                        if (total == 0) return@withContext
+                        val clampedStart = (startAyahInSurah - 1).coerceIn(0, total - 1)
+                        val customStart = startControllerAction
+                        if (customStart != null) {
+                            customStart.invoke(items, clampedStart)
+                        } else {
+                            val c = controller ?: return@withContext
+                            c.setMediaItems(items, clampedStart, 0L)
+                            c.prepare()
+                            c.play()
+                        }
+                        currentEditionId = edition.editionId
+                        currentSurah = surah
+                        currentTotal = total
+                        _state.value = _state.value.copy(
+                            editionId = edition.editionId,
+                            surah = surah,
+                            ayahIndex = clampedStart,
+                            totalAyahs = total,
+                            isPlaying = true,
+                            isPaused = false,
+                        )
+                        applyRepeatMode()
+                        persistProgress()
+                    }
+                } catch (ce: CancellationException) {
+                    throw ce
+                }
+            }
+            prepareJob = job
+            job
         }
-        val c = controller ?: return
+
+        jobToStart.start()
+    }
+
+    private suspend fun buildPlaylistItems(
+        edition: QuranReciterEdition,
+        surah: Int,
+    ): List<MediaItem> {
+        val override = playlistResolverOverride
+        if (override != null) {
+            return override.invoke(edition, surah)
+        }
         val total = QuranAudioCatalog.ayahCount(surah)
         val firstGlobal = QuranAudioCatalog.firstGlobalAyah(surah)
-        val items = (1..total).map { ayahInSurah ->
+        return (1..total).map { ayahInSurah ->
+            currentCoroutineContext().ensureActive()
             val local: File? = downloadRepository?.localAyahFile(
-                edition.editionId, surah, ayahInSurah,
+                edition.editionId,
+                surah,
+                ayahInSurah,
             )
             val uri = local?.let { android.net.Uri.fromFile(it) }
                 ?: android.net.Uri.parse(
@@ -248,26 +330,26 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
                 )
             MediaItem.fromUri(uri)
         }
-        currentEditionId = edition.editionId
-        currentSurah = surah
-        currentTotal = total
-
-        c.run {
-            setMediaItems(items, (startAyahInSurah - 1).coerceIn(0, total - 1), 0L)
-            prepare()
-            play()
-        }
-        _state.value = _state.value.copy(
-            editionId = edition.editionId,
-            surah = surah,
-            ayahIndex = startAyahInSurah - 1,
-            totalAyahs = total,
-            isPlaying = true,
-            isPaused = false,
-        )
-        applyRepeatMode()
-        persistProgress()
     }
+
+    private fun cancelPendingPreparation(): Long =
+        synchronized(prepareLock) {
+            prepareGeneration += 1L
+            prepareJob?.cancel()
+            prepareJob = null
+            pendingPlay = null
+            prepareGeneration
+        }
+
+    internal fun consumePendingPlay(): Triple<QuranReciterEdition, Int, Int>? =
+        synchronized(prepareLock) {
+            val queued = pendingPlay
+            pendingPlay = null
+            queued
+        }
+
+    internal fun hasPendingPlay(): Boolean =
+        synchronized(prepareLock) { pendingPlay != null }
 
     fun pause() {
         controller?.pause()
@@ -281,15 +363,29 @@ class ExoPlayerAyahPlaylistPlayer internal constructor(
     }
 
     fun stop() {
+        val stopToken = cancelPendingPreparation()
         appScope.launch(mainDispatcher) {
-            stopOnMain()
+            stopOnMain(stopToken)
         }
     }
 
-    internal fun stopOnMain() {
+    internal fun stopOnMain(expectedGeneration: Long? = null) {
+        val shouldProceed = synchronized(prepareLock) {
+            if (expectedGeneration != null && expectedGeneration != prepareGeneration) {
+                false
+            } else {
+                if (expectedGeneration == null) {
+                    prepareGeneration += 1L
+                    prepareJob?.cancel()
+                    prepareJob = null
+                    pendingPlay = null
+                }
+                true
+            }
+        }
+        if (!shouldProceed) return
         clearTimer()
         persistProgress()
-        pendingPlay = null
         val customStop = stopControllerAction
         if (customStop != null) {
             runCatching { customStop.invoke() }

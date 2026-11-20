@@ -157,9 +157,6 @@ dependencies {
     implementation("com.batoulapps.adhan:adhan:1.2.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // ---- Quran audio downloads (Phase 17) — OkHttp for reliable HTTPS ----
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
     // ---- Coroutines ----
     implementation(libs.kotlinx.coroutines.android)
 

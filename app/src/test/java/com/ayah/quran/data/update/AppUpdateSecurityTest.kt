@@ -292,4 +292,23 @@ class AppUpdateSecurityTest {
         assertFalse(File(internalUpdates, "ayah-update.apk.part").exists())
         assertNull(repo.pendingUpdateFile())
     }
+
+    @Test
+    fun derivedUpdaterClientSharesPoolsAndPreservesNoRedirectSecurityPolicy() {
+        val baseClient = OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+
+        val updaterClient = AppUpdateRepository.buildUpdaterClient(baseClient)
+
+        assertFalse(updaterClient.followRedirects)
+        assertFalse(updaterClient.followSslRedirects)
+        assertEquals(20_000, updaterClient.connectTimeoutMillis)
+        assertEquals(300_000, updaterClient.readTimeoutMillis)
+        assertTrue(updaterClient.connectionPool === baseClient.connectionPool)
+        assertTrue(updaterClient.dispatcher === baseClient.dispatcher)
+        assertTrue(baseClient.followRedirects)
+        assertTrue(baseClient.followSslRedirects)
+    }
 }

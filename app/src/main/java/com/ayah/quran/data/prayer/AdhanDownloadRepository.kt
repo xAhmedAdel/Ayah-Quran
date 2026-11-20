@@ -2,13 +2,15 @@ package com.ayah.quran.data.prayer
 
 import android.content.Context
 import android.util.Log
+import com.ayah.quran.di.ApplicationScope
+import com.ayah.quran.di.IoDispatcher
 import com.ayah.quran.domain.model.prayer.AdhanRecording
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,21 +42,26 @@ class AdhanDownloadRepository internal constructor(
     private val audioDirProvider: () -> File,
     private val client: OkHttpClient,
     private val scope: CoroutineScope,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val minValidBytes: Long,
 ) {
 
     @Inject
     constructor(
         @ApplicationContext context: Context,
+        baseClient: OkHttpClient,
+        @ApplicationScope appScope: CoroutineScope,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ) : this(
         audioDirProvider = { File(context.getExternalFilesDir(null), "adhan").also { it.mkdirs() } },
-        client = OkHttpClient.Builder()
+        client = baseClient.newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
             .build(),
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        scope = appScope,
+        ioDispatcher = ioDispatcher,
         minValidBytes = DEFAULT_MIN_VALID_BYTES,
     )
 
@@ -96,7 +103,7 @@ class AdhanDownloadRepository internal constructor(
         }
         _states.update { it + (recording.id to AdhanDownloadState.Downloading(0f)) }
 
-        val job = scope.launch {
+        val job = scope.launch(ioDispatcher) {
             val partFile = File(audioDir, "${recording.id}.part")
             try {
                 Log.i(TAG, "download: start id=${recording.id}")

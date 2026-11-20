@@ -3,13 +3,15 @@ package com.ayah.quran.data.update
 import android.content.Context
 import android.util.Log
 import com.ayah.quran.BuildConfig
+import com.ayah.quran.di.ApplicationScope
+import com.ayah.quran.di.IoDispatcher
 import com.ayah.quran.domain.update.AppUpdateInfo
 import com.ayah.quran.domain.update.AppUpdateReleaseParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,30 +39,30 @@ sealed interface AppUpdateState {
 class AppUpdateRepository internal constructor(
     private val updateDirProvider: () -> File,
     private val legacyExternalDirProvider: () -> File?,
-    private val client: OkHttpClient,
+    internal val client: OkHttpClient,
     private val metadataReader: ApkMetadataReader,
     private val installedVersionCodeProvider: () -> Long,
     private val installedSignersProvider: () -> Set<String>,
     private val scope: CoroutineScope,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val releasesUrl: String,
 ) {
 
     @Inject
     constructor(
         @ApplicationContext context: Context,
+        baseClient: OkHttpClient,
+        @ApplicationScope appScope: CoroutineScope,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ) : this(
         updateDirProvider = { File(context.filesDir, "updates").also { it.mkdirs() } },
         legacyExternalDirProvider = { context.getExternalFilesDir(null)?.let { File(it, "updates") } },
-        client = OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(300, TimeUnit.SECONDS)
-            .followRedirects(false)
-            .followSslRedirects(false)
-            .build(),
+        client = buildUpdaterClient(baseClient),
         metadataReader = AppUpdateSecurityValidator.androidApkMetadataReader(context),
         installedVersionCodeProvider = { BuildConfig.VERSION_CODE.toLong() },
         installedSignersProvider = { AppUpdateSecurityValidator.readInstalledSignerDigests(context) },
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        scope = appScope,
+        ioDispatcher = ioDispatcher,
         releasesUrl = RELEASES_URL,
     )
 
@@ -98,7 +100,7 @@ class AppUpdateRepository internal constructor(
     }
 
     fun checkForUpdate(currentVersionName: String) {
-        scope.launch {
+        scope.launch(ioDispatcher) {
             checkForUpdateInternal(currentVersionName)
         }
     }
@@ -149,7 +151,7 @@ class AppUpdateRepository internal constructor(
     }
 
     fun downloadUpdate(info: AppUpdateInfo) {
-        scope.launch {
+        scope.launch(ioDispatcher) {
             downloadUpdateInternal(info)
         }
     }
@@ -236,11 +238,19 @@ class AppUpdateRepository internal constructor(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val TAG = "AppUpdate"
         const val UA = "Mozilla/5.0 (Linux; Android) Ayah-Quran-App"
         const val APK_FILE = "ayah-update.apk"
         const val RELEASES_URL =
             "https://api.github.com/repos/xAhmedAdel/Ayah-Quran/releases?per_page=10"
+
+        internal fun buildUpdaterClient(baseClient: OkHttpClient): OkHttpClient =
+            baseClient.newBuilder()
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(300, TimeUnit.SECONDS)
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build()
     }
 }

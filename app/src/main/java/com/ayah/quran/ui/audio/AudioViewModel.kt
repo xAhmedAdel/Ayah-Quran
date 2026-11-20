@@ -15,9 +15,7 @@ import com.ayah.quran.domain.model.audio.PlaybackState
 import com.ayah.quran.domain.model.audio.Reciter
 import com.ayah.quran.domain.model.audio.RepeatMode
 import com.ayah.quran.domain.repository.AudioPreferencesRepository
-import com.ayah.quran.domain.repository.AudioRepository
 import com.ayah.quran.domain.repository.QuranRepository
-import com.ayah.quran.domain.repository.ReciterRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +25,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Playback-foundation panel state — reflects ACTUAL player state only. */
 data class PlaybackPanelState(
     val playbackState: PlaybackState = PlaybackState.Idle,
     val positionMs: Long = 0L,
@@ -53,26 +50,17 @@ data class SurahAudioRow(
 }
 
 data class AudioUiState(
-    // Phase 5 legacy surface (kept for the old playback panel).
     val reciters: List<Reciter> = emptyList(),
     val isLoadingReciters: Boolean = true,
     val playback: PlaybackPanelState = PlaybackPanelState(),
-    // Phase 17 Quran recitations.
     val quranReciters: List<QuranReciterEdition> = emptyList(),
     val selectedEditionId: String? = null,
     val surahRows: List<SurahAudioRow> = emptyList(),
     val ayahPlayback: AyahPlaybackState = AyahPlaybackState(),
 )
 
-/**
- * Audio tab (Phase 17): verified reciter editions, per-ayah offline
- * downloads with resumable progress, and per-ayah playlist playback
- * (ayah highlight + repeat-ayah live in [AyahPlaybackState]).
- */
 @HiltViewModel
 class AudioViewModel @Inject constructor(
-    reciterRepository: ReciterRepository,
-    private val audioRepository: AudioRepository,
     private val preferencesRepository: AudioPreferencesRepository,
     private val quranRepository: QuranRepository,
     private val downloadRepository: QuranAudioDownloadRepository,
@@ -82,7 +70,6 @@ class AudioViewModel @Inject constructor(
     private val _selectedEdition = MutableStateFlow<String?>(null)
 
     init {
-        // Restore the persisted reciter once (catalog default until then).
         viewModelScope.launch {
             preferencesRepository.preferences.collect { prefs ->
                 if (_selectedEdition.value == null && prefs.selectedReciterId != null) {
@@ -92,48 +79,38 @@ class AudioViewModel @Inject constructor(
         }
     }
 
-    private val legacyState = combine(
-        reciterRepository.observeReciters(),
-        audioRepository.playbackState,
-        audioRepository.positionMs,
-        audioRepository.durationMs,
-        preferencesRepository.preferences,
-    ) { reciters, playbackState, positionMs, durationMs, prefs ->
-        Triple(reciters, playbackState, Triple(positionMs, durationMs, prefs))
-    }
-
-    private val phase17State = combine(
-        quranRepository.observeSurahs(),
+    private val downloadsSlice = combine(
         downloadRepository.states,
-        ayahPlayer.state,
-        _selectedEdition,
-    ) { surahs, downloadStates, ayahPlayback, selectedEdition ->
-        Triple(surahs, downloadStates, ayahPlayback) to selectedEdition
+        downloadRepository.downloadedCounts,
+    ) { states, counts ->
+        states to counts
     }
 
     val uiState: StateFlow<AudioUiState> = combine(
-        legacyState,
-        phase17State,
-    ) { (reciters, playbackState, posDurPrefs),
-        (surahsAndDownloads, selectedEdition) ->
-        val (surahs, downloadStates, ayahPlayback) = surahsAndDownloads
-        val (positionMs, durationMs, prefs) = posDurPrefs
+        quranRepository.observeSurahs(),
+        downloadsSlice,
+        ayahPlayer.state,
+        _selectedEdition,
+        preferencesRepository.preferences,
+    ) { surahs, (downloadStates, downloadedCounts), ayahPlayback, selectedEdition, prefs ->
         val edition = QuranAudioCatalog.byEdition(
             selectedEdition ?: prefs.selectedReciterId,
         )
         AudioUiState(
-            reciters = reciters,
             isLoadingReciters = false,
             playback = PlaybackPanelState(
-                playbackState = playbackState,
-                positionMs = positionMs,
-                durationMs = durationMs,
                 repeatMode = prefs.repeatMode,
                 playbackSpeed = prefs.playbackSpeed,
             ),
             quranReciters = QuranAudioCatalog.reciters,
             selectedEditionId = edition.editionId,
-            surahRows = buildSurahRows(surahs, edition, downloadStates, ayahPlayback),
+            surahRows = buildSurahRows(
+                surahs = surahs,
+                edition = edition,
+                downloadStates = downloadStates,
+                downloadedCounts = downloadedCounts,
+                ayahPlayback = ayahPlayback,
+            ),
             ayahPlayback = ayahPlayback,
         )
     }.stateIn(
@@ -146,12 +123,12 @@ class AudioViewModel @Inject constructor(
         surahs: List<Surah>,
         edition: QuranReciterEdition,
         downloadStates: Map<String, QuranAudioState>,
+        downloadedCounts: Map<String, Int>,
         ayahPlayback: AyahPlaybackState,
     ): List<SurahAudioRow> = surahs.map { surah ->
-        val state = downloadStates["${edition.editionId}:${surah.id}"]
-        val downloaded = downloadRepository.downloadedAyahCount(
-            edition.editionId, surah.id, surah.ayahCount,
-        )
+        val key = "${edition.editionId}:${surah.id}"
+        val state = downloadStates[key]
+        val downloaded = (downloadedCounts[key] ?: 0).coerceAtMost(surah.ayahCount)
         val isCurrent = !ayahPlayback.isIdle &&
             ayahPlayback.surah == surah.id &&
             ayahPlayback.editionId == edition.editionId
@@ -160,7 +137,7 @@ class AudioViewModel @Inject constructor(
             nameArabic = surah.nameArabic,
             nameTransliterated = surah.nameTransliterated,
             ayahCount = surah.ayahCount,
-            downloadState = state ?: if (downloaded >= surah.ayahCount) {
+            downloadState = state ?: if (surah.ayahCount > 0 && downloaded >= surah.ayahCount) {
                 QuranAudioState.Downloaded
             } else {
                 QuranAudioState.NotDownloaded
@@ -171,14 +148,11 @@ class AudioViewModel @Inject constructor(
         )
     }
 
-    // ---- Phase 17 actions ----
-
     fun selectReciter(editionId: String) {
         _selectedEdition.value = editionId
         viewModelScope.launch {
             preferencesRepository.update { it.copy(selectedReciterId = editionId) }
         }
-        // Switching reciter stops playback of the previous edition.
         ayahPlayer.stop()
     }
 
@@ -196,8 +170,6 @@ class AudioViewModel @Inject constructor(
     fun seekAyah(index: Int) = ayahPlayer.seekToAyah(index)
 
     fun toggleRepeatAyah() = ayahPlayer.toggleRepeatAyah()
-
-    // ---- slice 2: sleep timer / repeat range / resume ----
 
     fun setSleepTimer(mode: QuranSleepMode, minutes: Int = 0) =
         ayahPlayer.setSleepTimer(mode, minutes)
@@ -224,30 +196,5 @@ class AudioViewModel @Inject constructor(
     fun deleteSurah(surah: Int) {
         val edition = QuranAudioCatalog.byEdition(_selectedEdition.value)
         downloadRepository.deleteSurah(edition.editionId, surah)
-    }
-
-    // ---- Phase 5 legacy panel actions (kept; panel still binds to them) ----
-
-    fun playPause() {
-        viewModelScope.launch {
-            when (audioRepository.playbackState.value) {
-                is PlaybackState.Playing -> audioRepository.pause()
-                else -> audioRepository.play()
-            }
-        }
-    }
-
-    fun setRepeatMode(mode: RepeatMode) {
-        viewModelScope.launch {
-            audioRepository.setRepeatMode(mode)
-            preferencesRepository.update { it.copy(repeatMode = mode) }
-        }
-    }
-
-    fun setPlaybackSpeed(speed: Float) {
-        viewModelScope.launch {
-            audioRepository.setPlaybackSpeed(speed)
-            preferencesRepository.update { it.copy(playbackSpeed = speed) }
-        }
     }
 }

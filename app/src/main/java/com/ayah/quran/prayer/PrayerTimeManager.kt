@@ -1,5 +1,6 @@
 package com.ayah.quran.prayer
 
+import com.ayah.quran.di.ApplicationScope
 import com.ayah.quran.domain.model.prayer.DayPrayerTimes
 import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.model.prayer.PrayerCountdown
@@ -26,25 +27,25 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Central prayer-time orchestrator (app-scoped):
- *
- * - exposes preferences + the derived "now" state for the UI,
- * - keeps EXACTLY ONE AlarmManager alarm armed (the next prayer); every
- *   fire / settings change / timezone change / boot re-arms the next one —
- *   duplicate alarms are structurally impossible (single fixed
- *   PendingIntent + reconcile mutex).
- *
- * All recomputation paths funnel through [reconcile].
- */
 @Singleton
 class PrayerTimeManager @Inject constructor(
     private val preferencesRepository: PrayerPreferencesRepository,
     private val calculator: PrayerTimesCalculator,
     private val scheduler: PrayerAlarmScheduler,
+    @param:ApplicationScope private val scope: CoroutineScope,
 ) {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    internal constructor(
+        preferencesRepository: PrayerPreferencesRepository,
+        calculator: PrayerTimesCalculator,
+        scheduler: PrayerAlarmScheduler,
+    ) : this(
+        preferencesRepository = preferencesRepository,
+        calculator = calculator,
+        scheduler = scheduler,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    )
+
     private val reconcileMutex = Mutex()
 
     private val _preferences = MutableStateFlow(defaultPreferences())
