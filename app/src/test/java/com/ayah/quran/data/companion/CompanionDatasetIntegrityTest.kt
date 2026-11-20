@@ -144,4 +144,63 @@ class CompanionDatasetIntegrityTest {
             assertTrue("Blank datasetVersion on ${col.id}", col.datasetVersion.isNotBlank())
         }
     }
+
+    @Test
+    fun hisnAlMuslimChaptersNeverShipUnverifiedEnglishTranslations() {
+        val raw = assetFile("companion/adhkar_hisn.json").readText(Charsets.UTF_8)
+        val parsed = parser.parseAdhkar(raw)
+        val nonMorningEvening = parsed.items.filter {
+            it.categoryId !in setOf("morning", "evening") &&
+                it.itemType != DhikrItemType.SUNNAH_SURAH_LINK.name
+        }
+        assertTrue(nonMorningEvening.isNotEmpty())
+        nonMorningEvening.forEach { item ->
+            assertTrue(
+                "Unexpected unverified English translation on Hisn chapter item ${item.id}",
+                item.textEn.isNullOrBlank(),
+            )
+        }
+    }
+
+    @Test
+    fun inAppLicensesAndProguardRulesIncludeAllCompanionAttributionsAndProjections() {
+        val enStrings = listOf(
+            File("src/main/res/values/strings.xml"),
+            File("app/src/main/res/values/strings.xml"),
+        ).first { it.exists() }.readText(Charsets.UTF_8)
+        val arStrings = listOf(
+            File("src/main/res/values-ar/strings.xml"),
+            File("app/src/main/res/values-ar/strings.xml"),
+        ).first { it.exists() }.readText(Charsets.UTF_8)
+        val proguard = listOf(
+            File("proguard-rules.pro"),
+            File("app/proguard-rules.pro"),
+        ).first { it.exists() }.readText(Charsets.UTF_8)
+
+        val requiredTokens = listOf(
+            "Tanzil",
+            "GeoNames",
+            "Seen-Arabic/Morning-And-Evening-Adhkar-DB",
+            "asellam/HisnElMuslim",
+            "fawazahmed0/hadith-api",
+            "HadeethEnc.com",
+            "hadeethenc-api-v1-2026-11-20",
+        )
+        requiredTokens.forEach { token ->
+            assertTrue("Missing $token in EN strings.xml", enStrings.contains(token))
+        }
+        listOf(
+            "tanzil.net",
+            "GeoNames",
+            "Seen-Arabic/Morning-And-Evening-Adhkar-DB",
+            "asellam/HisnElMuslim",
+            "fawazahmed0/hadith-api",
+            "HadeethEnc.com",
+            "hadeethenc-api-v1-2026-11-20",
+        ).forEach { token ->
+            assertTrue("Missing $token in AR strings.xml", arStrings.contains(token))
+        }
+        assertTrue(proguard.contains("-keep class com.ayah.quran.core.database.entity.** { *; }"))
+        assertTrue(proguard.contains("-keep class com.ayah.quran.core.database.dao.companion.HadithWithUserState { *; }"))
+    }
 }

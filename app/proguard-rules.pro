@@ -3,6 +3,7 @@
 
 # Room entities/DAOs are resolved via generated code; keep SQL-pojo mapping intact.
 -keep class com.ayah.quran.core.database.entity.** { *; }
+-keep class com.ayah.quran.core.database.dao.companion.HadithWithUserState { *; }
 
 # Keep schema export artifacts out of the APK is not needed; nothing to strip here.
 

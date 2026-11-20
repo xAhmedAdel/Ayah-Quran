@@ -271,7 +271,7 @@ class HomeViewModel @Inject constructor(
             null
         }
         hijri to next
-    }
+    }.distinctUntilChanged()
 
     private val bookmarkCountFlow = observeBookmarkedAyahs().map { it.size }.distinctUntilChanged()
 
