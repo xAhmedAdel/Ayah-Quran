@@ -1,170 +1,185 @@
-# Ayah — Architecture
+# Ayah Architecture Guide
 
-Status: Phase 1 (Foundation) — updated at the end of each phase.
+This document describes the architecture, module boundaries, data layer, background services, and concurrency guarantees of the **Ayah (آية)** Android application (`v1.0.0-beta.12`, `versionCode = 13`, Room Schema `v4`).
 
-## Toolchain & versions
+---
 
-| Component | Version | Notes |
-|---|---|---|
-| Kotlin | 2.3.21 | K2; Compose compiler ships as `org.jetbrains.kotlin.plugin.compose` |
-| AGP | 8.13.2 | Mature final 8.x line |
-| Gradle | 8.13 | Required by AGP 8.13; runs on JDK 21 |
-| JDK | 21 (Temurin) | Compiles to Java 17 bytecode (`jvmTarget=17`) |
-| compileSdk / targetSdk | 36 | Android 16 |
-| minSdk | 29 | Android 10 (per product spec) |
+## 1. Architectural Principles
 
-Dependency pins (see `gradle/libs.versions.toml`) — all verified by a green
-build, not assumed:
+Ayah follows **Clean Architecture** combined with **MVVM / Unidirectional Data Flow (UDF)** in Jetpack Compose:
 
-- Hilt **2.58** — two hard constraints collide at the newest releases:
-  Hilt 2.59+ rejects AGP < 9.0 at plugin application (verified), and Hilt
-  2.58's processor reads Kotlin metadata only up to 2.3.0, which is what
-  pins Kotlin to 2.3.21 (Kotlin 2.4 emits metadata 2.4.0 and fails
-  `hiltJavaCompileDebug` — verified). Breaking this knot requires the AGP 9
-  migration; revisit it then.
-- Compose BOM **2026.06.00** (ui 1.11.3, material3 1.4.0) — Compose UI
-  1.12.1+ requires compileSdk 37 and AGP 9.1+ (verified via AGP dependency
-  check), so the BOM is held one generation back.
-- Navigation Compose **2.9.8** — 2.10.2 itself requires compileSdk 37 +
-  AGP 9.1 (verified).
-- Lifecycle **2.10.0** — 2.11.0 requires AGP 9.1 (verified).
-- Room 2.8.5, DataStore 1.2.1, Activity Compose 1.12.4, core-ktx 1.17.0,
-  androidx.hilt 1.3.0, core-splashscreen 1.2.0, coroutines 1.11.0.
+1. **Offline-First Truth**: The local Room database (`ayah.db`, schema v4) and Preferences DataStore (`ayah_settings`) are the single sources of truth for all screens.
+2. **Strict Layer Separation**:
+   - **UI Layer (`ui/`)**: Stateless Jetpack Compose screens, Material 3 components, and `@HiltViewModel` state holders exposing immutable `StateFlow<UiState>`.
+   - **Domain Layer (`domain/`)**: Pure Kotlin domain models, calculation contracts, and repository interfaces.
+   - **Data & Core Layers (`data/`, `core/`, `feature/`)**: Room entities/DAOs, asset seeders, DataStore preferences, Media3 services, alarm schedulers, and network clients.
+3. **Main-Thread Safety**: Disk I/O, Quran/companion database seeding, filesystem audio scans, bitmap wallpaper rendering, and HTTP calls run exclusively on background coroutine dispatchers (`@IoDispatcher` / `Dispatchers.IO`).
+4. **Forced Arabic RTL Consistency**: Both `MainActivity` and `AyahApp` enforce `AppLocale.ARABIC` and `LayoutDirection.Rtl` so typography, navigation, and Mushaf pagination remain consistent across all device locales.
 
-**AGP 9 migration note (future):** AGP 9 replaces the standalone Kotlin
-Android plugin with built-in Kotlin support and requires Gradle 9.x. When
-the project migrates: AGP 9.x + Hilt 2.60+ + Kotlin 2.4+ + Compose BOM
-2026.09+ + compileSdk 37, with `navigation`/`lifecycle` moved back to their
-latest lines. Do this as its own phase with a full regression pass.
+---
 
-## Module structure decision
+## 2. High-Level System Diagram
 
-Phase 1 ships a **single `:app` Gradle module** with strict
-clean-architecture *package* boundaries instead of a multi-module build:
+```mermaid
+flowchart TD
+    subgraph UI["UI Layer (Jetpack Compose + Material 3 RTL)"]
+        MainActivity["MainActivity + AyahApp Navigation Host"]
+        Screens["21 Feature Screens (Home, Quran, Mushaf, Prayer, Audio, Wallpapers, Companion, Settings)"]
+        ViewModels["Hilt ViewModels (StateFlow UDF)"]
+    end
 
+    subgraph Domain["Domain Layer"]
+        Models["Domain Models (Surah, Ayah,Bookmark, PrayerSchedule, Reciter, WallpaperConfig)"]
+        RepoContracts["Repository & Player Interfaces"]
+    end
+
+    subgraph Data["Data & Feature Subsystems"]
+        QuranRepos["Quran, Bookmark, Progress & DailyAyah Repositories"]
+        CompanionRepos["Adhkar, Tasbih, Duas & Hadith Repositories"]
+        PrayerSubsystem["PrayerTimeCalculator (adhan-java) +OfflineCitySearch + Exact Alarm Scheduler"]
+        AudioSubsystem["QuranAudioDownloadRepository + ExoPlayerAyahPlaylistPlayer"]
+        WallpaperSubsystem["WallpaperBitmapRenderer + WallpaperApplier"]
+        UpdateSubsystem["GitHubReleaseUpdateRepository + UpdateSecurityValidator"]
+    end
+
+    subgraph Storage["Local Persistence & Bundled Assets"]
+        RoomDB["Room Database v4 (17 Entities + Hadith FTS4)"]
+        DataStore["Preferences DataStore (Settings, Prayer, Companion)"]
+        Assets["Bundled Assets (Tanzil Uthmani v1.1, Companion JSON, GeoNames Cities, Adhan OGGs, Fonts)"]
+        FileStorage["Internal Storage (Offline Surah MP3 Cache)"]
+    end
+
+    subgraph Background["Background Services, Receivers & WorkManager"]
+        QuranService["QuranPlaybackService (Media3 MediaSessionService)"]
+        AdhanService["AdhanPlaybackService (Foreground Audio Service)"]
+        PrayerReceivers["PrayerAlarmReceiver + PrayerBootReceiver + PrayerNotificationActionReceiver"]
+        Workers["DailyWallpaperWorker + DailyReminderWorker + PrayerRescheduleWorker"]
+    end
+
+    MainActivity --> Screens
+    Screens --> ViewModels
+    ViewModels --> RepoContracts
+    RepoContracts --> QuranRepos
+    RepoContracts --> CompanionRepos
+    RepoContracts --> PrayerSubsystem
+    RepoContracts --> AudioSubsystem
+    RepoContracts --> WallpaperSubsystem
+    RepoContracts --> UpdateSubsystem
+
+    QuranRepos --> RoomDB
+    QuranRepos --> DataStore
+    QuranRepos --> Assets
+    CompanionRepos --> RoomDB
+    CompanionRepos --> DataStore
+    CompanionRepos --> Assets
+    PrayerSubsystem --> DataStore
+    PrayerSubsystem --> Assets
+    PrayerSubsystem --> PrayerReceivers
+    PrayerReceivers --> AdhanService
+    AudioSubsystem --> FileStorage
+    AudioSubsystem --> QuranService
+    WallpaperSubsystem --> RoomDB
+    WallpaperSubsystem --> Workers
 ```
+
+---
+
+## 3. Package Organization
+
+```text
 com.ayah.quran
+├── AyahApplication.kt             # @HiltAndroidApp entry point; notification channels & startup workers
+├── MainActivity.kt                # Single-activity Compose host with Arabic locale wrapper
 ├── core/
-│   ├── database/        Room: entities, DAOs, AyahDatabase
-│   ├── designsystem/    theme (Color/Type/Theme/Spacing) + shared components
-│   └── (wallpaper, notifications join in Phase 3+)
+│   ├── database/                  # AyahDatabase (Room v4), AyahMigrations (v1..v4), 9 DAOs, 17 Entities
+│   ├── datastore/                 # SettingsDataStore (user preferences, reading, audio, reminders)
+│   └── designsystem/              # AyahLightColors, AyahDarkColors, Amiri/IBM Plex Arabic typography, spacing
 ├── data/
-│   └── settings/        DataStore-backed UserPreferencesRepository
+│   ├── audio/                     # QuranAudioDownloadRepository, ExoPlayerAyahPlaylistPlayer, ReciterCatalog
+│   ├── companion/                 # CompanionDatabaseSeeder, AdhkarRepository, TasbihRepository, HadithRepository
+│   ├── local/                     # QuranDatabaseSeeder, ReadingProgressRepository, WallpaperHistoryRepository
+│   ├── model/                     # WallpaperTemplate & data transfer definitions
+│   ├── prayer/                    # OfflineCitySearchRepository (GeoNames bundled catalog)
+│   ├── quran/                     # QuranTextParser, PageBoundaryLoader, JuzBoundaryLoader
+│   ├── repository/                # QuranRepositoryImpl, BookmarkRepositoryImpl, DailyAyahRepositoryImpl
+│   ├── service/                   # QuranPlaybackService (Media3), WallpaperGenerator
+│   └── update/                    # GitHubReleaseUpdateRepository, UpdateDownloadManager, UpdateSecurityValidator
+├── di/
+│   ├── AppBindingsModule.kt       # Interface-to-implementation Hilt bindings
+│   ├── CompanionModule.kt         # Companion DAOs and seeder providers
+│   ├── CoroutineScopesModule.kt   # @ApplicationScope, @IoDispatcher, @MainDispatcher
+│   ├── DatabaseModule.kt          # Room database builder with explicit migrations v1..v4
+│   └── NetworkModule.kt           # Shared singleton OkHttpClient with 15s connect / 30s read timeouts
 ├── domain/
-│   ├── model/           Surah, Ayah, Bookmark, ReadingPosition, ThemeMode
-│   ├── repository/      interfaces (data layer implements)
-│   └── usecase/         one class per business operation
-├── di/                  Hilt modules (Database, DataStore, bindings)
-├── navigation/          TopLevelDestination + AyahApp scaffold
-├── ui/                  feature packages (home, quran, wallpapers, audio, settings)
-└── docs/                architecture & data documentation
+│   ├── model/                     # Immutable domain entities (Surah, Ayah, Bookmark, Reciter, etc.)
+│   └── repository/                # Repository interfaces
+├── feature/
+│   ├── prayer/                    # PrayerTimeCalculator, PrayerAlarmScheduler, AdhanPlaybackService, Receivers
+│   └── wallpaper/                 # WallpaperBitmapRenderer (1080x2400 Canvas), WallpaperApplier
+├── notification/                  # NotificationHelper, DailyReminderScheduler, DailyReminderReceiver
+├── ui/
+│   ├── AppLocale.kt               # Forced Arabic locale & RTL configuration helper
+│   ├── AyahApp.kt                 # Root Scaffold, NavHost, Bottom Navigation, MiniPlayerBar, Splash gate
+│   ├── navigation/                # TopLevelDestination (Home, Quran, Prayer, Audio, Wallpapers)
+│   ├── components/                # Shared Compose UI components
+│   └── screens/                   # 21 feature screens across home, quran, reader, prayer, audio, wallpapers, companion, settings
+└── work/                          # DailyWallpaperWorker, DailyReminderWorker, PrayerRescheduleWorker
 ```
 
-**Why:** a 10-module Gradle setup adds inter-module API churn, slower
-configuration, and heavier CI for zero benefit while the domain model is
-still evolving. Package boundaries mirror the intended module boundaries
-(`core:*`, `feature:*` …), so extraction later is mechanical:
-each package above becomes a Gradle module without renaming any class.
+---
 
-**Layer rules (enforced by convention, moved into modules when extracted):**
+## 4. Database Architecture (Room Schema v4)
 
-1. `ui/**` never imports Room, DataStore, or `android.app.WallpaperManager`.
-   UI observes state from ViewModels; ViewModels call use cases.
-2. `domain/**` has no Android framework dependencies (pure Kotlin where
-   possible) and defines repository interfaces.
-3. `data/**` and `core/database|datastore|wallpaper/**` implement domain
-   interfaces and are the only layers touching I/O frameworks.
-4. Background workers (Phase 3) live outside the UI and depend only on
-   domain + data.
+`AyahDatabase` (`ayah.db`) is configured at **version 4** with `exportSchema = true` and explicit non-destructive migrations (`MIGRATION_1_2`, `MIGRATION_2_3`, `MIGRATION_3_4`):
 
-## Design system
+### 4.1 Core Quran & Wallpaper Entities (6 tables)
+1. **`surahs` (`SurahEntity`)**: 114 rows holding Surah number, Arabic/English names, revelation type (`Makki` / `Madani`), Ayah count, and starting Madani Mushaf page.
+2. **`ayahs` (`AyahEntity`)**: 6,236 rows holding Surah number, Ayah number, vocalized Uthmani text, normalized search text (diacritics stripped), Madani page (`1..604`), and Juz (`1..30`). Indexed on `(surah_number, ayah_number)`, `surah_number`, `page`, and `juz`.
+3. **`bookmarks` (`BookmarkEntity`)**: User-saved Ayah bookmarks with creation timestamps and unique index on `(surah_number, ayah_number)`.
+4. **`reading_progress` (`ReadingProgressEntity`)**: Tracks last-read Surah, Ayah, Madani page, reading mode (`MUSHAF` vs `CONTINUOUS`), and daily reading streak history.
+5. **`wallpaper_history` (`WallpaperHistoryEntity`)**: Logs generated and applied Quranic wallpapers.
+6. **`selection_history` (`SelectionHistoryEntity`)**: Tracks recently featured daily Ayahs to prevent repetition within a rolling window.
 
-- Fixed brand palette (Emerald `#153D32`, Gold `#D5B56A`, Cream `#F7F2E8`,
-  Ink `#111714`, text `#F5F2EA` on dark). **Dynamic color is deliberately
-  disabled** — the brand must render identically on all devices.
-- Typography: system family for Latin UI; **Amiri** (`res/font`, SIL OFL 1.1)
-  for Arabic display text and the wordmark, exposed as
-  `QuranTextFontFamily`. The dedicated Uthmani-script rendering font for the
-  wallpaper engine is selected during the data phase (Phase 2/3) — Amiri is
-  a UI display font, not necessarily the final mushaf font.
-- Spacing scale: `AyahSpacing` (4-pt base); radii: `AyahRadii`.
+### 4.2 Daily Islamic Companion Entities (11 tables)
+7. **`dhikr_categories` (`DhikrCategoryEntity`)**: Curated Adhkar categories (Morning, Evening, After Prayer, Sleep, Waking Up, Sunnah Surahs).
+8. **`dhikr_items` (`DhikrItemEntity`)**: Individual vocalized Adhkar items with recommended repeat counts, virtue notes, and source references.
+9. **`quranic_duas` (`QuranicDuaEntity`)**: Categorized Quranic and Prophetic Duas with direct Surah:Ayah links.
+10. **`dhikr_daily_progress` (`DhikrDailyProgressEntity`)**: Per-day completion progress across Adhkar sessions.
+11. **`dhikr_favorites` (`DhikrFavoriteEntity`)**: User-favorited Adhkar items.
+12. **`tasbih_counters` (`TasbihCounterEntity`)**: Preset and custom Tasbih phrases and target counts.
+13. **`tasbih_daily_logs` (`TasbihDailyLogEntity`)**: Daily Tasbih completion totals.
+14. **`hadith_collections` (`HadithCollectionEntity`)**: Offline Hadith collections (including An-Nawawi's Forty Hadith and thematic chapters).
+15. **`hadith_items` (`HadithEntity`)**: Vocalized Arabic and English Hadith texts, narrators, authenticity grading, and chapter metadata.
+16. **`hadith_fts` (`HadithFtsEntity`)**: SQLite **FTS4** full-text search index over `hadith_items` enabling instant offline bilingual search.
+17. **`hadith_user_state` (`HadithUserStateEntity`)**: Bookmarked and last-read state for Hadith entries.
 
-## Persistence
+---
 
-- **Room** (`ayah.db`, schema exported to `app/schemas`): `surahs` (incl.
-  Arabic/transliterated/English names, revelation type, ayah count),
-  `ayahs` (composite unique `(surahId, ayahNumber)`, global verse id as PK,
-  FK → surahs, page/juz indexes), `bookmarks` (unique `(surahId,
-  ayahNumber)`, FK → ayahs, cascade), `reading_progress` (single-row
-  upsert table).
-- **Schema history:** v1 = Phase 1, v2 = `surahs.nameEnglish` added (Phase
-  2). **Until first release**, `fallbackToDestructiveMigration()` is the
-  documented policy — no user database from an older schema exists in the
-  wild; a real migration plan starts with the first public schema (v2).
-- **DataStore Preferences** (`ayah_preferences`): enum-name strings, unknown
-  values degrade to defaults (`ThemeMode.fromStorage`).
+## 5. Key Subsystems & Concurrency Guarantees
 
-## Quran data pipeline (Phase 2)
+### 5.1 Deterministic Database Seeding
+- On cold start, `QuranDatabaseSeeder` and `CompanionDatabaseSeeder` run inside a database transaction on `@IoDispatcher`.
+- If `surahs == 114` and `ayahs == 6236`, Quran seeding completes as an instant no-op.
+- While first-launch seeding executes, `AyahApp` presents `StartupSplashScreen` and transitions to the main navigation graph only after `QuranRepository.isSeeded()` emits `true`.
 
-- Dataset (Tanzil Uthmani v1.1 + metadata + Madani page/juz metrics) is
-  bundled in `app/src/main/assets/quran/`; provenance, checksums, license
-  and the full verification methodology: docs/QURAN_DATA.md.
-- `QuranTextParser` parses strictly (any anomaly → `QuranParseException`),
-  cross-tying all three files: ayah sequence, per-surah counts, global ids
-  from XML start indices, juz/page ranges, revelation types.
-- `QuranImporter` runs at app start on an application-scoped coroutine:
-  validate-then-write, one Room transaction, idempotent, post-insert count
-  verification, honest `QuranImportState` (NotStarted/Importing/Completed/
-  Failed) observed by the UI.
-- Mushaf display conventions (bismillah header incl. the 95/97 shadda
-  variant) are applied at RENDER time from dataset-derived values — the
-  stored text is never modified.
+### 5.2 Audio Playback & Concurrency-Hardened Offline Downloads
+- **Playback (`ExoPlayerAyahPlaylistPlayer` + `QuranPlaybackService`)**:
+  - Builds per-Ayah Media3 `MediaItem` playlists for any Surah, automatically preferring locally cached files (`filesDir/quran_audio/{reciterId}/{surah}/{ayah}.mp3`) and falling back to HTTPS streaming (`cdn.islamic.network` / `everyayah.com`).
+  - Supports Ayah repeat, Ayah-range repeat, playback speed (`0.75x` to `1.5x`), and sleep timers (`END_OF_AYAH`, `END_OF_SURAH`, `10/20/30` minutes).
+  - Playlist preparation uses an atomic generation counter (`prepareGeneration`) so rapid `playSurah()` / `stop()` calls never allow a stale background I/O preparation coroutine to start playback after `stop()`.
+- **Offline Downloads (`QuranAudioDownloadRepository`)**:
+  - Uses per-Surah `Mutex` locks (`surahLock`), operation-unique temporary `.part` filenames (`{ayah}.{generation}.part`), and atomic generation tracking (`latestGeneration`) to guarantee race-free behavior across concurrent `downloadSurah()`, `cancelDownload()`, `deleteSurah()`, and startup `refreshDownloadedCounts()` scans.
+  - `cancelDownload()` immediately cancels both the active OkHttp `Call` and coroutine `Job`, then awaits cleanup under the per-Surah mutex before any subsequent download or deletion for that Surah proceeds.
 
-## Wallpaper engine (Phase 3)
+### 5.3 Prayer Times, Exact Alarms & Adhan Audio Pipeline
+- **Calculation (`PrayerTimeCalculator`)**: Wraps `com.batoulapps.adhan` (`adhan-java`) to compute Fajr, Sunrise, Dhuhr, Asr, Maghrib, and Isha locally from coordinates, calculation method, madhab, high-latitude rule, and manual minute adjustments.
+- **Scheduling (`PrayerAlarmScheduler`)**: Schedules exact wake alarms via `AlarmManager` with automatic recovery across device boot (`BOOT_COMPLETED`), timezone/time changes (`TIME_SET`, `TIMEZONE_CHANGED`), exact-alarm permission grants (`SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED`),app package updates (`MY_PACKAGE_REPLACED`), and periodic `PrayerRescheduleWorker` checks.
+- **Adhan Audio (`AdhanPlaybackService`)**: Dedicated foreground service with `AudioFocusRequest` management, silent/DND ringer-mode inspection, progressive fade-in option, auto-stop timeout, and single-schedule `PrayerNotificationCoordinator` deduplication.
 
-- `core/wallpaper/`: `WallpaperTemplate` (structured-data templates —
-  palette, background, decorations, typography, safe-area insets) and
-  `WallpaperRenderer` (StaticLayout RTL Amiri text, fit-to-content shrink
-  pass — never ellipsizes Quranic text; safe area accounts for clock,
-  gestures, punch-hole).
-- `core/quran/AyahSelector`: pure selection algorithms (random with recent
-  avoidance + full-pool fallback, sequential with persistent cursor, daily
-  by epoch day). Pools come only from the verified dataset.
-- `data/wallpapers/`: `WallpaperRepositoryImpl` (render → apply via
-  `WallpaperManager.setBitmap` per FLAG_SYSTEM/FLAG_LOCK → record history;
-  SUCCESS only after Android confirms), `WallpaperSettingsRepositoryImpl`
-  (DataStore), `WallpaperSchedulingRepositoryImpl` (WorkManager unique
-  periodic work, UPDATE policy, battery-not-low constraint).
-- `background/WallpaperWorker`: `@HiltWorker` CoroutineWorker; on-demand
-  WorkManager init via `Configuration.Provider` + manifest provider removal.
-- Room schema v3: `wallpaper_history` + `selection_history` tables.
-- Renderer pitfalls (documented from real bugs): never set
-  `Paint.textAlign = CENTER` on a TextPaint used by an RTL StaticLayout
-  (double-offset clipping); render at screen dimensions, not
-  `desiredMinimum*` (launcher crops the scrollable canvas); qualify
-  receiver members inside `apply{}` when same-named locals exist.
+### 5.4 Quranic Wallpaper Renderer
+- `WallpaperBitmapRenderer` renders `1080x2400` `ARGB_8888` bitmaps off-screen using Android `Canvas`, `StaticLayout`, custom Amiri/IBM Plex Arabic typography, and 6 curated visual templates.
+- `WallpaperApplier` applies generated bitmaps to `FLAG_SYSTEM` (Home), `FLAG_LOCK` (Lock), or both via Android `WallpaperManager`, and `DailyWallpaperWorker` rotates wallpapers automatically when enabled.
 
-## Known Android-platform notes
-
-- **WallpaperManager & screens:** `FLAG_SYSTEM` / `FLAG_LOCK` application
-  behaves differently across Android versions and OEMs; documented with the
-  wallpaper engine (Phase 3).
-- **WorkManager periodic work** has a 15-minute minimum interval and is
-  inexact under Doze; the 30-minute option in the spec is the lowest offered
-  and execution times are estimates, never promises.
-- **JDK note:** Gradle and toolchains run on JDK 21; Kotlin targets JVM 17
-  bytecode (the baseline AGP 8.x supports for desugaring-free minSdk 29).
-
-## Testing strategy
-
-- JVM unit tests (`app/src/test`): domain logic, ViewModel seams, mapping.
-  Phase 1: 7 tests across ThemeMode storage mapping, navigation contract,
-  and the settings ViewModel→use case→repository chain (MockK + Turbine +
-  coroutines-test), all green.
-- Room DAO and database tests require Robolectric or instrumentation —
-  introduced with the Quran data import (Phase 2), where they guard text
-  integrity.
-- Compose UI tests arrive with Phase 4 screens.
-- Instrumented tests cannot run in the current development environment
-  (no emulator/device attached); `androidTest` dependencies are configured
-  so they execute unchanged once a device is available.
+### 5.5 Hardened In-App GitHub Release Updater
+- `GitHubReleaseUpdateRepository` queries `https://api.github.com/repos/xAhmedAdel/Ayah-Quran/releases` using a dedicated security-hardened `OkHttpClient` (`followRedirects = false`) that validates redirect hops through `UpdateSecurityValidator.isAllowedDownloadUrl()` (enforcing HTTPS and trusted GitHub release hosts).
+- Downloaded APKs are verified against both the release asset's `SHA-256` digest and the currently installed APK signing certificate (`UpdateSecurityValidator.hasMatchingSigningCertificate()`) before invoking Android's `PackageInstaller`.
