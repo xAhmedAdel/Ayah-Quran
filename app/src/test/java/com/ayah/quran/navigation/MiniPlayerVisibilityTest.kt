@@ -29,5 +29,6 @@ class MiniPlayerVisibilityTest {
         assertFalse(shouldShowMiniPlayer(Routes.MUSHAF))
         assertFalse(shouldShowMiniPlayer(Routes.READER))
         assertFalse(shouldShowMiniPlayer(Routes.ADHKAR_SESSION))
+        assertFalse(shouldShowMiniPlayer(Routes.TASBIH))
     }
 }
