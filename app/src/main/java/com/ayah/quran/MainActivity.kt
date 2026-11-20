@@ -52,9 +52,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun captureDeepLink(intent: Intent?) {
-        val route = intent?.getStringExtra(CompanionReminderNotifier.EXTRA_COMPANION_ROUTE)
-        if (!route.isNullOrBlank()) {
-            pendingDeepLinkRoute.value = route
+        val resolved = com.ayah.quran.navigation.ExternalRouteValidator.resolveExternalRoute(
+            hasExtra = intent?.hasExtra(CompanionReminderNotifier.EXTRA_COMPANION_ROUTE) == true,
+            rawRoute = intent?.getStringExtra(CompanionReminderNotifier.EXTRA_COMPANION_ROUTE),
+        )
+        if (resolved != null) {
+            pendingDeepLinkRoute.value = resolved
         }
     }
 }

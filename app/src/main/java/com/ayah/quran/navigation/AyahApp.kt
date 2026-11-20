@@ -128,13 +128,25 @@ fun AyahApp(
     val navController = rememberNavController()
 
     LaunchedEffect(pendingDeepLinkRoute) {
-        val target = pendingDeepLinkRoute ?: return@LaunchedEffect
-        if (target == TopLevelDestination.HOME.route) {
-            navController.navigateToTopLevel(TopLevelDestination.HOME.route)
+        val rawTarget = pendingDeepLinkRoute ?: return@LaunchedEffect
+        val target = if (ExternalRouteValidator.isAllowed(rawTarget)) {
+            rawTarget
         } else {
-            navController.navigate(target) { launchSingleTop = true }
+            TopLevelDestination.HOME.route
         }
-        onConsumeDeepLinkRoute()
+        try {
+            if (target == TopLevelDestination.HOME.route) {
+                navController.navigateToTopLevel(TopLevelDestination.HOME.route)
+            } else {
+                runCatching {
+                    navController.navigate(target) { launchSingleTop = true }
+                }.onFailure {
+                    navController.navigateToTopLevel(TopLevelDestination.HOME.route)
+                }
+            }
+        } finally {
+            onConsumeDeepLinkRoute()
+        }
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route

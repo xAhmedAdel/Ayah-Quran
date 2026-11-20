@@ -5,23 +5,33 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import com.ayah.quran.BuildConfig
 import java.io.File
 
-/**
- * Hands the downloaded update APK to the SYSTEM package installer.
- *
- * Android forbids silent installs by design: the user reviews and confirms
- * in the installer UI. On first update the user must once allow
- * "install unknown apps" for Ayah (system screen) — we deep-link there.
- */
+sealed interface AppUpdateInstallResult {
+    data object Launched : AppUpdateInstallResult
+    data object PermissionRequired : AppUpdateInstallResult
+    data class Rejected(val reason: String) : AppUpdateInstallResult
+}
+
 object AppUpdateInstaller {
 
-    /**
-     * @return true when the installer was launched; false when the user was
-     *         redirected to grant "install unknown apps" first (they retry
-     *         after granting).
-     */
-    fun installOrGuide(context: Context, apk: File): Boolean {
+    fun installOrGuide(
+        context: Context,
+        apk: File,
+        expectedByteCount: Long? = null,
+    ): AppUpdateInstallResult {
+        val validation = AppUpdateSecurityValidator.validateApk(
+            apkFile = apk,
+            expectedByteCount = expectedByteCount,
+            installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
+            installedSignerSha256Digests = AppUpdateSecurityValidator.readInstalledSignerDigests(context),
+            metadataReader = AppUpdateSecurityValidator.androidApkMetadataReader(context),
+        )
+        if (validation is ApkValidationResult.Invalid) {
+            return AppUpdateInstallResult.Rejected(validation.reason)
+        }
+
         val packageManager = context.packageManager
         if (!packageManager.canRequestPackageInstalls()) {
             val intent = Intent(
@@ -29,7 +39,7 @@ object AppUpdateInstaller {
                 Uri.parse("package:${context.packageName}"),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
-            return false
+            return AppUpdateInstallResult.PermissionRequired
         }
 
         val uri = FileProvider.getUriForFile(
@@ -45,6 +55,6 @@ object AppUpdateInstaller {
             )
         }
         context.startActivity(intent)
-        return true
+        return AppUpdateInstallResult.Launched
     }
 }

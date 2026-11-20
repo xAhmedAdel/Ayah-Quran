@@ -561,7 +561,17 @@ private fun UpdatesSection(viewModel: SettingsViewModel) {
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Button(
-                            onClick = { AppUpdateInstaller.installOrGuide(context, state.apkFile) },
+                            onClick = {
+                                val expectedSize = state.info.apkSizeBytes.takeIf { it > 0L }
+                                val result = AppUpdateInstaller.installOrGuide(
+                                    context = context,
+                                    apk = state.apkFile,
+                                    expectedByteCount = expectedSize,
+                                )
+                                if (result is com.ayah.quran.data.update.AppUpdateInstallResult.Rejected) {
+                                    viewModel.reportInstallValidationFailure(result.reason)
+                                }
+                            },
                             shape = RoundedCornerShape(AyahRadii.pill),
                         ) {
                             Text(stringResource(R.string.settings_updates_install))

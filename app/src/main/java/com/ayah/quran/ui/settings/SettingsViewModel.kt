@@ -85,8 +85,10 @@ class SettingsViewModel @Inject constructor(
         updateRepository.checkForUpdate(BuildConfig.VERSION_NAME)
     }
 
-    /** A previously downloaded update APK, if the app was killed mid-flow. */
     fun pendingUpdateFile(): File? = updateRepository.pendingUpdateFile()
 
     fun downloadUpdate(info: AppUpdateInfo) = updateRepository.downloadUpdate(info)
+
+    fun reportInstallValidationFailure(reason: String) =
+        updateRepository.reportInstallValidationFailure(reason)
 }
