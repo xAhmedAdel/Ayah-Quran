@@ -1,9 +1,8 @@
 package com.ayah.quran.core.database.dao
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.ayah.quran.core.database.entity.AyahEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -64,9 +63,11 @@ interface AyahDao {
         val pageCount: Int,
     )
 
-    /** Used by the Phase 2 import; REPLACE makes re-imports idempotent. */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertAll(ayahs: List<AyahEntity>)
+
+    @Query("SELECT COUNT(*) FROM ayahs")
+    fun observeCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM ayahs")
     suspend fun count(): Int

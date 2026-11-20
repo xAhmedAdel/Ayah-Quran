@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.room.withTransaction
+import com.ayah.quran.core.database.AyahDatabase
 import com.ayah.quran.core.database.dao.AyahDao
 import com.ayah.quran.core.database.dao.SelectionHistoryDao
 import com.ayah.quran.core.database.dao.SurahDao
@@ -30,6 +32,7 @@ import com.ayah.quran.domain.repository.WallpaperRepository
 import com.ayah.quran.domain.repository.WallpaperSettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -41,6 +44,7 @@ import javax.inject.Singleton
 @Singleton
 class WallpaperRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val database: AyahDatabase,
     private val renderer: WallpaperRenderer,
     private val ayahDao: AyahDao,
     private val surahDao: SurahDao,
@@ -76,6 +80,8 @@ class WallpaperRepositoryImpl @Inject constructor(
                     verticalPosition = verticalPosition,
                 ),
             ).bitmap
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (t: Throwable) {
             Log.e(TAG, "render failed for ${ayah.surahId}:${ayah.ayahNumber}", t)
             recordHistory(ayah.surahId, ayah.ayahNumber, template.id, destinations, WallpaperApplyStatus.FAILED, t.message)
@@ -196,17 +202,19 @@ class WallpaperRepositoryImpl @Inject constructor(
     }
 
     override suspend fun recordSelection(surahId: Int, ayahNumber: Int, mode: SelectionMode) {
-        val globalId = ayahDao.getAyah(surahId, ayahNumber)?.id?.toLong() ?: return
-        selectionHistoryDao.insert(
-            SelectionHistoryEntity(
-                surahId = surahId,
-                ayahNumber = ayahNumber,
-                globalId = globalId,
-                selectedAt = System.currentTimeMillis(),
-                mode = mode.name,
-            ),
-        )
-        selectionHistoryDao.trimTo(RECENT_WINDOW_KEEP)
+        database.withTransaction {
+            val globalId = ayahDao.getAyah(surahId, ayahNumber)?.id?.toLong() ?: return@withTransaction
+            selectionHistoryDao.insert(
+                SelectionHistoryEntity(
+                    surahId = surahId,
+                    ayahNumber = ayahNumber,
+                    globalId = globalId,
+                    selectedAt = System.currentTimeMillis(),
+                    mode = mode.name,
+                ),
+            )
+            selectionHistoryDao.trimTo(RECENT_WINDOW_KEEP)
+        }
     }
 
     override suspend fun recentSelections(limit: Int): Set<Long> =
@@ -249,18 +257,20 @@ class WallpaperRepositoryImpl @Inject constructor(
         status: WallpaperApplyStatus,
         failureReason: String?,
     ) {
-        wallpaperHistoryDao.insert(
-            WallpaperHistoryEntity(
-                surahId = surahId,
-                ayahNumber = ayahNumber,
-                templateId = templateId,
-                destinations = destinations.name,
-                appliedAt = System.currentTimeMillis(),
-                status = status.name,
-                failureReason = failureReason,
-            ),
-        )
-        wallpaperHistoryDao.trimTo(HISTORY_RETENTION)
+        database.withTransaction {
+            wallpaperHistoryDao.insert(
+                WallpaperHistoryEntity(
+                    surahId = surahId,
+                    ayahNumber = ayahNumber,
+                    templateId = templateId,
+                    destinations = destinations.name,
+                    appliedAt = System.currentTimeMillis(),
+                    status = status.name,
+                    failureReason = failureReason,
+                ),
+            )
+            wallpaperHistoryDao.trimTo(HISTORY_RETENTION)
+        }
     }
 
     private suspend fun referenceLabel(surahId: Int, ayahNumber: Int): String {

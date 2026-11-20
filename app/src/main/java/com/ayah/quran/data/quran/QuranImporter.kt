@@ -8,6 +8,7 @@ import com.ayah.quran.core.database.entity.SurahEntity
 import com.ayah.quran.di.ApplicationScope
 import com.ayah.quran.domain.model.QuranImportState
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,12 +80,11 @@ class QuranImporter @Inject constructor(
                     parsed.ayahs.chunked(chunkSize).forEachIndexed { index, chunk ->
                         ayahDao.insertAll(chunk.map { it.toEntity() })
                         _importState.value = QuranImportState.Importing(
-                            progress = (index + 1) * chunkSize / parsed.ayahs.size.toFloat(),
+                            progress = ((index + 1) * chunkSize / parsed.ayahs.size.toFloat()).coerceAtMost(1f),
                         )
                     }
                 }
 
-                // Only mark success after verifying what actually landed in the DB.
                 val surahCount = surahDao.count()
                 val ayahCount = ayahDao.count()
                 if (surahCount != QuranTextParser.EXPECTED_SURAHS ||
@@ -96,9 +96,9 @@ class QuranImporter @Inject constructor(
                 }
                 _importState.value = QuranImportState.Completed
                 Log.i(TAG, "import completed: $surahCount surahs, $ayahCount ayahs")
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (t: Throwable) {
-                // Room's transaction has rolled back; the DB stays empty and the
-                // failure is reported honestly instead of faked as success.
                 Log.e(TAG, "Quran import failed", t)
                 _importState.value = QuranImportState.Failed(reason = t.message ?: t.javaClass.simpleName)
             }

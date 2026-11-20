@@ -23,7 +23,7 @@ object DatabaseModule {
     @Singleton
     fun provideAyahDatabase(@ApplicationContext context: Context): AyahDatabase =
         Room.databaseBuilder(context, AyahDatabase::class.java, AyahDatabase.NAME)
-            .addMigrations(AyahMigrations.MIGRATION_3_4)
+            .addMigrations(*AyahMigrations.ALL)
             .build()
 
     @Provides

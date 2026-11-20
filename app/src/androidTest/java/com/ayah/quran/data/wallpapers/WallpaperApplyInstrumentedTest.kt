@@ -60,6 +60,7 @@ class WallpaperApplyInstrumentedTest {
         settingsRepository = FakeSettingsRepository()
         repository = WallpaperRepositoryImpl(
             context = context,
+            database = database,
             renderer = WallpaperRenderer(context),
             ayahDao = database.ayahDao(),
             surahDao = database.surahDao(),

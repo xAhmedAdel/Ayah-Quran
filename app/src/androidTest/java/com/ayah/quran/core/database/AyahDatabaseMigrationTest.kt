@@ -5,6 +5,10 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ayah.quran.core.database.entity.AyahEntity
+import com.ayah.quran.core.database.entity.BookmarkEntity
+import com.ayah.quran.core.database.entity.ReadingProgressEntity
+import com.ayah.quran.core.database.entity.SurahEntity
 import com.ayah.quran.core.database.entity.companion.HadithCollectionEntity
 import com.ayah.quran.core.database.entity.companion.HadithEntity
 import com.ayah.quran.core.database.entity.companion.TasbihCounterEntity
@@ -67,12 +71,12 @@ class AyahDatabaseMigrationTest {
             dbName,
             4,
             true,
-            AyahMigrations.MIGRATION_3_4,
+            *AyahMigrations.ALL,
         )
         migratedSqlDb.close()
 
         val roomDb = Room.databaseBuilder(context, AyahDatabase::class.java, dbName)
-            .addMigrations(AyahMigrations.MIGRATION_3_4)
+            .addMigrations(*AyahMigrations.ALL)
             .build()
         try {
             assertEquals(1, roomDb.surahDao().count())
@@ -164,6 +168,174 @@ class AyahDatabaseMigrationTest {
         } finally {
             roomDb.close()
             context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun migrate1To4PreservesBookmarksReadingProgressAndQuranData() = runBlocking {
+        val dbName = "ayah-migration-1-4-test.db"
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(dbName)
+
+        helper.createDatabase(dbName, 1).apply {
+            execSQL(
+                "INSERT INTO surahs (id, nameArabic, nameTransliterated, revelationType, ayahCount) " +
+                    "VALUES (1, 'الفاتحة', 'Al-Fatihah', 'meccan', 7)",
+            )
+            execSQL(
+                "INSERT INTO ayahs (id, surahId, ayahNumber, textUthmani, juz, page) " +
+                    "VALUES (1, 1, 1, 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ', 1, 1)",
+            )
+            execSQL(
+                "INSERT INTO bookmarks (id, surahId, ayahNumber, createdAt) " +
+                    "VALUES (10, 1, 1, 1700000000000)",
+            )
+            execSQL(
+                "INSERT INTO reading_progress (id, surahId, ayahNumber, updatedAt) " +
+                    "VALUES (1, 1, 1, 1700000001000)",
+            )
+            close()
+        }
+
+        val migratedSqlDb = helper.runMigrationsAndValidate(
+            dbName,
+            4,
+            true,
+            *AyahMigrations.ALL,
+        )
+        migratedSqlDb.close()
+
+        val roomDb = Room.databaseBuilder(context, AyahDatabase::class.java, dbName)
+            .addMigrations(*AyahMigrations.ALL)
+            .build()
+        try {
+            val surah = roomDb.surahDao().getSurah(1)
+            assertNotNull(surah)
+            assertEquals("الفاتحة", surah!!.nameArabic)
+            assertEquals("", surah.nameEnglish)
+
+            val savedAyah = roomDb.ayahDao().getAyah(1, 1)
+            assertNotNull(savedAyah)
+            assertEquals("بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", savedAyah!!.textUthmani)
+
+            val bookmarks = roomDb.bookmarkDao().observeBookmarkedAyahs().first()
+            assertEquals(1, bookmarks.size)
+            assertEquals(1, bookmarks.first().surahId)
+
+            val progress = roomDb.readingProgressDao().observe().first()
+            assertNotNull(progress)
+            assertEquals(1, progress!!.surahId)
+            assertEquals(1, progress.ayahNumber)
+
+            assertTrue(roomDb.wallpaperHistoryDao().observeAll().first().isEmpty())
+        } finally {
+            roomDb.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun migrate2To4PreservesBookmarksReadingProgressAndQuranData() = runBlocking {
+        val dbName = "ayah-migration-2-4-test.db"
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(dbName)
+
+        helper.createDatabase(dbName, 2).apply {
+            execSQL(
+                "INSERT INTO surahs (id, nameArabic, nameTransliterated, nameEnglish, revelationType, ayahCount) " +
+                    "VALUES (2, 'البقرة', 'Al-Baqarah', 'The Cow', 'medinan', 286)",
+            )
+            execSQL(
+                "INSERT INTO ayahs (id, surahId, ayahNumber, textUthmani, juz, page) " +
+                    "VALUES (262, 2, 255, 'ٱللَّهُ لَا إِلَـٰهَ إِلَّا هُوَ', 3, 42)",
+            )
+            execSQL(
+                "INSERT INTO bookmarks (id, surahId, ayahNumber, createdAt) " +
+                    "VALUES (11, 2, 255, 1700000000000)",
+            )
+            execSQL(
+                "INSERT INTO reading_progress (id, surahId, ayahNumber, updatedAt) " +
+                    "VALUES (1, 2, 255, 1700000001000)",
+            )
+            close()
+        }
+
+        val migratedSqlDb = helper.runMigrationsAndValidate(
+            dbName,
+            4,
+            true,
+            *AyahMigrations.ALL,
+        )
+        migratedSqlDb.close()
+
+        val roomDb = Room.databaseBuilder(context, AyahDatabase::class.java, dbName)
+            .addMigrations(*AyahMigrations.ALL)
+            .build()
+        try {
+            val surah = roomDb.surahDao().getSurah(2)
+            assertNotNull(surah)
+            assertEquals("The Cow", surah!!.nameEnglish)
+
+            val bookmarks = roomDb.bookmarkDao().observeBookmarkedAyahs().first()
+            assertEquals(1, bookmarks.size)
+            assertEquals(2, bookmarks.first().surahId)
+            assertEquals(255, bookmarks.first().ayahNumber)
+
+            val progress = roomDb.readingProgressDao().observe().first()
+            assertNotNull(progress)
+            assertEquals(2, progress!!.surahId)
+            assertEquals(255, progress.ayahNumber)
+        } finally {
+            roomDb.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    @Test
+    fun quranReImportPreservesBookmarksAndReadingProgress() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val roomDb = Room.inMemoryDatabaseBuilder(context, AyahDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val surah = SurahEntity(
+                id = 1,
+                nameArabic = "الفاتحة",
+                nameTransliterated = "Al-Fatihah",
+                nameEnglish = "The Opening",
+                revelationType = "makkan",
+                ayahCount = 7,
+            )
+            val ayah = AyahEntity(
+                id = 1,
+                surahId = 1,
+                ayahNumber = 1,
+                textUthmani = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ",
+                juz = 1,
+                page = 1,
+            )
+            roomDb.surahDao().insertAll(listOf(surah))
+            roomDb.ayahDao().insertAll(listOf(ayah))
+            roomDb.bookmarkDao().insert(BookmarkEntity(surahId = 1, ayahNumber = 1, createdAt = 1700000000000L))
+            roomDb.readingProgressDao().upsert(
+                ReadingProgressEntity(id = 1, surahId = 1, ayahNumber = 1, updatedAt = 1700000001000L),
+            )
+
+            roomDb.surahDao().insertAll(listOf(surah.copy(nameEnglish = "The Opener")))
+            roomDb.ayahDao().insertAll(listOf(ayah))
+
+            assertEquals("The Opener", roomDb.surahDao().getSurah(1)?.nameEnglish)
+            val bookmarksAfter = roomDb.bookmarkDao().observeBookmarkedAyahs().first()
+            assertEquals(1, bookmarksAfter.size)
+            assertEquals(1, bookmarksAfter.first().surahId)
+            assertEquals(1, bookmarksAfter.first().ayahNumber)
+
+            val progressAfter = roomDb.readingProgressDao().observe().first()
+            assertNotNull(progressAfter)
+            assertEquals(1, progressAfter!!.surahId)
+            assertEquals(1, progressAfter.ayahNumber)
+        } finally {
+            roomDb.close()
         }
     }
 }

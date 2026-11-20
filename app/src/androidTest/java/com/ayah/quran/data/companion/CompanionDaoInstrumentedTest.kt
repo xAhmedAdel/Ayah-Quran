@@ -33,9 +33,9 @@ class CompanionDaoInstrumentedTest {
         db = Room.inMemoryDatabaseBuilder(context, AyahDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        adhkarRepo = AdhkarRepositoryImpl(db.adhkarDao(), db.ayahDao(), db.surahDao())
+        adhkarRepo = AdhkarRepositoryImpl(db, db.adhkarDao(), db.ayahDao(), db.surahDao())
         tasbihRepo = TasbihRepositoryImpl(db, db.tasbihDao())
-        hadithRepo = HadithRepositoryImpl(db.hadithDao())
+        hadithRepo = HadithRepositoryImpl(db, db.hadithDao())
     }
 
     @After

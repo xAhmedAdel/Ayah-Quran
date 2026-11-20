@@ -117,6 +117,7 @@ class WallpaperSchedulingInstrumentedTest {
             val settingsRepository = FakeSettingsRepository()
             val wallpaperRepository = WallpaperRepositoryImpl(
                 context = context,
+                database = database,
                 renderer = com.ayah.quran.core.wallpaper.WallpaperRenderer(context),
                 ayahDao = database.ayahDao(),
                 surahDao = database.surahDao(),

@@ -5,6 +5,47 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AyahMigrations {
 
+    val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `surahs` ADD COLUMN `nameEnglish` TEXT NOT NULL DEFAULT ''",
+            )
+        }
+    }
+
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `wallpaper_history` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `surahId` INTEGER NOT NULL, " +
+                    "`ayahNumber` INTEGER NOT NULL, `templateId` TEXT NOT NULL, `destinations` TEXT NOT NULL, " +
+                    "`appliedAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `failureReason` TEXT)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_wallpaper_history_appliedAt` " +
+                    "ON `wallpaper_history` (`appliedAt`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_wallpaper_history_surahId_ayahNumber` " +
+                    "ON `wallpaper_history` (`surahId`, `ayahNumber`)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `selection_history` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `surahId` INTEGER NOT NULL, " +
+                    "`ayahNumber` INTEGER NOT NULL, `globalId` INTEGER NOT NULL, " +
+                    "`selectedAt` INTEGER NOT NULL, `mode` TEXT NOT NULL)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_selection_history_selectedAt` " +
+                    "ON `selection_history` (`selectedAt`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_selection_history_globalId` " +
+                    "ON `selection_history` (`globalId`)",
+            )
+        }
+    }
+
     val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -151,4 +192,10 @@ object AyahMigrations {
             )
         }
     }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+    )
 }

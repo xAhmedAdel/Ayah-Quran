@@ -32,13 +32,15 @@ import com.ayah.quran.domain.repository.companion.AdhkarRepository
 import com.ayah.quran.domain.repository.companion.HadithRepository
 import com.ayah.quran.domain.repository.companion.TasbihRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.abs
 
 @Singleton
 class AdhkarRepositoryImpl @Inject constructor(
+    private val database: AyahDatabase,
     private val adhkarDao: AdhkarDao,
     private val ayahDao: AyahDao,
     private val surahDao: SurahDao,
@@ -63,7 +65,14 @@ class AdhkarRepositoryImpl @Inject constructor(
         adhkarDao.observeFavoriteItems().map { list -> list.map { it.toDomain() } }
 
     override fun observeQuranicDuas(): Flow<List<ResolvedQuranicDua>> =
-        adhkarDao.observeQuranicDuas().map { entities ->
+        combine(
+            adhkarDao.observeQuranicDuas(),
+            surahDao.observeCount().distinctUntilChanged(),
+            ayahDao.observeCount().distinctUntilChanged(),
+        ) { entities, surahCount, ayahCount ->
+            if (entities.isEmpty() || surahCount == 0 || ayahCount == 0) {
+                return@combine emptyList()
+            }
             entities.mapNotNull { entity ->
                 val surah = surahDao.getSurah(entity.surahId) ?: return@mapNotNull null
                 val ayahs = (entity.startAyah..entity.endAyah).mapNotNull { num ->
@@ -95,33 +104,37 @@ class AdhkarRepositoryImpl @Inject constructor(
     }
 
     override suspend fun incrementProgress(dayKey: String, itemId: String) {
-        val item = adhkarDao.getItemById(itemId) ?: return
-        val existing = adhkarDao.getProgress(dayKey, itemId)
-        val next = ((existing?.currentCount ?: 0) + 1).coerceAtMost(item.repeatCount)
-        adhkarDao.upsertProgress(
-            DhikrDailyProgressEntity(
-                dayKey = dayKey,
-                itemId = itemId,
-                categoryId = item.categoryId,
-                currentCount = next,
-                targetCount = item.repeatCount,
-                completed = next >= item.repeatCount,
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        database.withTransaction {
+            val item = adhkarDao.getItemById(itemId) ?: return@withTransaction
+            val existing = adhkarDao.getProgress(dayKey, itemId)
+            val next = ((existing?.currentCount ?: 0) + 1).coerceAtMost(item.repeatCount)
+            adhkarDao.upsertProgress(
+                DhikrDailyProgressEntity(
+                    dayKey = dayKey,
+                    itemId = itemId,
+                    categoryId = item.categoryId,
+                    currentCount = next,
+                    targetCount = item.repeatCount,
+                    completed = next >= item.repeatCount,
+                    updatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun decrementProgress(dayKey: String, itemId: String) {
-        val item = adhkarDao.getItemById(itemId) ?: return
-        val existing = adhkarDao.getProgress(dayKey, itemId) ?: return
-        val next = (existing.currentCount - 1).coerceAtLeast(0)
-        adhkarDao.upsertProgress(
-            existing.copy(
-                currentCount = next,
-                completed = next >= item.repeatCount,
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        database.withTransaction {
+            val item = adhkarDao.getItemById(itemId) ?: return@withTransaction
+            val existing = adhkarDao.getProgress(dayKey, itemId) ?: return@withTransaction
+            val next = (existing.currentCount - 1).coerceAtLeast(0)
+            adhkarDao.upsertProgress(
+                existing.copy(
+                    currentCount = next,
+                    completed = next >= item.repeatCount,
+                    updatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun resetCategoryProgress(dayKey: String, categoryId: String) {
@@ -129,13 +142,15 @@ class AdhkarRepositoryImpl @Inject constructor(
     }
 
     override suspend fun toggleFavorite(itemId: String) {
-        if (adhkarDao.isFavorite(itemId)) {
-            adhkarDao.deleteFavorite(itemId)
-        } else {
-            adhkarDao.getItemById(itemId) ?: return
-            adhkarDao.insertFavorite(
-                DhikrFavoriteEntity(itemId = itemId, createdAtMillis = System.currentTimeMillis()),
-            )
+        database.withTransaction {
+            if (adhkarDao.isFavorite(itemId)) {
+                adhkarDao.deleteFavorite(itemId)
+            } else {
+                adhkarDao.getItemById(itemId) ?: return@withTransaction
+                adhkarDao.insertFavorite(
+                    DhikrFavoriteEntity(itemId = itemId, createdAtMillis = System.currentTimeMillis()),
+                )
+            }
         }
     }
 }
@@ -233,13 +248,15 @@ class TasbihRepositoryImpl @Inject constructor(
     }
 
     override suspend fun reset(counterId: Long) {
-        val entity = tasbihDao.getById(counterId) ?: return
-        tasbihDao.upsertCounter(
-            entity.copy(
-                currentCount = 0,
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        database.withTransaction {
+            val entity = tasbihDao.getById(counterId) ?: return@withTransaction
+            tasbihDao.upsertCounter(
+                entity.copy(
+                    currentCount = 0,
+                    updatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun createCustomCounter(
@@ -251,47 +268,54 @@ class TasbihRepositoryImpl @Inject constructor(
         val cleanText = dhikrTextAr.trim()
         require(cleanText.isNotEmpty()) { "Dhikr text cannot be blank" }
         val clampedTarget = targetCount.coerceIn(0, 10_000)
-        val nextSort = tasbihDao.counterCount() + 1
-        return tasbihDao.insertCounter(
-            TasbihCounterEntity(
-                stableKey = null,
-                titleAr = titleAr.trim().ifEmpty { cleanText },
-                titleEn = titleEn.trim(),
-                dhikrTextAr = cleanText,
-                targetCount = clampedTarget,
-                currentCount = 0,
-                completedRounds = 0,
-                lifetimeCount = 0,
-                isCustom = true,
-                sortOrder = nextSort,
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        return database.withTransaction {
+            val nextSort = tasbihDao.counterCount() + 1
+            tasbihDao.insertCounter(
+                TasbihCounterEntity(
+                    stableKey = null,
+                    titleAr = titleAr.trim().ifEmpty { cleanText },
+                    titleEn = titleEn.trim(),
+                    dhikrTextAr = cleanText,
+                    targetCount = clampedTarget,
+                    currentCount = 0,
+                    completedRounds = 0,
+                    lifetimeCount = 0,
+                    isCustom = true,
+                    sortOrder = nextSort,
+                    updatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateCounter(counter: TasbihCounter) {
-        val existing = tasbihDao.getById(counter.id) ?: return
         val cleanText = counter.dhikrTextAr.trim()
         if (cleanText.isEmpty()) return
-        tasbihDao.upsertCounter(
-            existing.copy(
-                titleAr = counter.titleAr.trim().ifEmpty { cleanText },
-                titleEn = counter.titleEn.trim(),
-                dhikrTextAr = cleanText,
-                targetCount = counter.targetCount.coerceIn(0, 10_000),
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        database.withTransaction {
+            val existing = tasbihDao.getById(counter.id) ?: return@withTransaction
+            tasbihDao.upsertCounter(
+                existing.copy(
+                    titleAr = counter.titleAr.trim().ifEmpty { cleanText },
+                    titleEn = counter.titleEn.trim(),
+                    dhikrTextAr = cleanText,
+                    targetCount = counter.targetCount.coerceIn(0, 10_000),
+                    updatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun deleteCustomCounter(counterId: Long) {
-        if (tasbihDao.counterCount() <= 1) return
-        tasbihDao.deleteCustomCounter(counterId)
+        database.withTransaction {
+            if (tasbihDao.counterCount() <= 1) return@withTransaction
+            tasbihDao.deleteCustomCounter(counterId)
+        }
     }
 }
 
 @Singleton
 class HadithRepositoryImpl @Inject constructor(
+    private val database: AyahDatabase,
     private val hadithDao: HadithDao,
 ) : HadithRepository {
 
@@ -325,28 +349,32 @@ class HadithRepositoryImpl @Inject constructor(
     }
 
     override suspend fun toggleFavorite(hadithId: String) {
-        val existing = hadithDao.getUserState(hadithId)
-        val nextFav = !(existing?.isFavorite ?: false)
-        hadithDao.upsertUserState(
-            HadithUserStateEntity(
-                hadithId = hadithId,
-                isFavorite = nextFav,
-                favoritedAtMillis = if (nextFav) System.currentTimeMillis() else null,
-                lastReadAtMillis = existing?.lastReadAtMillis,
-            ),
-        )
+        database.withTransaction {
+            val existing = hadithDao.getUserState(hadithId)
+            val nextFav = !(existing?.isFavorite ?: false)
+            hadithDao.upsertUserState(
+                HadithUserStateEntity(
+                    hadithId = hadithId,
+                    isFavorite = nextFav,
+                    favoritedAtMillis = if (nextFav) System.currentTimeMillis() else null,
+                    lastReadAtMillis = existing?.lastReadAtMillis,
+                ),
+            )
+        }
     }
 
     override suspend fun recordRead(hadithId: String) {
-        val existing = hadithDao.getUserState(hadithId)
-        hadithDao.upsertUserState(
-            HadithUserStateEntity(
-                hadithId = hadithId,
-                isFavorite = existing?.isFavorite ?: false,
-                favoritedAtMillis = existing?.favoritedAtMillis,
-                lastReadAtMillis = System.currentTimeMillis(),
-            ),
-        )
+        database.withTransaction {
+            val existing = hadithDao.getUserState(hadithId)
+            hadithDao.upsertUserState(
+                HadithUserStateEntity(
+                    hadithId = hadithId,
+                    isFavorite = existing?.isFavorite ?: false,
+                    favoritedAtMillis = existing?.favoritedAtMillis,
+                    lastReadAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun dailyHadithId(epochDay: Long): String? {

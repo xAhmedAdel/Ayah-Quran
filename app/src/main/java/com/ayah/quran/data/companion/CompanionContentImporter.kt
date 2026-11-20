@@ -2,9 +2,11 @@ package com.ayah.quran.data.companion
 
 import android.content.Context
 import android.util.Log
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.room.withTransaction
 import com.ayah.quran.core.database.AyahDatabase
@@ -12,16 +14,19 @@ import com.ayah.quran.core.database.entity.companion.TasbihCounterEntity
 import com.ayah.quran.di.ApplicationScope
 import com.ayah.quran.domain.model.companion.CompanionImportState
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,7 +60,7 @@ class CompanionContentImporter @Inject constructor(
             val tasbihDao = database.tasbihDao()
             val hadithDao = database.hadithDao()
 
-            val storedVersion = dataStore.data.first()[KEY_COMPANION_CONTENT_VERSION] ?: 0
+            val storedVersion = readStoredContentVersion()
             if (storedVersion >= CURRENT_CONTENT_VERSION &&
                 adhkarDao.itemCount() > 0 &&
                 adhkarDao.quranicDuaCount() > 0 &&
@@ -102,19 +107,55 @@ class CompanionContentImporter @Inject constructor(
                     throw CompanionParseException("Post-import verification failed for companion datasets")
                 }
 
-                dataStore.edit { prefs ->
-                    prefs[KEY_COMPANION_CONTENT_VERSION] = CURRENT_CONTENT_VERSION
-                }
+                persistStoredContentVersion(CURRENT_CONTENT_VERSION)
                 _importState.value = CompanionImportState.Completed
                 Log.i(
                     TAG,
                     "companion datasets imported: adhkar=${adhkar.items.size}, " +
                         "quranicDuas=${quranicDuas.items.size}, hadiths=${hadith.items.size}",
                 )
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (t: Throwable) {
                 Log.e(TAG, "Companion dataset import failed", t)
                 _importState.value = CompanionImportState.Failed(t.message ?: t.javaClass.simpleName)
             }
+        }
+    }
+
+    private suspend fun readStoredContentVersion(): Int =
+        try {
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException || error is CorruptionException) {
+                        Log.w(TAG, "Preferences read failed during companion import check (${error.javaClass.simpleName})")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }
+                .first()[KEY_COMPANION_CONTENT_VERSION] ?: 0
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: IOException) {
+            Log.w(TAG, "Preferences IO error during companion import check (${e.javaClass.simpleName})")
+            0
+        } catch (e: CorruptionException) {
+            Log.w(TAG, "Preferences corruption during companion import check (${e.javaClass.simpleName})")
+            0
+        }
+
+    private suspend fun persistStoredContentVersion(version: Int) {
+        try {
+            dataStore.edit { prefs ->
+                prefs[KEY_COMPANION_CONTENT_VERSION] = version
+            }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: IOException) {
+            Log.w(TAG, "Failed to persist companion content version (${e.javaClass.simpleName})")
+        } catch (e: CorruptionException) {
+            Log.w(TAG, "Preferences corrupted while persisting companion content version (${e.javaClass.simpleName})")
         }
     }
 

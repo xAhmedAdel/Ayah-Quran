@@ -2,6 +2,7 @@ package com.ayah.quran
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.ayah.quran.background.CompanionReminderNotifier
@@ -14,6 +15,7 @@ import com.ayah.quran.domain.repository.companion.CompanionRemindersRepository
 import com.ayah.quran.prayer.PrayerNotifications
 import com.ayah.quran.prayer.PrayerTimeManager
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -73,8 +75,14 @@ class AyahApplication : Application(), Configuration.Provider {
         prayerTimeManager.reconcile()
         companionReminderNotifier.createChannel()
         appScope.launch {
-            val prefs = companionRemindersRepository.preferences.first()
-            companionReminderScheduler.reconcileAll(prefs)
+            try {
+                val prefs = companionRemindersRepository.preferences.first()
+                companionReminderScheduler.reconcileAll(prefs)
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                Log.w("AyahApplication", "Reminder reconciliation skipped on startup (${t.javaClass.simpleName})")
+            }
         }
     }
 }
