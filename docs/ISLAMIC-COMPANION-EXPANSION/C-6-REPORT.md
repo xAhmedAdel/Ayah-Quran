@@ -185,10 +185,12 @@ Both `:app:assembleRelease` (with R8 code minification `isMinifyEnabled = true`,
 ## 12. Physical-Device Checklist Reference (HONOR 600)
 
 - **Checklist Document**: [PHYSICAL-DEVICE-CHECKLIST.md](file:///c:/AYAH/docs/ISLAMIC-COMPANION-EXPANSION/PHYSICAL-DEVICE-CHECKLIST.md)
-- **Validation Distinction**: All automated unit tests (`209/209`), instrumented tests (`77/78`), and R8 release APK smoke tests were executed on the local `ayah_avd` Android 16 (API 36) emulator. Physical-device testing on the **HONOR 600** has **not** been performed in this automated environment and must be executed manually by the project owner using `PHYSICAL-DEVICE-CHECKLIST.md` before tagging or publishing a public release.
+- **Validation Status**:
+  - **Emulator Verification (`ayah_avd` Android 16 / API 36)**: `209 / 209` JVM unit tests passed (`0` failed), `77 / 78` Android instrumented tests passed (`0` failed, `1` API-gated skip), and R8 release APK runtime smoke test passed.
+  - **Physical-Device Verification (`HONOR 600` / MagicOS)**: Completed and approved by project owner on 2026-11-20 across all core and Companion features (plus Wallpapers tab Mini-Player suppression verified in `v1.0.0-beta.11`).
 
 ---
 
 ## 13. Final Release Readiness Status
 
-**`Ready for physical-device validation`**
+**`Ready for beta release after specified manual checks` (HONOR 600 physical-device validation completed and approved on 2026-11-20)**

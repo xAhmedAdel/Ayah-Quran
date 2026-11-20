@@ -1,9 +1,9 @@
 # AYAH — Physical Device Validation Checklist (HONOR 600 / MagicOS)
 
 - **Target Physical Device**: **HONOR 600** (MagicOS / Android)
-- **Target Build**: `v1.0.0-beta.9` (`versionCode = 10`, package `com.ayah.quran`)
-- **Purpose**: Manual physical-device validation gate to execute on the **HONOR 600** before publishing or tagging a public beta release.
-- **Honesty Note**: All automated unit tests (`209/209`) and Android instrumented tests (`77/78 passed, 1 API-gated skip`) were verified on the `ayah_avd` Android 16 (API 36) emulator. Physical hardware behaviors (HONOR MagicOS aggressive background process management, physical haptic motor response, hardware speaker Adhan volume, GPS/coarse location fix, and lock-screen Media3 transport controls) **must** be verified on the HONOR 600 using the steps below.
+- **Target Build**: `v1.0.0-beta.10` (`versionCode = 11`) & `v1.0.0-beta.11` (`versionCode = 12`, package `com.ayah.quran`)
+- **Validation Status**: **PASSED on HONOR 600 (2026-11-20)** — Physical-device validation completed by project owner with all tested features functioning as expected and zero blocking issues (plus Wallpapers tab Audio Mini-Player hidden in `v1.0.0-beta.11` per physical-device visual review).
+- **Honesty Note**: All automated unit tests (`209/209`) and Android instrumented tests (`77/78 passed, 1 API-gated skip`) were verified on the `ayah_avd` Android 16 (API 36) emulator, followed by manual physical-device validation on the **HONOR 600**.
 
 ---
 
