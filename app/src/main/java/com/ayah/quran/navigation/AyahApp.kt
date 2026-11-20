@@ -287,6 +287,10 @@ fun AyahApp(modifier: Modifier = Modifier) {
             ) {
                 NowPlayingScreen(
                     onBack = { navController.popBackStack() },
+                    onOpenInMushaf = { surahId, ayahNumber ->
+                        navController.popBackStack()
+                        openReadingPosition(surahId, ayahNumber)
+                    },
                 )
             }
 

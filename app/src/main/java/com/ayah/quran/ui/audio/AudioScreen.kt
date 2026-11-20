@@ -1,216 +1,344 @@
 package com.ayah.quran.ui.audio
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.AyahCard
-import com.ayah.quran.data.audio.QuranAudioState
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.component.AyahBannerStrip
+import com.ayah.quran.core.designsystem.component.AyahBannerTone
+import com.ayah.quran.core.designsystem.component.AyahInsetDivider
+import com.ayah.quran.core.designsystem.component.AyahSearchBar
+import com.ayah.quran.core.designsystem.component.AyahStatusBadge
+import com.ayah.quran.core.designsystem.component.AyahStatusKind
+import com.ayah.quran.core.designsystem.component.ConfirmDialog
 import com.ayah.quran.core.designsystem.component.EmptyState
-import com.ayah.quran.core.designsystem.component.SectionCard
+import com.ayah.quran.core.designsystem.component.SectionHeader
+import com.ayah.quran.core.designsystem.component.SurahNumberEmblem
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
-import com.ayah.quran.domain.model.audio.PlaybackState
-import com.ayah.quran.domain.model.audio.RepeatMode
-import com.ayah.quran.ui.audio.component.PlaybackControls
-import com.ayah.quran.ui.audio.component.SeekBarRow
+import com.ayah.quran.core.designsystem.theme.AyahTouchTargets
+import com.ayah.quran.core.designsystem.theme.withTabularNumbers
+import com.ayah.quran.core.locale.AppLocale
+import com.ayah.quran.data.audio.QuranAudioState
+import com.ayah.quran.data.audio.QuranReciterEdition
 
-/** Audio state label — text resources (never color alone). */
-@Composable
-private fun stateLabel(state: PlaybackState): String = when (state) {
-    is PlaybackState.Error -> stringResource(R.string.audio_state_error, state.reason)
-    PlaybackState.Buffering -> stringResource(R.string.audio_state_buffering)
-    PlaybackState.Ended -> stringResource(R.string.audio_state_ended)
-    PlaybackState.Idle -> stringResource(R.string.audio_state_idle)
-    PlaybackState.Loading -> stringResource(R.string.audio_state_loading)
-    PlaybackState.Paused -> stringResource(R.string.audio_state_paused)
-    PlaybackState.Playing -> stringResource(R.string.audio_state_playing)
-    PlaybackState.Ready -> stringResource(R.string.audio_state_ready)
-}
-
-/**
- * Audio tab foundation (Phase 5): premium header, reciter section with an
- * honest empty state, and a playback panel whose controls reflect the
- * ACTUAL player state — disabled with an explanation until a licensed,
- * playable recitation catalog exists.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioScreen(
     modifier: Modifier = Modifier,
     viewModel: AudioViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val isArabic = AppLocale.isArabic
+    var query by rememberSaveable { mutableStateOf("") }
+    var downloadedOnly by rememberSaveable { mutableStateOf(false) }
+    var pendingDeleteRow by remember { mutableStateOf<SurahAudioRow?>(null) }
 
-    Scaffold(modifier = modifier, topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.audio_title)) })
-    }) { padding ->
-        Column(
+    val downloadedCount = remember(state.surahRows) {
+        state.surahRows.count { it.isDownloaded }
+    }
+    val filteredRows = remember(state.surahRows, query, downloadedOnly) {
+        val q = query.trim()
+        state.surahRows.filter { row ->
+            val matchesFilter = !downloadedOnly || row.isDownloaded
+            val matchesQuery = q.isEmpty() ||
+                row.nameArabic.contains(q) ||
+                row.nameTransliterated.contains(q, ignoreCase = true) ||
+                row.surah.toString().contains(q)
+            matchesFilter && matchesQuery
+        }
+    }
+
+    pendingDeleteRow?.let { target ->
+        val surahName = if (isArabic) target.nameArabic else target.nameTransliterated.ifBlank { target.nameArabic }
+        ConfirmDialog(
+            title = stringResource(R.string.audio_delete_confirm_title),
+            message = stringResource(R.string.audio_delete_confirm_message, surahName),
+            confirmText = stringResource(R.string.audio_delete_download),
+            dismissTextRes = R.string.action_cancel,
+            onConfirm = {
+                viewModel.deleteSurah(target.surah)
+                pendingDeleteRow = null
+            },
+            onDismiss = { pendingDeleteRow = null },
+        )
+    }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(title = { Text(stringResource(R.string.audio_title)) })
+        },
+    ) { padding ->
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(AyahSpacing.m),
-            verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+                .testTag("audio_lazy_list"),
+            contentPadding = PaddingValues(bottom = AyahSpacing.xl),
         ) {
-            // Header.
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Outlined.GraphicEq,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.height(40.dp),
-                )
-                Text(
-                    text = stringResource(R.string.audio_header_tagline),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (state.ayahPlayback.blockedByAdhan) {
+                item(key = "adhan_banner") {
+                    AyahBannerStrip(
+                        message = stringResource(R.string.audio_blocked_by_adhan),
+                        tone = AyahBannerTone.WARNING,
+                        modifier = Modifier.padding(
+                            horizontal = AyahSpacing.m,
+                            vertical = AyahSpacing.xs,
+                        ),
+                    )
+                }
+            }
+
+            item(key = "reciters_header") {
+                SectionHeader(
+                    text = stringResource(R.string.audio_reciters_section),
+                    modifier = Modifier.padding(
+                        start = AyahSpacing.m,
+                        end = AyahSpacing.m,
+                        top = AyahSpacing.xs,
+                        bottom = AyahSpacing.s,
+                    ),
                 )
             }
 
-            // Reciter chips (Phase 17 verified editions).
-            SectionCard(title = stringResource(R.string.audio_reciters_section)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+            item(key = "reciters_carousel") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = AyahSpacing.m),
+                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    state.quranReciters.forEach { reciter ->
-                        FilterChip(
+                    items(state.quranReciters, key = { it.editionId }) { reciter ->
+                        ReciterCard(
+                            reciter = reciter,
                             selected = reciter.editionId == state.selectedEditionId,
+                            isArabic = isArabic,
                             onClick = { viewModel.selectReciter(reciter.editionId) },
-                            label = { Text(reciter.nameAr) },
                         )
                     }
                 }
+            }
+
+            item(key = "attribution_note") {
                 Text(
                     text = stringResource(R.string.audio_attribution_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(
+                        horizontal = AyahSpacing.m,
+                        vertical = AyahSpacing.s,
+                    ),
                 )
             }
 
-            // Now-playing bar (ayah-level).
-            if (!state.ayahPlayback.isIdle) {
-                NowPlayingBar(
-                    state = state.ayahPlayback,
-                    surahName = state.surahRows
-                        .firstOrNull { it.surah == state.ayahPlayback.surah }
-                        ?.nameArabic ?: "",
-                    onPause = viewModel::pauseAyah,
-                    onResume = viewModel::resumeAyah,
-                    onStop = viewModel::stopAyah,
-                    onToggleRepeat = viewModel::toggleRepeatAyah,
-                )
-            }
-
-            // Surah list with offline download + per-ayah playback.
-            SectionCard(title = stringResource(R.string.audio_header_tagline)) {
-                if (state.ayahPlayback.blockedByAdhan) {
-                    Text(
-                        text = stringResource(R.string.audio_blocked_by_adhan),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
+            item(key = "search_and_filter") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
+                    AyahSearchBar(
+                        query = query,
+                        onQueryChange = { query = it },
+                        placeholder = stringResource(R.string.quran_search_hint),
+                        modifier = Modifier.testTag("audio_search_bar"),
                     )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FilterChip(
+                            selected = !downloadedOnly,
+                            onClick = { downloadedOnly = false },
+                            label = {
+                                Text(stringResource(R.string.audio_filter_all, state.surahRows.size))
+                            },
+                            modifier = Modifier.testTag("audio_filter_all"),
+                        )
+                        FilterChip(
+                            selected = downloadedOnly,
+                            onClick = { downloadedOnly = true },
+                            label = {
+                                Text(stringResource(R.string.audio_filter_downloaded, downloadedCount))
+                            },
+                            modifier = Modifier.testTag("audio_filter_downloaded"),
+                        )
+                    }
                 }
-                if (state.surahRows.isEmpty()) {
+            }
+
+            if (state.surahRows.isEmpty()) {
+                item(key = "empty_catalog") {
                     EmptyState(
-                        icon = Icons.Outlined.GraphicEq,
+                        icon = AyahIcons.Audio,
                         title = stringResource(R.string.audio_reciters_empty),
                         message = stringResource(R.string.audio_reciters_empty_detail),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(AyahSpacing.xl),
                     )
-                } else {
-                    state.surahRows.take(114).forEach { row ->
-                        SurahAudioRowView(row = row, viewModel = viewModel)
-                    }
+                }
+            } else if (filteredRows.isEmpty()) {
+                item(key = "empty_filter") {
+                    EmptyState(
+                        icon = AyahIcons.Audio,
+                        title = stringResource(R.string.audio_header_tagline),
+                        message = if (downloadedOnly) {
+                            stringResource(R.string.audio_downloaded_empty)
+                        } else {
+                            stringResource(R.string.quran_search_no_results, query)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(AyahSpacing.xl),
+                    )
+                }
+            } else {
+                items(filteredRows, key = { it.surah }) { row ->
+                    SurahAudioRowView(
+                        row = row,
+                        isArabic = isArabic,
+                        onPlay = { viewModel.playSurah(row.surah) },
+                        onPause = viewModel::pauseAyah,
+                        onDownload = { viewModel.downloadSurah(row.surah) },
+                        onCancelDownload = { viewModel.cancelDownload(row.surah) },
+                        onRequestDelete = { pendingDeleteRow = row },
+                    )
+                    AyahInsetDivider(startIndent = 70.dp)
                 }
             }
         }
     }
 }
 
-
 @Composable
-private fun NowPlayingBar(
-    state: com.ayah.quran.data.audio.AyahPlaybackState,
-    surahName: String,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
-    onToggleRepeat: () -> Unit,
+private fun ReciterCard(
+    reciter: QuranReciterEdition,
+    selected: Boolean,
+    isArabic: Boolean,
+    onClick: () -> Unit,
 ) {
-    AyahCard {
+    val container = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    val border = if (selected) {
+        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant)
+    }
+    Surface(
+        modifier = Modifier
+            .width(172.dp)
+            .height(104.dp)
+            .clip(RoundedCornerShape(AyahRadii.m))
+            .clickable(onClick = onClick)
+            .testTag("reciter_card_${reciter.editionId}"),
+        shape = RoundedCornerShape(AyahRadii.m),
+        color = container,
+        border = border,
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(AyahSpacing.m),
-            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+            modifier = Modifier.padding(AyahSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
         ) {
-            Text(
-                text = stringResource(
-                    R.string.audio_now_playing,
-                    surahName, state.ayahIndex + 1, state.totalAyahs,
-                ),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = if (state.isPlaying) onPause else onResume) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
-                        if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.audio_pause),
+                        imageVector = if (selected) Icons.Filled.Check else AyahIcons.Audio,
+                        contentDescription = null,
+                        tint = if (selected) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
+                        modifier = Modifier.size(16.dp),
                     )
                 }
-                IconButton(onClick = onStop) {
-                    Icon(
-                        Icons.Filled.Stop,
-                        contentDescription = stringResource(R.string.audio_stop),
-                    )
-                }
-                FilterChip(
-                    selected = state.repeatAyah,
-                    onClick = onToggleRepeat,
-                    label = { Text(stringResource(R.string.audio_repeat_ayah)) },
+                AyahStatusBadge(
+                    label = AyahNumbering.isolateLtr("${reciter.bitrateKbps} kbps"),
+                    kind = if (selected) AyahStatusKind.GOLD else AyahStatusKind.NEUTRAL,
                 )
             }
+            Text(
+                text = if (isArabic) reciter.nameAr else reciter.nameEn,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -218,101 +346,144 @@ private fun NowPlayingBar(
 @Composable
 private fun SurahAudioRowView(
     row: SurahAudioRow,
-    viewModel: AudioViewModel,
+    isArabic: Boolean,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onDownload: () -> Unit,
+    onCancelDownload: () -> Unit,
+    onRequestDelete: () -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+    val displayName = if (isArabic) {
+        row.nameArabic
+    } else {
+        row.nameTransliterated.ifBlank { row.nameArabic }
+    }
+    val ayahCountText = pluralStringResource(
+        R.plurals.ayah_count_plurals,
+        row.ayahCount,
+        row.ayahCount,
+    )
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = AyahSpacing.xs),
+            .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
-            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = row.surah.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+            SurahNumberEmblem(
+                number = row.surah,
+                tint = if (row.isCurrent) {
+                    MaterialTheme.colorScheme.secondary
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
             )
-            Column {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(AyahSpacing.xxs),
+            ) {
                 Text(
-                    text = row.nameArabic,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = displayName,
+                    style = MaterialTheme.typography.titleMedium,
                     color = if (row.isCurrent) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 when (val dl = row.downloadState) {
-                    is QuranAudioState.Downloading -> Text(
-                        text = stringResource(
-                            R.string.audio_downloading_progress,
-                            dl.downloadedAyahs, dl.totalAyahs,
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    is QuranAudioState.Downloading -> {
+                        Text(
+                            text = stringResource(
+                                R.string.audio_downloading_progress,
+                                dl.downloadedAyahs,
+                                dl.totalAyahs,
+                            ),
+                            style = MaterialTheme.typography.labelSmall.withTabularNumbers(),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        val progress = if (dl.totalAyahs > 0) {
+                            (dl.downloadedAyahs.toFloat() / dl.totalAyahs.toFloat()).coerceIn(0f, 1f)
+                        } else {
+                            0f
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(AyahRadii.pill)),
+                        )
+                    }
+
                     QuranAudioState.Downloaded -> Text(
-                        text = stringResource(R.string.audio_downloaded),
+                        text = "$ayahCountText · ${stringResource(R.string.audio_downloaded)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
+
                     is QuranAudioState.Failed -> Text(
                         text = stringResource(R.string.audio_download_failed),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+
                     else -> Text(
-                        text = "\u0622\u064a\u0629 " + row.ayahCount,
+                        text = ayahCountText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (row.isPlaying) {
-                IconButton(onClick = viewModel::pauseAyah) {
-                    Icon(
-                        Icons.Filled.Pause,
-                        contentDescription = stringResource(R.string.audio_pause),
-                    )
-                }
-            } else {
-                IconButton(onClick = { viewModel.playSurah(row.surah) }) {
-                    Icon(
-                        Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.audio_play_surah),
-                    )
-                }
+            FilledTonalIconButton(
+                onClick = if (row.isPlaying) onPause else onPlay,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = if (row.isPlaying) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
+                    contentColor = if (row.isPlaying) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    },
+                ),
+            ) {
+                Icon(
+                    imageVector = if (row.isPlaying) AyahIcons.Pause else AyahIcons.Play,
+                    contentDescription = stringResource(
+                        if (row.isPlaying) R.string.audio_pause else R.string.audio_play_surah,
+                    ),
+                )
             }
-            when (val dl = row.downloadState) {
-                is QuranAudioState.Downloading -> IconButton(
-                    onClick = { viewModel.cancelDownload(row.surah) },
-                ) {
+            when (row.downloadState) {
+                is QuranAudioState.Downloading -> IconButton(onClick = onCancelDownload) {
                     Icon(
-                        Icons.Filled.Close,
+                        imageVector = AyahIcons.Close,
                         contentDescription = stringResource(R.string.audio_cancel_download),
                     )
                 }
-                QuranAudioState.Downloaded -> IconButton(
-                    onClick = { viewModel.deleteSurah(row.surah) },
-                ) {
+
+                QuranAudioState.Downloaded -> IconButton(onClick = onRequestDelete) {
                     Icon(
-                        Icons.Filled.Delete,
+                        imageVector = Icons.Filled.Delete,
                         contentDescription = stringResource(R.string.audio_delete_download),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                else -> IconButton(
-                    onClick = { viewModel.downloadSurah(row.surah) },
-                ) {
+
+                else -> IconButton(onClick = onDownload) {
                     Icon(
-                        Icons.Filled.Download,
+                        imageVector = AyahIcons.Download,
                         contentDescription = stringResource(R.string.audio_download),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }

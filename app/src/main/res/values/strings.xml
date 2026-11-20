@@ -413,6 +413,12 @@
     <string name="reader_repeat_start">Start repeat</string>
     <string name="reader_repeat_clear">Clear repeat</string>
     <string name="reader_repeat_invalid">Enter valid ayah numbers (1–%1$d)</string>
+    <string name="audio_filter_all">All (%1$d)</string>
+    <string name="audio_filter_downloaded">Downloaded (%1$d)</string>
+    <string name="audio_downloaded_empty">No surahs downloaded for this reciter yet.</string>
+    <string name="audio_delete_confirm_title">Delete downloaded recitation?</string>
+    <string name="audio_delete_confirm_message">Remove offline audio files for %1$s? You can download them again anytime.</string>
+    <string name="audio_open_in_reader">Mushaf</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="one">%1$d ayah</item>

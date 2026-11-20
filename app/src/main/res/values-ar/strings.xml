@@ -408,6 +408,12 @@
     <string name="reader_repeat_start">بدء التكرار</string>
     <string name="reader_repeat_clear">إيقاف التكرار</string>
     <string name="reader_repeat_invalid">أدخل أرقام آيات صحيحة (1–%1$d)</string>
+    <string name="audio_filter_all">الكل (%1$d)</string>
+    <string name="audio_filter_downloaded">المحملة (%1$d)</string>
+    <string name="audio_downloaded_empty">لم يتم تحميل أي سور لهذا القارئ بعد.</string>
+    <string name="audio_delete_confirm_title">حذف التلاوة المحملة؟</string>
+    <string name="audio_delete_confirm_message">سيتم حذف ملفات الصوت المحفوظة لسورة %1$s ويمكنك تحميلها مجدداً في أي وقت.</string>
+    <string name="audio_open_in_reader">المصحف</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="zero">لا توجد آيات</item>

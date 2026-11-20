@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ayah.quran.MainActivity
 import com.ayah.quran.R
+import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.audio.QuranAudioCatalog
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,25 +53,24 @@ class AudioTabUiTest {
     @Test
     fun audioTabNavigatesAndShowsReciterCatalog() {
         openAudioTab()
-        // The default edition chip is rendered from the verified catalog.
-        composeRule.onNodeWithText(
-            QuranAudioCatalog.defaultReciter.nameAr,
-        ).assertExists()
-        // The attribution note is honest about the distribution source.
+        val reciterName = if (AppLocale.isArabic) {
+            QuranAudioCatalog.defaultReciter.nameAr
+        } else {
+            QuranAudioCatalog.defaultReciter.nameEn
+        }
+        composeRule.onNodeWithText(reciterName).assertExists()
         composeRule.onNodeWithText(s(R.string.audio_attribution_note)).assertExists()
     }
 
     @Test
     fun surahRowsOfferOfflineDownloadControls() {
         openAudioTab()
-        // A fresh install may still be importing the Quran dataset — wait.
+        val faatiha = if (AppLocale.isArabic) "الفاتحة" else "Al-Faatiha"
         composeRule.waitUntil(15_000) {
-            composeRule.onAllNodesWithText("الفاتحة")
+            composeRule.onAllNodesWithText(faatiha)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        // Al-Fatiha (imported Quran dataset) is listed with a download affordance
-        // (one per surah row — 114 in total).
-        composeRule.onNodeWithText("الفاتحة").assertExists()
+        composeRule.onNodeWithText(faatiha).assertExists()
         composeRule.onAllNodesWithContentDescription(
             s(R.string.audio_download),
         ).onFirst().assertExists()

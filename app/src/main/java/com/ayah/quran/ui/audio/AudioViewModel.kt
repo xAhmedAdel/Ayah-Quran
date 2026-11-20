@@ -37,10 +37,10 @@ data class PlaybackPanelState(
     val playbackSpeed: Float = 1.0f,
 )
 
-/** One surah row in the Phase 17 recitation list. */
 data class SurahAudioRow(
     val surah: Int,
     val nameArabic: String,
+    val nameTransliterated: String = "",
     val ayahCount: Int,
     val downloadState: QuranAudioState = QuranAudioState.NotDownloaded,
     val downloadedAyahs: Int = 0,
@@ -158,6 +158,7 @@ class AudioViewModel @Inject constructor(
         SurahAudioRow(
             surah = surah.id,
             nameArabic = surah.nameArabic,
+            nameTransliterated = surah.nameTransliterated,
             ayahCount = surah.ayahCount,
             downloadState = state ?: if (downloaded >= surah.ayahCount) {
                 QuranAudioState.Downloaded
