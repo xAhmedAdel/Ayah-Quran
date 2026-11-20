@@ -1,7 +1,14 @@
 package com.ayah.quran.ui.wallpapers
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,29 +16,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,6 +49,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,22 +61,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.AyahCard
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.component.AyahInsetDivider
+import com.ayah.quran.core.designsystem.component.AyahOutlinedButton
+import com.ayah.quran.core.designsystem.component.AyahPrimaryButton
+import com.ayah.quran.core.designsystem.component.AyahSelectionSheet
+import com.ayah.quran.core.designsystem.component.AyahStatusBadge
+import com.ayah.quran.core.designsystem.component.AyahStatusKind
+import com.ayah.quran.core.designsystem.component.AyahSurfaceCard
+import com.ayah.quran.core.designsystem.component.AyahTonalButton
 import com.ayah.quran.core.designsystem.component.ConfirmDialog
-import com.ayah.quran.core.designsystem.component.SectionCard
+import com.ayah.quran.core.designsystem.theme.AntiqueGold
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
+import com.ayah.quran.core.designsystem.theme.AyahTouchTargets
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.core.designsystem.theme.withTabularNumbers
 import com.ayah.quran.core.locale.localizedDisplayName
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
 import com.ayah.quran.domain.model.SelectionMode
@@ -81,13 +104,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val TIME_FORMAT = DateTimeFormatter.ofPattern("MMM d · HH:mm", Locale.getDefault())
+private val INTERVAL_OPTIONS = listOf(30, 60, 180, 360, 720, 1440)
 
-/**
- * Wallpaper control center: live preview (same renderer as the final
- * wallpaper), template/typography/position controls, explicit apply,
- * automation scheduling with honest status, and managed history.
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WallpapersScreen(
@@ -97,100 +115,161 @@ fun WallpapersScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(modifier = modifier, topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.wallpapers_title)) })
-    }) { padding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.wallpapers_title)) },
+                actions = {
+                    val autoBadgeLabel = if (state.scheduleStatus.isScheduled) {
+                        val minutes = state.scheduleStatus.intervalMinutes ?: state.settings.intervalMinutes
+                        stringResource(
+                            R.string.wallpapers_badge_auto_on,
+                            stringResource(intervalLabelRes(minutes), intervalLabelValue(minutes)),
+                        )
+                    } else {
+                        stringResource(R.string.wallpapers_badge_auto_off)
+                    }
+                    AyahStatusBadge(
+                        label = autoBadgeLabel,
+                        kind = if (state.scheduleStatus.isScheduled) AyahStatusKind.SUCCESS else AyahStatusKind.NEUTRAL,
+                        icon = null,
+                        modifier = Modifier.padding(end = AyahSpacing.m),
+                    )
+                },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(AyahSpacing.m),
-            verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+                .fillMaxSize(),
         ) {
-            PreviewCard(
+            PreviewStage(
                 state = state,
                 viewModel = viewModel,
                 onOpenFullscreen = onOpenFullscreenPreview,
             )
-            TemplateSection(state = state, viewModel = viewModel)
-            VerseTextSection(state = state, viewModel = viewModel)
-            ApplySection(state = state, viewModel = viewModel)
-            AutomationSection(state = state, viewModel = viewModel)
-            HistorySection(state = state, viewModel = viewModel, applying = state.applying)
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.m),
+                verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+            ) {
+                TemplateSection(state = state, viewModel = viewModel)
+                VerseTextSection(state = state, viewModel = viewModel)
+                AutomationSection(state = state, viewModel = viewModel)
+                HistorySection(state = state, viewModel = viewModel, applying = state.applying)
+            }
+
+            PinnedApplyBar(state = state, viewModel = viewModel)
         }
     }
 }
 
 @Composable
-private fun PreviewCard(
+private fun PreviewStage(
     state: WallpapersUiState,
     viewModel: WallpapersViewModel,
     onOpenFullscreen: (surahId: Int, ayahNumber: Int) -> Unit,
 ) {
-    AyahCard {
+    val verse = state.previewVerse
+    val openLabel = stringResource(R.string.wallpapers_preview_caption)
+    val frameShape = RoundedCornerShape(20.dp)
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(AyahSpacing.m),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            val verse = state.previewVerse
-            Box(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .aspectRatio(9f / 16f)
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(16.dp),
-                    ),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.m),
             ) {
-                val bitmap = state.previewBitmap
-                if (bitmap != null) {
-                    // Tapping the preview opens the immersive full-screen mode.
-                    val openLabel = stringResource(R.string.wallpapers_preview_caption)
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = openLabel,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickablePreviewIn(verse, openLabel, onOpenFullscreen),
+                Box(
+                    modifier = Modifier
+                        .height(176.dp)
+                        .aspectRatio(9f / 16f)
+                        .clip(frameShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, frameShape)
+                        .border(1.5.dp, MaterialTheme.colorScheme.outline, frameShape)
+                        .clickablePreviewIn(verse, openLabel, onOpenFullscreen),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val bitmap = state.previewBitmap
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = openLabel,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Image,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
+                    Text(
+                        text = stringResource(labelResForId(state.settings.templateId)),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                } else {
-                    Icon(
-                        Icons.Outlined.Image,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp),
+                    verse?.let {
+                        Text(
+                            text = it.referenceLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    AyahTonalButton(
+                        text = stringResource(R.string.wallpapers_shuffle_verse),
+                        onClick = viewModel::shufflePreviewVerse,
+                        icon = Icons.Filled.Shuffle,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    AyahOutlinedButton(
+                        text = openLabel,
+                        onClick = {
+                            if (verse != null) {
+                                onOpenFullscreen(verse.surahId, verse.ayahNumber)
+                            }
+                        },
+                        enabled = verse != null && state.previewBitmap != null,
+                        icon = Icons.Outlined.Fullscreen,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
-
-            verse?.let {
-                Text(
-                    text = it.referenceLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            AssistChip(
-                onClick = viewModel::shufflePreviewVerse,
-                label = { Text(stringResource(R.string.wallpapers_shuffle_verse)) },
-                leadingIcon = {
-                    Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                },
+            HorizontalDivider(
+                thickness = AyahTouchTargets.hairline,
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
         }
     }
 }
 
-/** Preview tap → immersive full-screen route for the currently shown verse. */
 @Composable
 private fun Modifier.clickablePreviewIn(
     verse: PreviewVerse?,
@@ -205,66 +284,185 @@ private fun Modifier.clickablePreviewIn(
 
 @Composable
 private fun TemplateSection(state: WallpapersUiState, viewModel: WallpapersViewModel) {
-    SectionCard(title = stringResource(R.string.wallpapers_template_section)) {
-        val selectedId = state.settings.templateId
-        WallpaperTemplate.ALL.chunked(2).forEach { rowTemplates ->
-            Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
-                rowTemplates.forEach { template ->
-                    FilterChip(
-                        selected = selectedId == template.id,
-                        onClick = { viewModel.selectTemplate(template.id) },
-                        label = { Text(stringResource(template.labelRes())) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (rowTemplates.size == 1) {
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+    AyahSurfaceCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+        ) {
+            Text(
+                text = stringResource(R.string.wallpapers_template_section),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            val selectedId = state.settings.templateId
+            WallpaperTemplate.ALL.chunked(2).forEach { rowTemplates ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
+                    rowTemplates.forEach { template ->
+                        TemplateSwatchCard(
+                            template = template,
+                            selected = selectedId == template.id,
+                            onClick = { viewModel.selectTemplate(template.id) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (rowTemplates.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TemplateSwatchCard(
+    template: WallpaperTemplate,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(AyahRadii.card)
+    val swatchShape = RoundedCornerShape(10.dp)
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val borderWidth = if (selected) 2.dp else AyahTouchTargets.hairline
+
+    Surface(
+        onClick = onClick,
+        shape = shape,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(borderWidth, borderColor),
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.s),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(swatchShape)
+                    .then(
+                        when (val bg = template.background) {
+                            is WallpaperTemplate.BackgroundSpec.Gradient -> Modifier.background(
+                                Brush.verticalGradient(listOf(Color(bg.topColor), Color(bg.bottomColor))),
+                            )
+                            is WallpaperTemplate.BackgroundSpec.Solid -> Modifier.background(Color(bg.color))
+                        },
+                    )
+                    .border(1.dp, Color(template.accentColor).copy(alpha = 0.55f), swatchShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "آية",
+                    fontFamily = QuranTextFontFamily,
+                    fontSize = 18.sp,
+                    color = Color(template.textColor),
+                )
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(AntiqueGold),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color(0xFF0C1210),
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
+                }
+            }
+            Text(
+                text = stringResource(template.labelRes()),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
 @Composable
 private fun VerseTextSection(state: WallpapersUiState, viewModel: WallpapersViewModel) {
-    SectionCard(title = stringResource(R.string.wallpapers_text_section)) {
-        Text(
-            text = stringResource(R.string.wallpapers_font_size),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Slider(
-            value = state.settings.fontScale,
-            onValueChange = viewModel::setFontScale,
-            valueRange = 0.6f..1.6f,
-            steps = 9,
-        )
-
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            val positions = listOf(
-                TextVerticalPosition.TOP to stringResource(R.string.wallpapers_position_top),
-                TextVerticalPosition.CENTER to stringResource(R.string.wallpapers_position_center),
-                TextVerticalPosition.BOTTOM to stringResource(R.string.wallpapers_position_bottom),
+    AyahSurfaceCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+        ) {
+            Text(
+                text = stringResource(R.string.wallpapers_text_section),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            positions.forEachIndexed { index, (position, label) ->
-                SegmentedButton(
-                    selected = state.settings.verticalPosition == position,
-                    onClick = { viewModel.setVerticalPosition(position) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = positions.size),
-                    label = { Text(label) },
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.wallpapers_font_size),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = AyahNumbering.isolateLtr("${(state.settings.fontScale * 100).toInt()}%"),
+                    style = MaterialTheme.typography.labelLarge.withTabularNumbers(),
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-        }
 
-        VersePicker(state = state, viewModel = viewModel)
+            Slider(
+                value = state.settings.fontScale,
+                onValueChange = viewModel::setFontScale,
+                valueRange = 0.6f..1.6f,
+                steps = 9,
+            )
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val positions = listOf(
+                    TextVerticalPosition.TOP to stringResource(R.string.wallpapers_position_top),
+                    TextVerticalPosition.CENTER to stringResource(R.string.wallpapers_position_center),
+                    TextVerticalPosition.BOTTOM to stringResource(R.string.wallpapers_position_bottom),
+                )
+                positions.forEachIndexed { index, (position, label) ->
+                    SegmentedButton(
+                        selected = state.settings.verticalPosition == position,
+                        onClick = { viewModel.setVerticalPosition(position) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = positions.size),
+                        label = { Text(label, maxLines = 1) },
+                    )
+                }
+            }
+
+            AyahInsetDivider()
+            VersePicker(state = state, viewModel = viewModel)
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel) {
-    var surahMenuOpen by remember { mutableStateOf(false) }
-    var ayahText by remember(state.settings.fixedSurahId) { mutableStateOf("") }
+    var showSurahSheet by remember { mutableStateOf(false) }
+    var ayahText by remember(state.settings.fixedSurahId, state.settings.fixedAyahNumber) {
+        mutableStateOf(state.settings.fixedAyahNumber.toString())
+    }
     val selectedSurah = state.surahs.firstOrNull { it.id == state.settings.fixedSurahId }
 
     Text(
@@ -272,55 +470,67 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
-        ExposedDropdownMenuBox(
-            expanded = surahMenuOpen,
-            onExpandedChange = { surahMenuOpen = it },
-            modifier = Modifier.weight(2f),
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Surface(
+            onClick = { showSurahSheet = true },
+            shape = RoundedCornerShape(AyahRadii.card),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            border = BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outline),
+            modifier = Modifier
+                .weight(2f)
+                .height(56.dp),
         ) {
-            OutlinedTextField(
-                value = "${selectedSurah?.id ?: 1} · " +
-                    (selectedSurah?.localizedDisplayName() ?: ""),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(stringResource(R.string.wallpapers_pick_surah)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = surahMenuOpen) },
-                singleLine = true,
+            Row(
                 modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth(),
-            )
-            ExposedDropdownMenu(expanded = surahMenuOpen, onDismissRequest = { surahMenuOpen = false }) {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    modifier = Modifier.size(width = 280.dp, height = 320.dp),
-                ) {
-                    items(state.surahs, key = { it.id }) { surah ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("${surah.id} · ${surah.localizedDisplayName()}") },
-                            onClick = {
-                                viewModel.setFixedVerse(surah.id, state.settings.fixedAyahNumber)
-                                surahMenuOpen = false
-                            },
-                        )
-                    }
+                    .fillMaxSize()
+                    .padding(horizontal = AyahSpacing.m),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.wallpapers_pick_surah),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "${selectedSurah?.id ?: 1} · " + (selectedSurah?.localizedDisplayName() ?: ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
+                Icon(
+                    imageVector = AyahIcons.ChevronEnd,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
-        val ayahError = ayahText.toIntOrNull()?.let { entered -> entered < 1 || entered > (selectedSurah?.ayahCount ?: 1) }
+        val ayahError = ayahText.isNotEmpty() &&
+            (ayahText.toIntOrNull()?.let { it < 1 || it > (selectedSurah?.ayahCount ?: 1) } != false)
         OutlinedTextField(
             value = ayahText,
             onValueChange = { input ->
-                ayahText = input.take(3)
-                val entered = input.toIntOrNull()
+                val digitsOnly = input.filter(Char::isDigit).take(3)
+                ayahText = digitsOnly
+                val entered = digitsOnly.toIntOrNull()
                 if (entered != null && selectedSurah != null && entered in 1..selectedSurah.ayahCount) {
                     viewModel.pickPreviewVerse(selectedSurah.id, entered)
                     viewModel.setFixedVerse(selectedSurah.id, entered)
                 }
             },
             label = { Text(stringResource(R.string.wallpapers_pick_ayah)) },
-            isError = ayahError == true,
-            supportingText = if (ayahError == true) {
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = ayahError,
+            supportingText = if (ayahError) {
                 {
                     Text(
                         stringResource(
@@ -342,113 +552,136 @@ private fun VersePicker(state: WallpapersUiState, viewModel: WallpapersViewModel
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
     )
-    // Uniform 2×2 grid: same width rhythm as the template chips, so no
-    // mix of small loose chips and full-width segmented rows.
+
     listOf(
         SelectionMode.RANDOM to R.string.wallpapers_selection_random,
         SelectionMode.RANDOM_FROM_SELECTION to R.string.wallpapers_selection_from_selection,
         SelectionMode.SEQUENTIAL_FROM_SELECTION to R.string.wallpapers_selection_sequential,
         SelectionMode.DAILY to R.string.wallpapers_selection_daily,
     ).chunked(2).forEach { rowModes ->
-        Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
             rowModes.forEach { (mode, labelRes) ->
                 FilterChip(
                     selected = state.settings.selectionMode == mode,
                     onClick = { viewModel.setSelectionMode(mode) },
-                    label = { Text(stringResource(labelRes)) },
+                    label = { Text(stringResource(labelRes), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.weight(1f),
                 )
             }
             if (rowModes.size == 1) {
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
+    }
+
+    if (showSurahSheet && state.surahs.isNotEmpty()) {
+        AyahSelectionSheet(
+            title = stringResource(R.string.wallpapers_pick_surah),
+            options = state.surahs,
+            selected = selectedSurah ?: state.surahs.first(),
+            labelFor = { "${it.id} · ${it.localizedDisplayName()}" },
+            onSelect = { surah ->
+                val clampedAyah = state.settings.fixedAyahNumber.coerceIn(1, surah.ayahCount)
+                viewModel.setFixedVerse(surah.id, clampedAyah)
+                viewModel.pickPreviewVerse(surah.id, clampedAyah)
+            },
+            onDismiss = { showSurahSheet = false },
+        )
     }
 }
 
 @Composable
-private fun ApplySection(state: WallpapersUiState, viewModel: WallpapersViewModel) {
-    SectionCard(title = stringResource(R.string.wallpapers_apply_now)) {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            val destinations = listOf(
-                WallpaperDestination.SYSTEM to R.string.wallpapers_dest_home,
-                WallpaperDestination.LOCK to R.string.wallpapers_dest_lock,
-                WallpaperDestination.BOTH to R.string.wallpapers_dest_both,
+private fun PinnedApplyBar(state: WallpapersUiState, viewModel: WallpapersViewModel) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(
+                thickness = AyahTouchTargets.hairline,
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
-            destinations.forEachIndexed { index, (destination, labelRes) ->
-                SegmentedButton(
-                    selected = state.settings.destinations == destination,
-                    onClick = { viewModel.setDestinations(destination) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = destinations.size),
-                    label = { Text(stringResource(labelRes), maxLines = 1) },
-                )
-            }
-        }
-
-        Button(
-            onClick = viewModel::applyPreviewVerse,
-            enabled = !state.applying && state.previewVerse != null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = AyahSpacing.s),
-        ) {
-            if (state.applying) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp))
-            }
-            Text(
-                text = if (state.applying) {
-                    stringResource(R.string.wallpapers_apply_working)
-                } else {
-                    stringResource(R.string.wallpapers_apply_now)
-                },
-                modifier = Modifier.padding(start = AyahSpacing.s),
-            )
-        }
-
-        // Outcome appears with an icon AND text (never color alone).
-        androidx.compose.animation.AnimatedVisibility(
-            visible = state.applyOutcome != null,
-            enter = androidx.compose.animation.expandVertically() +
-                androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.shrinkVertically() +
-                androidx.compose.animation.fadeOut(),
-        ) {
-            state.applyOutcome?.let { outcome ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
-                    modifier = Modifier.padding(top = AyahSpacing.s),
-                ) {
-                    if (outcome == WallpaperApplyStatus.SUCCESS) {
-                        Icon(
-                            Icons.Filled.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.wallpapers_apply_success,
-                                destinationLabel(state.settings.destinations),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val destinations = listOf(
+                        WallpaperDestination.SYSTEM to R.string.wallpapers_dest_home,
+                        WallpaperDestination.LOCK to R.string.wallpapers_dest_lock,
+                        WallpaperDestination.BOTH to R.string.wallpapers_dest_both,
+                    )
+                    destinations.forEachIndexed { index, (destination, labelRes) ->
+                        SegmentedButton(
+                            selected = state.settings.destinations == destination,
+                            onClick = { viewModel.setDestinations(destination) },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = destinations.size,
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            label = { Text(stringResource(labelRes), maxLines = 1) },
                         )
+                    }
+                }
+
+                AyahPrimaryButton(
+                    text = if (state.applying) {
+                        stringResource(R.string.wallpapers_apply_working)
                     } else {
-                        Icon(
-                            Icons.Outlined.ErrorOutline,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.wallpapers_apply_failed,
-                                state.history.firstOrNull()?.entry?.failureReason ?: "-",
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        stringResource(R.string.wallpapers_apply_now)
+                    },
+                    onClick = viewModel::applyPreviewVerse,
+                    enabled = !state.applying && state.previewVerse != null,
+                    loading = state.applying,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                AnimatedVisibility(
+                    visible = state.applyOutcome != null,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                ) {
+                    state.applyOutcome?.let { outcome ->
+                        val success = outcome == WallpaperApplyStatus.SUCCESS
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                        ) {
+                            Icon(
+                                imageVector = if (success) Icons.Filled.Check else Icons.Outlined.ErrorOutline,
+                                contentDescription = null,
+                                tint = if (success) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = if (success) {
+                                    stringResource(
+                                        R.string.wallpapers_apply_success,
+                                        wallpaperDestinationLabel(state.settings.destinations),
+                                    )
+                                } else {
+                                    stringResource(
+                                        R.string.wallpapers_apply_failed,
+                                        state.history.firstOrNull()?.entry?.failureReason ?: "-",
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (success) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -456,7 +689,6 @@ private fun ApplySection(state: WallpapersUiState, viewModel: WallpapersViewMode
     }
 }
 
-/** "30 min" below half a day, "12 h" / "24 h" above — both localized. */
 private fun intervalLabelRes(minutes: Int): Int =
     if (minutes < 720) R.string.wallpapers_interval_minutes else R.string.wallpapers_interval_hours
 
@@ -464,73 +696,96 @@ private fun intervalLabelValue(minutes: Int): Int =
     if (minutes < 720) minutes else minutes / 60
 
 @Composable
+private fun rememberLocalizedTimeFormatter(): DateTimeFormatter {
+    val locale = Locale.getDefault()
+    return remember(locale) {
+        DateTimeFormatter.ofPattern("MMM d · HH:mm", locale)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun AutomationSection(state: WallpapersUiState, viewModel: WallpapersViewModel) {
-    SectionCard(title = stringResource(R.string.wallpapers_auto_updates)) {
-        val statusText = if (state.scheduleStatus.isScheduled) {
-            val minutes = state.scheduleStatus.intervalMinutes ?: state.settings.intervalMinutes
-            stringResource(
-                R.string.wallpapers_auto_every_format,
-                stringResource(intervalLabelRes(minutes), intervalLabelValue(minutes)),
-            )
-        } else {
-            stringResource(R.string.wallpapers_auto_off)
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
+    val timeFormatter = rememberLocalizedTimeFormatter()
+    AyahSurfaceCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
         ) {
             Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
+                text = stringResource(R.string.wallpapers_auto_updates),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            Switch(
-                checked = state.settings.autoUpdateEnabled,
-                onCheckedChange = viewModel::setAutoUpdateEnabled,
-            )
-        }
 
-        if (state.settings.autoUpdateEnabled) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val intervals = listOf(30, 60, 180, 360)
-                intervals.forEachIndexed { index, minutes ->
-                    SegmentedButton(
-                        selected = state.settings.intervalMinutes == minutes,
-                        onClick = { viewModel.setInterval(minutes) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = intervals.size),
-                        label = { Text(stringResource(R.string.wallpapers_interval_minutes, minutes)) },
-                    )
-                }
-            }
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val intervals = listOf(720, 1440)
-                intervals.forEachIndexed { index, minutes ->
-                    SegmentedButton(
-                        selected = state.settings.intervalMinutes == minutes,
-                        onClick = { viewModel.setInterval(minutes) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = intervals.size),
-                        label = { Text(stringResource(R.string.wallpapers_interval_hours, minutes / 60)) },
-                    )
-                }
-            }
-        }
-
-        Text(
-            text = state.lastAppliedAtMillis?.let {
+            val statusText = if (state.scheduleStatus.isScheduled) {
+                val minutes = state.scheduleStatus.intervalMinutes ?: state.settings.intervalMinutes
                 stringResource(
-                    R.string.wallpapers_last_applied_format,
-                    TIME_FORMAT.format(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())),
+                    R.string.wallpapers_auto_every_format,
+                    stringResource(intervalLabelRes(minutes), intervalLabelValue(minutes)),
                 )
-            } ?: stringResource(R.string.wallpapers_last_applied_never),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = stringResource(R.string.wallpapers_auto_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+            } else {
+                stringResource(R.string.wallpapers_auto_off)
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(AyahSpacing.s))
+                Switch(
+                    checked = state.settings.autoUpdateEnabled,
+                    onCheckedChange = viewModel::setAutoUpdateEnabled,
+                )
+            }
+
+            if (state.settings.autoUpdateEnabled) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
+                ) {
+                    INTERVAL_OPTIONS.forEach { minutes ->
+                        FilterChip(
+                            selected = state.settings.intervalMinutes == minutes,
+                            onClick = { viewModel.setInterval(minutes) },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        intervalLabelRes(minutes),
+                                        intervalLabelValue(minutes),
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = state.lastAppliedAtMillis?.let {
+                    stringResource(
+                        R.string.wallpapers_last_applied_format,
+                        timeFormatter.format(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())),
+                    )
+                } ?: stringResource(R.string.wallpapers_last_applied_never),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.wallpapers_auto_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -541,40 +796,57 @@ private fun HistorySection(
     applying: Boolean,
 ) {
     var showClearConfirm by remember { mutableStateOf(false) }
+    val timeFormatter = rememberLocalizedTimeFormatter()
 
-    SectionCard(title = stringResource(R.string.wallpapers_history_section)) {
-        if (state.history.isNotEmpty()) {
+    AyahSurfaceCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
             Row(
-                horizontalArrangement = Arrangement.End,
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(
-                    onClick = { showClearConfirm = true },
-                    enabled = !applying,
-                ) {
-                    Text(stringResource(R.string.history_clear))
+                Text(
+                    text = stringResource(R.string.wallpapers_history_section),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (state.history.isNotEmpty()) {
+                    TextButton(
+                        onClick = { showClearConfirm = true },
+                        enabled = !applying,
+                    ) {
+                        Text(stringResource(R.string.history_clear))
+                    }
                 }
             }
-        }
 
-        if (state.history.isEmpty()) {
-            Text(
-                text = stringResource(R.string.wallpapers_history_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@SectionCard
-        }
-
-        state.history.forEachIndexed { index, item ->
-            HistoryRow(
-                item = item,
-                applying = applying,
-                onReapply = { viewModel.reapply(item) },
-                onDelete = { viewModel.deleteHistoryEntry(item) },
-            )
-            if (index != state.history.lastIndex) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (state.history.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.wallpapers_history_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                state.history.forEachIndexed { index, item ->
+                    HistoryRow(
+                        item = item,
+                        timeFormatter = timeFormatter,
+                        applying = applying,
+                        onReapply = { viewModel.reapply(item) },
+                        onDelete = { viewModel.deleteHistoryEntry(item) },
+                    )
+                    if (index != state.history.lastIndex) {
+                        HorizontalDivider(
+                            thickness = AyahTouchTargets.hairline,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                }
             }
         }
     }
@@ -596,26 +868,26 @@ private fun HistorySection(
 @Composable
 private fun HistoryRow(
     item: HistoryItem,
+    timeFormatter: DateTimeFormatter,
     applying: Boolean,
     onReapply: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val entry = item.entry
+    val thumbShape = RoundedCornerShape(8.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = AyahSpacing.s),
+            .padding(vertical = AyahSpacing.xs),
     ) {
-        // Thumbnail (rendered by the production renderer) or a placeholder.
         Box(
             modifier = Modifier
-                .size(width = 44.dp, height = 88.dp)
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(8.dp),
-                ),
+                .size(width = 40.dp, height = 72.dp)
+                .clip(thumbShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, thumbShape)
+                .border(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant, thumbShape),
             contentAlignment = Alignment.Center,
         ) {
             item.thumbnail?.let { bitmap ->
@@ -626,10 +898,10 @@ private fun HistoryRow(
                     modifier = Modifier.fillMaxSize(),
                 )
             } ?: Icon(
-                Icons.Outlined.Image,
+                imageVector = Icons.Outlined.Image,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
 
@@ -643,10 +915,13 @@ private fun HistoryRow(
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = TIME_FORMAT.format(Instant.ofEpochMilli(entry.appliedAtMillis).atZone(ZoneId.systemDefault())) +
-                    " · " + destinationLabel(entry.destinations) + " · " +
+                text = timeFormatter.format(Instant.ofEpochMilli(entry.appliedAtMillis).atZone(ZoneId.systemDefault())) +
+                    " · " + wallpaperDestinationLabel(entry.destinations) + " · " +
                     stringResource(
                         if (entry.status == WallpaperApplyStatus.SUCCESS) {
                             R.string.wallpapers_history_status_success
@@ -660,6 +935,8 @@ private fun HistoryRow(
                 } else {
                     MaterialTheme.colorScheme.error
                 },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
@@ -668,19 +945,10 @@ private fun HistoryRow(
         }
         IconButton(onClick = onDelete) {
             Icon(
-                Icons.Outlined.Delete,
+                imageVector = Icons.Outlined.Delete,
                 contentDescription = stringResource(R.string.history_delete_entry),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
-
-@Composable
-private fun destinationLabel(destination: WallpaperDestination): String = stringResource(
-    when (destination) {
-        WallpaperDestination.SYSTEM -> R.string.wallpapers_apply_home
-        WallpaperDestination.LOCK -> R.string.wallpapers_apply_lock
-        WallpaperDestination.BOTH -> R.string.wallpapers_apply_both
-    },
-)

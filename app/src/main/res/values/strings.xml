@@ -137,6 +137,8 @@
     <string name="wallpapers_history_status_success">Applied</string>
     <string name="wallpapers_history_status_failed">Failed</string>
     <string name="wallpapers_history_ayah_format" translatable="false">%1$s · \u2066%2$d:%3$d\u2069</string>
+    <string name="wallpapers_badge_auto_on">Auto: %1$s</string>
+    <string name="wallpapers_badge_auto_off">Auto: Off</string>
 
     <!-- Audio -->
     <string name="audio_title">Audio</string>

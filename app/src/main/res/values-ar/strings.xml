@@ -132,6 +132,8 @@
     <string name="wallpapers_history_reapply">إعادة التطبيق</string>
     <string name="wallpapers_history_status_success">تم التطبيق</string>
     <string name="wallpapers_history_status_failed">فشل</string>
+    <string name="wallpapers_badge_auto_on">تلقائي: %1$s</string>
+    <string name="wallpapers_badge_auto_off">تلقائي: متوقف</string>
 
     <!-- Audio -->
     <string name="audio_title">الصوت</string>
