@@ -7,8 +7,13 @@ import org.junit.Test
 class MiniPlayerVisibilityTest {
 
     @Test
-    fun visibleOnAllFiveTopLevelTabsAndUtilityScreens() {
-        TopLevelDestination.entries.forEach { destination ->
+    fun visibleOnCoreTopLevelTabsAndUtilityScreens() {
+        listOf(
+            TopLevelDestination.HOME,
+            TopLevelDestination.QURAN,
+            TopLevelDestination.PRAYER,
+            TopLevelDestination.AUDIO,
+        ).forEach { destination ->
             assertTrue("expected mini player on ${destination.route}", shouldShowMiniPlayer(destination.route))
         }
         assertTrue(shouldShowMiniPlayer(Routes.SETTINGS))
@@ -23,8 +28,9 @@ class MiniPlayerVisibilityTest {
     }
 
     @Test
-    fun hiddenOnImmersiveAndNowPlayingRoutes() {
+    fun hiddenOnImmersiveWallpapersAndNowPlayingRoutes() {
         assertFalse(shouldShowMiniPlayer(null))
+        assertFalse(shouldShowMiniPlayer(TopLevelDestination.WALLPAPERS.route))
         assertFalse(shouldShowMiniPlayer(Routes.NOW_PLAYING))
         assertFalse(shouldShowMiniPlayer(Routes.FULLSCREEN_PREVIEW))
         assertFalse(shouldShowMiniPlayer(Routes.MUSHAF))

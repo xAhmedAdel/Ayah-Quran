@@ -107,6 +107,7 @@ object Routes {
 
 internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
     null,
+    TopLevelDestination.WALLPAPERS.route,
     Routes.NOW_PLAYING,
     Routes.FULLSCREEN_PREVIEW,
     Routes.MUSHAF,
