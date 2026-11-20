@@ -22,6 +22,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -118,8 +119,22 @@ internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
 }
 
 @Composable
-fun AyahApp(modifier: Modifier = Modifier) {
+fun AyahApp(
+    modifier: Modifier = Modifier,
+    pendingDeepLinkRoute: String? = null,
+    onConsumeDeepLinkRoute: () -> Unit = {},
+) {
     val navController = rememberNavController()
+
+    LaunchedEffect(pendingDeepLinkRoute) {
+        val target = pendingDeepLinkRoute ?: return@LaunchedEffect
+        if (target == TopLevelDestination.HOME.route) {
+            navController.navigateToTopLevel(TopLevelDestination.HOME.route)
+        } else {
+            navController.navigate(target) { launchSingleTop = true }
+        }
+        onConsumeDeepLinkRoute()
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = TopLevelDestination.entries.any { it.route == currentRoute }
@@ -252,6 +267,16 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenPrayer = { navController.navigateToTopLevel(TopLevelDestination.PRAYER.route) },
                     onOpenAudio = { navController.navigateToTopLevel(TopLevelDestination.AUDIO.route) },
+                    onOpenAdhkar = { navController.navigate(Routes.ADHKAR_HUB) },
+                    onOpenTasbih = { navController.navigate(Routes.TASBIH) },
+                    onOpenHadith = { navController.navigate(Routes.HADITH_LIBRARY) },
+                    onOpenDuas = { navController.navigate(Routes.DUAS_HUB) },
+                    onOpenHadithDetail = { hadithId ->
+                        navController.navigate(Routes.hadithDetail(hadithId))
+                    },
+                    onOpenAyahInMushaf = { surahId, ayahNumber ->
+                        navController.navigate(Routes.mushaf(surahId = surahId, ayahNumber = ayahNumber))
+                    },
                     onOpenWallpaperPreview = { surahId, ayahNumber ->
                         navController.navigate(Routes.fullscreenPreview(surahId, ayahNumber))
                     },

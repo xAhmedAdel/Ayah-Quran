@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,24 +18,37 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -45,6 +59,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
 import com.ayah.quran.core.designsystem.AyahIcons
@@ -62,11 +79,13 @@ import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.AyahSurahDisplayStyle
 import com.ayah.quran.core.designsystem.theme.AyahThemeTokens
+import com.ayah.quran.core.designsystem.theme.AyahTouchTargets
 import com.ayah.quran.core.designsystem.theme.AyahWordmarkStyle
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
 import com.ayah.quran.core.designsystem.theme.withTabularNumbers
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.domain.model.prayer.Prayer
+import com.ayah.quran.ui.companion.hadith.resolveGradeBadgeKind
 import com.ayah.quran.ui.wallpapers.labelResForId
 import java.time.Instant
 import java.time.ZoneId
@@ -88,12 +107,29 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onOpenPrayer: () -> Unit = {},
     onOpenAudio: () -> Unit = {},
+    onOpenAdhkar: () -> Unit = {},
+    onOpenTasbih: () -> Unit = {},
+    onOpenHadith: () -> Unit = {},
+    onOpenDuas: () -> Unit = {},
+    onOpenHadithDetail: (hadithId: String) -> Unit = {},
+    onOpenAyahInMushaf: (surahId: Int, ayahNumber: Int) -> Unit = onContinueReading,
     onOpenWallpaperPreview: (surahId: Int, ayahNumber: Int) -> Unit = { _, _ -> onOpenWallpapers() },
     showPrayerOnboardingCard: Boolean = false,
     onOpenPrayerOnboarding: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshDay()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = modifier
@@ -123,18 +159,29 @@ fun HomeScreen(
             onOpenQuran = onOpenQuran,
         )
 
+        HomeCompanionStrip(
+            onOpenAdhkar = onOpenAdhkar,
+            onOpenTasbih = onOpenTasbih,
+            onOpenHadith = onOpenHadith,
+            onOpenDuas = onOpenDuas,
+        )
+
         NextPrayerHomeCard(
             nextPrayer = state.nextPrayer,
             onOpenPrayer = onOpenPrayer,
         )
 
-        state.dailyAyah?.let { daily ->
-            DailyAyahCard(
-                dailyAyah = daily,
-                onOpenAyah = { onContinueReading(daily.surahId, daily.ayahNumber) },
-                onCreateWallpaper = { onOpenWallpaperPreview(daily.surahId, daily.ayahNumber) },
-            )
-        }
+        DailyReflectionCard(
+            mode = state.reflectionMode,
+            dailyAyah = state.dailyAyah,
+            dailyAyahReady = state.dailyAyahReady,
+            dailyHadith = state.dailyHadith,
+            dailyHadithReady = state.dailyHadithReady,
+            onSelectMode = viewModel::selectReflectionMode,
+            onOpenAyahInMushaf = onOpenAyahInMushaf,
+            onCreateWallpaper = onOpenWallpaperPreview,
+            onOpenHadithDetail = onOpenHadithDetail,
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
             SectionHeader(text = stringResource(R.string.home_wallpaper_card_title))
@@ -453,22 +500,129 @@ private fun NextPrayerHomeCard(
     }
 }
 
-@Composable
-private fun DailyAyahCard(
-    dailyAyah: HomeDailyAyahState,
-    onOpenAyah: () -> Unit,
-    onCreateWallpaper: () -> Unit,
-) {
-    val isArabic = AppLocale.isArabic
-    val surahDisplay = if (isArabic) dailyAyah.surahNameAr else dailyAyah.surahNameTransliterated
+private data class CompanionEntrySpec(
+    val labelRes: Int,
+    val icon: ImageVector,
+    val testTag: String,
+    val onClick: () -> Unit,
+)
 
+@Composable
+private fun HomeCompanionStrip(
+    onOpenAdhkar: () -> Unit,
+    onOpenTasbih: () -> Unit,
+    onOpenHadith: () -> Unit,
+    onOpenDuas: () -> Unit,
+) {
+    val entries = listOf(
+        CompanionEntrySpec(R.string.home_companion_adhkar, Icons.Outlined.WbSunny, "home_companion_adhkar", onOpenAdhkar),
+        CompanionEntrySpec(R.string.home_companion_tasbih, Icons.Outlined.TouchApp, "home_companion_tasbih", onOpenTasbih),
+        CompanionEntrySpec(R.string.home_companion_hadith, Icons.AutoMirrored.Outlined.MenuBook, "home_companion_hadith", onOpenHadith),
+        CompanionEntrySpec(R.string.home_companion_duas, Icons.Outlined.AutoAwesome, "home_companion_duas", onOpenDuas),
+    )
+    val useTwoRows = LocalDensity.current.fontScale >= 1.3f
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("home_companion_strip"),
+        verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+    ) {
+        SectionHeader(text = stringResource(R.string.home_companion_title))
+        if (useTwoRows) {
+            entries.chunked(2).forEach { pair ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
+                    pair.forEach { entry ->
+                        HomeCompanionTile(entry = entry, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+            ) {
+                entries.forEach { entry ->
+                    HomeCompanionTile(entry = entry, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeCompanionTile(
+    entry: CompanionEntrySpec,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(entry.labelRes)
     AyahSurfaceCard(
-        onClick = onOpenAyah,
-        modifier = Modifier.testTag("home_daily_ayah_card"),
+        onClick = entry.onClick,
+        modifier = modifier
+            .defaultMinSize(minHeight = 82.dp)
+            .testTag(entry.testTag)
+            .semantics(mergeDescendants = true) {
+                contentDescription = label
+            },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = AyahSpacing.xs, vertical = AyahSpacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(AyahRadii.s))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = entry.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DailyReflectionCard(
+    mode: DailyReflectionMode,
+    dailyAyah: HomeDailyAyahState?,
+    dailyAyahReady: Boolean,
+    dailyHadith: HomeDailyHadithState?,
+    dailyHadithReady: Boolean,
+    onSelectMode: (DailyReflectionMode) -> Unit,
+    onOpenAyahInMushaf: (surahId: Int, ayahNumber: Int) -> Unit,
+    onCreateWallpaper: (surahId: Int, ayahNumber: Int) -> Unit,
+    onOpenHadithDetail: (hadithId: String) -> Unit,
+) {
+    val isArabic = AppLocale.isArabic
+
+    AyahSurfaceCard(
+        modifier = Modifier.testTag("home_daily_reflection_card"),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("home_daily_ayah_card")
                 .padding(AyahSpacing.m),
             verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
         ) {
@@ -478,38 +632,191 @@ private fun DailyAyahCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AyahStatusBadge(
-                    label = stringResource(R.string.home_daily_ayah_title),
+                    label = stringResource(R.string.home_daily_reflection_title),
                     kind = AyahStatusKind.GOLD,
                 )
-                IconButton(onClick = onCreateWallpaper) {
-                    Icon(
-                        imageVector = AyahIcons.Wallpaper,
-                        contentDescription = stringResource(R.string.reader_make_wallpaper),
-                        tint = MaterialTheme.colorScheme.primary,
+                if (mode == DailyReflectionMode.AYAH && dailyAyah != null) {
+                    IconButton(
+                        onClick = { onCreateWallpaper(dailyAyah.surahId, dailyAyah.ayahNumber) },
+                    ) {
+                        Icon(
+                            imageVector = AyahIcons.Wallpaper,
+                            contentDescription = stringResource(R.string.reader_make_wallpaper),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val tabs = listOf(
+                    DailyReflectionMode.AYAH to R.string.home_reflection_mode_ayah,
+                    DailyReflectionMode.HADITH to R.string.home_reflection_mode_hadith,
+                )
+                tabs.forEachIndexed { index, (tab, labelRes) ->
+                    SegmentedButton(
+                        selected = mode == tab,
+                        onClick = { onSelectMode(tab) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                        label = {
+                            Text(
+                                text = stringResource(labelRes),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        modifier = Modifier.testTag("reflection_mode_${tab.name.lowercase()}"),
                     )
                 }
             }
-            Text(
-                text = dailyAyah.textUthmani,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontFamily = QuranTextFontFamily,
-                    fontSize = 21.sp,
-                    lineHeight = 38.sp,
-                    textDirection = TextDirection.Rtl,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "$surahDisplay · ${AyahNumbering.isolateLtr("${dailyAyah.surahId}:${dailyAyah.ayahNumber}")}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
+
+            when (mode) {
+                DailyReflectionMode.AYAH -> {
+                    if (dailyAyah != null) {
+                        val surahDisplay = if (isArabic) dailyAyah.surahNameAr else dailyAyah.surahNameTransliterated
+                        Text(
+                            text = dailyAyah.textUthmani,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = QuranTextFontFamily,
+                                fontSize = 21.sp,
+                                lineHeight = 38.sp,
+                                textDirection = TextDirection.Rtl,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("reflection_ayah_text"),
+                        )
+                        Text(
+                            text = "$surahDisplay · ${AyahNumbering.isolateLtr("${dailyAyah.surahId}:${dailyAyah.ayahNumber}")}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AyahTonalButton(
+                            text = stringResource(R.string.home_reflection_open_mushaf),
+                            onClick = { onOpenAyahInMushaf(dailyAyah.surahId, dailyAyah.ayahNumber) },
+                            icon = AyahIcons.MushafMode,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("reflection_open_mushaf"),
+                        )
+                    } else if (dailyAyahReady) {
+                        Text(
+                            text = stringResource(R.string.home_reflection_ayah_unavailable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = AyahSpacing.sm)
+                                .testTag("reflection_ayah_unavailable"),
+                        )
+                    }
+                }
+
+                DailyReflectionMode.HADITH -> {
+                    if (dailyHadith != null) {
+                        val collectionTitle = if (isArabic) {
+                            dailyHadith.collectionTitleAr
+                        } else {
+                            dailyHadith.collectionTitleEn.ifBlank { dailyHadith.collectionTitleAr }
+                        }
+                        val gradeText = if (isArabic) {
+                            dailyHadith.gradeAr
+                        } else {
+                            dailyHadith.gradeEn.ifBlank { dailyHadith.gradeAr }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = listOfNotNull(
+                                    collectionTitle.takeIf { it.isNotBlank() },
+                                    dailyHadith.hadithNumber.takeIf { it.isNotBlank() }?.let {
+                                        AyahNumbering.isolateLtr("#$it")
+                                    },
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (gradeText.isNotBlank()) {
+                            AyahStatusBadge(
+                                label = gradeText,
+                                kind = resolveGradeBadgeKind(dailyHadith.gradeAr, dailyHadith.gradeEn),
+                                modifier = Modifier.testTag("reflection_hadith_grade"),
+                            )
+                        }
+                        Text(
+                            text = dailyHadith.textAr,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = QuranTextFontFamily,
+                                fontSize = 20.sp,
+                                lineHeight = 36.sp,
+                                textDirection = TextDirection.Rtl,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("reflection_hadith_text"),
+                        )
+                        if (!dailyHadith.textEn.isNullOrBlank()) {
+                            HorizontalDivider(
+                                thickness = AyahTouchTargets.hairline,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            Text(
+                                text = dailyHadith.textEn,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    textDirection = TextDirection.Ltr,
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("reflection_hadith_english"),
+                            )
+                        }
+                        Text(
+                            text = listOfNotNull(
+                                dailyHadith.graderAttribution.takeIf { it.isNotBlank() },
+                                dailyHadith.sourceAttribution.takeIf {
+                                    it.isNotBlank() && it != dailyHadith.graderAttribution
+                                },
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AyahTonalButton(
+                            text = stringResource(R.string.home_reflection_read_hadith),
+                            onClick = { onOpenHadithDetail(dailyHadith.hadithId) },
+                            icon = Icons.AutoMirrored.Outlined.MenuBook,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("reflection_open_hadith"),
+                        )
+                    } else if (dailyHadithReady) {
+                        Text(
+                            text = stringResource(R.string.home_reflection_hadith_unavailable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = AyahSpacing.sm)
+                                .testTag("reflection_hadith_unavailable"),
+                        )
+                    }
+                }
+            }
         }
     }
 }

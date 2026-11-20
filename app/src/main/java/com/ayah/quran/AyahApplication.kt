@@ -4,12 +4,19 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.ayah.quran.background.CompanionReminderNotifier
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.companion.CompanionContentImporter
 import com.ayah.quran.data.quran.QuranImporter
+import com.ayah.quran.di.ApplicationScope
+import com.ayah.quran.domain.repository.companion.CompanionReminderScheduler
+import com.ayah.quran.domain.repository.companion.CompanionRemindersRepository
 import com.ayah.quran.prayer.PrayerNotifications
 import com.ayah.quran.prayer.PrayerTimeManager
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -35,6 +42,19 @@ class AyahApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var prayerNotifications: PrayerNotifications
 
+    @Inject
+    lateinit var companionReminderNotifier: CompanionReminderNotifier
+
+    @Inject
+    lateinit var companionRemindersRepository: CompanionRemindersRepository
+
+    @Inject
+    lateinit var companionReminderScheduler: CompanionReminderScheduler
+
+    @Inject
+    @ApplicationScope
+    lateinit var appScope: CoroutineScope
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(hiltWorkerFactory)
@@ -49,11 +69,12 @@ class AyahApplication : Application(), Configuration.Provider {
         super.onCreate()
         quranImporter.startAsync()
         companionContentImporter.startAsync()
-        // Notification channels exist from install (the permissions
-        // onboarding and dashboard verify the alert channel's state).
         prayerNotifications.createChannels()
-        // (Re)arm the next prayer alarm from persisted preferences — covers
-        // process restarts alongside the BOOT/update receivers.
         prayerTimeManager.reconcile()
+        companionReminderNotifier.createChannel()
+        appScope.launch {
+            val prefs = companionRemindersRepository.preferences.first()
+            companionReminderScheduler.reconcileAll(prefs)
+        }
     }
 }

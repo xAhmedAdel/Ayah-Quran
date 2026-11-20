@@ -5,16 +5,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.core.quran.AyahSelector
+import com.ayah.quran.core.time.CompanionDateProvider
 import com.ayah.quran.core.wallpaper.WallpaperTemplate
+import com.ayah.quran.data.companion.CompanionContentImporter
 import com.ayah.quran.domain.model.QuranImportState
 import com.ayah.quran.domain.model.ReadingPosition
 import com.ayah.quran.domain.model.TextVerticalPosition
 import com.ayah.quran.domain.model.WallpaperApplyStatus
 import com.ayah.quran.domain.model.WallpaperHistoryEntry
 import com.ayah.quran.domain.model.WallpaperScheduleStatus
+import com.ayah.quran.domain.model.companion.CompanionImportState
 import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.repository.WallpaperRepository
+import com.ayah.quran.domain.repository.companion.HadithRepository
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import com.ayah.quran.domain.usecase.GetSurahUseCase
 import com.ayah.quran.domain.usecase.ObserveBookmarkedAyahsUseCase
@@ -27,12 +31,14 @@ import com.ayah.quran.prayer.PrayerTimeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
@@ -64,12 +70,31 @@ data class WallpaperCardState(
     val appliedAtMillis: Long,
 )
 
+enum class DailyReflectionMode {
+    AYAH,
+    HADITH,
+}
+
 data class HomeDailyAyahState(
     val surahId: Int,
     val ayahNumber: Int,
     val textUthmani: String,
     val surahNameAr: String,
     val surahNameTransliterated: String,
+)
+
+data class HomeDailyHadithState(
+    val hadithId: String,
+    val textAr: String,
+    val textEn: String?,
+    val collectionTitleAr: String,
+    val collectionTitleEn: String,
+    val hadithNumber: String,
+    val gradeAr: String,
+    val gradeEn: String,
+    val graderAttribution: String,
+    val sourceAttribution: String,
+    val sourceVersion: String,
 )
 
 data class HomeNextPrayerState(
@@ -86,7 +111,11 @@ data class HomeUiState(
     val hijriDateText: String = "",
     val continueReading: ContinueReadingState? = null,
     val nextPrayer: HomeNextPrayerState? = null,
+    val reflectionMode: DailyReflectionMode = DailyReflectionMode.AYAH,
     val dailyAyah: HomeDailyAyahState? = null,
+    val dailyAyahReady: Boolean = false,
+    val dailyHadith: HomeDailyHadithState? = null,
+    val dailyHadithReady: Boolean = false,
     val wallpaperCard: WallpaperCardState? = null,
     val scheduleStatus: WallpaperScheduleStatus =
         WallpaperScheduleStatus(isScheduled = false, intervalMinutes = null),
@@ -107,10 +136,16 @@ class HomeViewModel @Inject constructor(
     private val pageForAyah: PageForAyahUseCase,
     private val getSurah: GetSurahUseCase,
     private val wallpaperRepository: WallpaperRepository,
+    private val hadithRepository: HadithRepository,
+    companionContentImporter: CompanionContentImporter,
+    private val dateProvider: CompanionDateProvider,
 ) : ViewModel() {
 
     private var cachedThumbnailKey: String? = null
     private var cachedThumbnail: Bitmap? = null
+
+    private val epochDayFlow = MutableStateFlow(dateProvider.todayEpochDay())
+    private val reflectionModeFlow = MutableStateFlow(DailyReflectionMode.AYAH)
 
     private val ticker = flow {
         while (true) {
@@ -131,23 +166,26 @@ class HomeViewModel @Inject constructor(
             flow { emit(buildWallpaperCard(history)) }
         }
 
-    private val dailyAyahFlow = observeQuranImportState()
-        .map { it is QuranImportState.Completed }
-        .distinctUntilChanged()
-        .flatMapLatest {
+    private val dailyAyahFlow = combine(
+        observeQuranImportState()
+            .map { it is QuranImportState.Completed || it is QuranImportState.Failed }
+            .distinctUntilChanged(),
+        epochDayFlow,
+    ) { ready, epochDay -> ready to epochDay }
+        .flatMapLatest { (ready, epochDay) ->
             flow {
                 val pool = wallpaperRepository.allGlobalIds()
                 if (pool.isEmpty()) {
-                    emit(null)
+                    emit(null to ready)
                     return@flow
                 }
                 val globalId = ayahSelector.selectDaily(
-                    epochDay = LocalDate.now().toEpochDay(),
+                    epochDay = epochDay,
                     poolSize = pool.size,
                 )
                 val ayah = wallpaperRepository.loadAyahByGlobalId(globalId)
                 if (ayah == null) {
-                    emit(null)
+                    emit(null to ready)
                     return@flow
                 }
                 val surah = getSurah(ayah.surahId)
@@ -158,8 +196,46 @@ class HomeViewModel @Inject constructor(
                         textUthmani = ayah.textUthmani,
                         surahNameAr = surah?.nameArabic ?: "",
                         surahNameTransliterated = surah?.nameTransliterated ?: "Surah ${ayah.surahId}",
-                    ),
+                    ) to true,
                 )
+            }
+        }
+
+    private val dailyHadithFlow = combine(
+        companionContentImporter.importState
+            .map { it is CompanionImportState.Completed || it is CompanionImportState.Failed }
+            .distinctUntilChanged(),
+        hadithRepository.observeCollections(),
+        epochDayFlow,
+    ) { ready, collections, epochDay -> Triple(ready, collections, epochDay) }
+        .flatMapLatest { (ready, collections, epochDay) ->
+            flow {
+                val id = hadithRepository.dailyHadithId(epochDay)
+                emit(Triple(ready, collections, id))
+            }.flatMapLatest { (isReady, cols, hadithId) ->
+                if (hadithId == null) {
+                    flowOf(null to isReady)
+                } else {
+                    hadithRepository.observeById(hadithId).map { item ->
+                        val state = item?.let { hadith ->
+                            val col = cols.firstOrNull { it.id == hadith.collectionId }
+                            HomeDailyHadithState(
+                                hadithId = hadith.id,
+                                textAr = hadith.textAr,
+                                textEn = hadith.textEn?.takeIf { it.isNotBlank() },
+                                collectionTitleAr = col?.titleAr ?: hadith.chapterTitleAr,
+                                collectionTitleEn = col?.titleEn ?: hadith.chapterTitleEn,
+                                hadithNumber = hadith.hadithNumber,
+                                gradeAr = hadith.gradeAr,
+                                gradeEn = hadith.gradeEn,
+                                graderAttribution = hadith.graderAttribution,
+                                sourceAttribution = col?.sourceAttribution ?: hadith.graderAttribution,
+                                sourceVersion = hadith.sourceVersion,
+                            )
+                        }
+                        state to true
+                    }
+                }
             }
         }
 
@@ -199,13 +275,21 @@ class HomeViewModel @Inject constructor(
 
     private val bookmarkCountFlow = observeBookmarkedAyahs().map { it.size }.distinctUntilChanged()
 
+    private val reflectionFlow = combine(
+        reflectionModeFlow,
+        dailyAyahFlow,
+        dailyHadithFlow,
+    ) { mode, (ayah, ayahReady), (hadith, hadithReady) ->
+        ReflectionSlice(mode, ayah, ayahReady, hadith, hadithReady)
+    }
+
     private val coreReadingAndWallpaperFlow = combine(
         readingFlow,
         wallpaperFlow,
         observeScheduleStatus(),
-        dailyAyahFlow,
-    ) { reading, wallpaper, schedule, daily ->
-        CoreHomeData(reading, wallpaper, schedule, daily)
+        reflectionFlow,
+    ) { reading, wallpaper, schedule, reflection ->
+        CoreHomeData(reading, wallpaper, schedule, reflection)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -218,7 +302,11 @@ class HomeViewModel @Inject constructor(
             hijriDateText = hijri,
             continueReading = core.reading,
             nextPrayer = nextPrayer,
-            dailyAyah = core.dailyAyah,
+            reflectionMode = core.reflection.mode,
+            dailyAyah = core.reflection.dailyAyah,
+            dailyAyahReady = core.reflection.dailyAyahReady,
+            dailyHadith = core.reflection.dailyHadith,
+            dailyHadithReady = core.reflection.dailyHadithReady,
             wallpaperCard = core.wallpaperCard,
             scheduleStatus = core.scheduleStatus,
             bookmarkCount = bookmarkCount,
@@ -228,6 +316,17 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = HomeUiState(isLoading = true),
     )
+
+    fun selectReflectionMode(mode: DailyReflectionMode) {
+        reflectionModeFlow.value = mode
+    }
+
+    fun refreshDay() {
+        val currentDay = dateProvider.todayEpochDay()
+        if (epochDayFlow.value != currentDay) {
+            epochDayFlow.value = currentDay
+        }
+    }
 
     private suspend fun buildContinueReading(position: ReadingPosition): ContinueReadingState? {
         val surah = getSurah(position.surahId) ?: return null
@@ -302,11 +401,19 @@ class HomeViewModel @Inject constructor(
         return formatter.format(hijri) + suffix
     }
 
+    private data class ReflectionSlice(
+        val mode: DailyReflectionMode,
+        val dailyAyah: HomeDailyAyahState?,
+        val dailyAyahReady: Boolean,
+        val dailyHadith: HomeDailyHadithState?,
+        val dailyHadithReady: Boolean,
+    )
+
     private data class CoreHomeData(
         val reading: ContinueReadingState?,
         val wallpaperCard: WallpaperCardState?,
         val scheduleStatus: WallpaperScheduleStatus,
-        val dailyAyah: HomeDailyAyahState?,
+        val reflection: ReflectionSlice,
     )
 
     private companion object {

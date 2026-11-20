@@ -235,6 +235,8 @@ fun SettingsScreen(
                 }
             }
 
+            CompanionRemindersSection()
+
             UpdatesSection(viewModel)
 
             AyahGroupCard(title = stringResource(R.string.settings_about)) {

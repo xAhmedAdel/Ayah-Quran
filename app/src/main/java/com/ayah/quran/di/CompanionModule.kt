@@ -7,10 +7,14 @@ import com.ayah.quran.core.database.dao.companion.TasbihDao
 import com.ayah.quran.core.time.CompanionDateProvider
 import com.ayah.quran.core.time.SystemCompanionDateProvider
 import com.ayah.quran.data.companion.AdhkarRepositoryImpl
+import com.ayah.quran.data.companion.DataStoreCompanionRemindersRepository
 import com.ayah.quran.data.companion.DataStoreTasbihPreferencesRepository
 import com.ayah.quran.data.companion.HadithRepositoryImpl
 import com.ayah.quran.data.companion.TasbihRepositoryImpl
+import com.ayah.quran.data.companion.WorkManagerCompanionReminderScheduler
 import com.ayah.quran.domain.repository.companion.AdhkarRepository
+import com.ayah.quran.domain.repository.companion.CompanionReminderScheduler
+import com.ayah.quran.domain.repository.companion.CompanionRemindersRepository
 import com.ayah.quran.domain.repository.companion.HadithRepository
 import com.ayah.quran.domain.repository.companion.TasbihPreferencesRepository
 import com.ayah.quran.domain.repository.companion.TasbihRepository
@@ -46,6 +50,18 @@ abstract class CompanionModule {
     @Binds
     @Singleton
     abstract fun bindCompanionDateProvider(impl: SystemCompanionDateProvider): CompanionDateProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindCompanionRemindersRepository(
+        impl: DataStoreCompanionRemindersRepository,
+    ): CompanionRemindersRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCompanionReminderScheduler(
+        impl: WorkManagerCompanionReminderScheduler,
+    ): CompanionReminderScheduler
 
     companion object {
         @Provides

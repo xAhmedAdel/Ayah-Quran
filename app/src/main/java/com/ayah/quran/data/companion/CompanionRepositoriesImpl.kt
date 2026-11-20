@@ -17,6 +17,7 @@ import com.ayah.quran.core.database.entity.companion.HadithUserStateEntity
 import com.ayah.quran.core.database.entity.companion.TasbihCounterEntity
 import com.ayah.quran.core.database.entity.companion.TasbihDailyLogEntity
 import com.ayah.quran.core.text.ArabicTextNormalizer
+import com.ayah.quran.domain.model.companion.DailyReflectionSelector
 import com.ayah.quran.domain.model.companion.DhikrCategory
 import com.ayah.quran.domain.model.companion.DhikrDailyProgress
 import com.ayah.quran.domain.model.companion.DhikrItem
@@ -351,7 +352,7 @@ class HadithRepositoryImpl @Inject constructor(
     override suspend fun dailyHadithId(epochDay: Long): String? {
         val ids = hadithDao.allHadithIds()
         if (ids.isEmpty()) return null
-        val index = abs((epochDay * 2654435761L) % ids.size).toInt()
+        val index = DailyReflectionSelector.selectIndex(epochDay, ids.size)
         return ids[index]
     }
 }
