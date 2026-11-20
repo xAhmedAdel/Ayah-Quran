@@ -4,6 +4,8 @@ import com.ayah.quran.core.database.AyahDatabase
 import com.ayah.quran.core.database.dao.companion.AdhkarDao
 import com.ayah.quran.core.database.dao.companion.HadithDao
 import com.ayah.quran.core.database.dao.companion.TasbihDao
+import com.ayah.quran.core.time.CompanionDateProvider
+import com.ayah.quran.core.time.SystemCompanionDateProvider
 import com.ayah.quran.data.companion.AdhkarRepositoryImpl
 import com.ayah.quran.data.companion.HadithRepositoryImpl
 import com.ayah.quran.data.companion.TasbihRepositoryImpl
@@ -32,6 +34,10 @@ abstract class CompanionModule {
     @Binds
     @Singleton
     abstract fun bindHadithRepository(impl: HadithRepositoryImpl): HadithRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCompanionDateProvider(impl: SystemCompanionDateProvider): CompanionDateProvider
 
     companion object {
         @Provides

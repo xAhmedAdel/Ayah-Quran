@@ -49,6 +49,9 @@ import com.ayah.quran.ui.audio.MiniPlayerBar
 import com.ayah.quran.ui.audio.MiniPlayerViewModel
 import com.ayah.quran.ui.audio.NowPlayingScreen
 import com.ayah.quran.ui.bookmarks.BookmarksScreen
+import com.ayah.quran.ui.companion.adhkar.AdhkarHubScreen
+import com.ayah.quran.ui.companion.adhkar.AdhkarSessionScreen
+import com.ayah.quran.ui.companion.duas.DuasHubScreen
 import com.ayah.quran.ui.home.HomeScreen
 import com.ayah.quran.ui.main.MainViewModel
 import com.ayah.quran.ui.prayer.AdhanLibraryScreen
@@ -75,6 +78,9 @@ object Routes {
     const val PRAYER_ADHAN_LIBRARY = "prayer/adhan-library/{prayer}"
     const val NOW_PLAYING = "audio/now-playing"
     const val FULLSCREEN_PREVIEW = "preview/{surahId}/{ayahNumber}"
+    const val ADHKAR_HUB = "companion/adhkar"
+    const val ADHKAR_SESSION = "companion/adhkar/session/{categoryId}?itemId={itemId}"
+    const val DUAS_HUB = "companion/duas"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
         "reader/$surahId" + (ayahNumber?.let { "?ayah=$it" } ?: "")
@@ -84,6 +90,9 @@ object Routes {
 
     fun fullscreenPreview(surahId: Int, ayahNumber: Int): String =
         "preview/$surahId/$ayahNumber"
+
+    fun adhkarSession(categoryId: String, itemId: String? = null): String =
+        "companion/adhkar/session/$categoryId" + (itemId?.let { "?itemId=$it" } ?: "")
 }
 
 internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
@@ -92,6 +101,7 @@ internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
     Routes.FULLSCREEN_PREVIEW,
     Routes.MUSHAF,
     Routes.READER,
+    Routes.ADHKAR_SESSION,
     -> false
     else -> true
 }
@@ -248,6 +258,12 @@ fun AyahApp(modifier: Modifier = Modifier) {
             composable(TopLevelDestination.PRAYER.route) {
                 PrayerTimesScreen(
                     onOpenSettings = { navController.navigate(Routes.PRAYER_SETTINGS) },
+                    onOpenAfterPrayerAdhkar = {
+                        navController.navigate(Routes.adhkarSession("after_prayer"))
+                    },
+                    onOpenAdhkarHub = {
+                        navController.navigate(Routes.ADHKAR_HUB)
+                    },
                 )
             }
             composable(TopLevelDestination.AUDIO.route) {
@@ -410,6 +426,47 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     onBack = { navController.popBackStack() },
                     onOpenAyah = { surahId, ayahNumber ->
                         openReadingPosition(surahId, ayahNumber)
+                    },
+                )
+            }
+
+            composable(route = Routes.ADHKAR_HUB) {
+                AdhkarHubScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenSession = { categoryId, itemId ->
+                        navController.navigate(Routes.adhkarSession(categoryId, itemId))
+                    },
+                    onOpenDuas = { navController.navigate(Routes.DUAS_HUB) },
+                    onOpenSurahInMushaf = { surahId ->
+                        navController.navigate(Routes.mushaf(surahId = surahId))
+                    },
+                )
+            }
+
+            composable(
+                route = Routes.ADHKAR_SESSION,
+                arguments = listOf(
+                    navArgument("categoryId") { type = NavType.StringType },
+                    navArgument("itemId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) {
+                AdhkarSessionScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenSurahInMushaf = { surahId ->
+                        navController.navigate(Routes.mushaf(surahId = surahId))
+                    },
+                )
+            }
+
+            composable(route = Routes.DUAS_HUB) {
+                DuasHubScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenInMushaf = { surahId, ayahNumber ->
+                        navController.navigate(Routes.mushaf(surahId = surahId, ayahNumber = ayahNumber))
                     },
                 )
             }

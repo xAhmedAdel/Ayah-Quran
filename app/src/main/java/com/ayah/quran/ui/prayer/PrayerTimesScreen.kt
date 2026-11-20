@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,6 +68,7 @@ import com.ayah.quran.core.designsystem.component.AyahSelectionSheet
 import com.ayah.quran.core.designsystem.component.AyahStatusBadge
 import com.ayah.quran.core.designsystem.component.AyahStatusKind
 import com.ayah.quran.core.designsystem.component.AyahSurfaceCard
+import com.ayah.quran.core.designsystem.component.AyahTonalButton
 import com.ayah.quran.core.designsystem.component.SectionHeader
 import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
@@ -83,6 +85,8 @@ import com.ayah.quran.domain.model.prayer.PrayerLocation
 fun PrayerTimesScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenAfterPrayerAdhkar: () -> Unit = {},
+    onOpenAdhkarHub: () -> Unit = {},
     viewModel: PrayerTimesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -168,6 +172,10 @@ fun PrayerTimesScreen(
                     modifier = Modifier.padding(horizontal = AyahSpacing.xs),
                 )
             }
+            AfterPrayerAdhkarCard(
+                onOpenAfterPrayerAdhkar = onOpenAfterPrayerAdhkar,
+                onOpenAdhkarHub = onOpenAdhkarHub,
+            )
         }
     }
 
@@ -198,6 +206,53 @@ fun PrayerTimesScreen(
             onSelect = { mode -> viewModel.setAdhanMode(activePrayer, mode) },
             onDismiss = { editingAdhanPrayer = null },
         )
+    }
+}
+
+@Composable
+private fun AfterPrayerAdhkarCard(
+    onOpenAfterPrayerAdhkar: () -> Unit,
+    onOpenAdhkarHub: () -> Unit,
+) {
+    AyahSurfaceCard(
+        modifier = Modifier.testTag("prayer_after_adhkar_card"),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
+            Text(
+                text = stringResource(R.string.prayer_after_adhkar_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.prayer_after_adhkar_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AyahTonalButton(
+                    text = stringResource(R.string.prayer_after_adhkar_action),
+                    onClick = onOpenAfterPrayerAdhkar,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("prayer_open_after_adhkar"),
+                )
+                TextButton(
+                    onClick = onOpenAdhkarHub,
+                    modifier = Modifier.testTag("prayer_open_all_adhkar"),
+                ) {
+                    Text(stringResource(R.string.prayer_open_all_adhkar))
+                }
+            }
+        }
     }
 }
 

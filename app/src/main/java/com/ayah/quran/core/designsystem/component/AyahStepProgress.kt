@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.ayah.quran.core.designsystem.AyahNumbering
 import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.withTabularNumbers
@@ -44,7 +45,7 @@ fun AyahStepProgress(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "$clampedStep / $safeTotal",
+                text = AyahNumbering.isolateLtr("$clampedStep / $safeTotal"),
                 style = MaterialTheme.typography.labelMedium.withTabularNumbers(),
                 color = MaterialTheme.colorScheme.primary,
             )
