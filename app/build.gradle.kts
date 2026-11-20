@@ -94,6 +94,10 @@ android {
         noCompress += "wav"
         noCompress += "mp3"
     }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 kotlin {
@@ -173,6 +177,11 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.work.testing)
+
+    constraints {
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    }
 
     // ---- Debug tooling ----
     debugImplementation(libs.androidx.compose.ui.tooling)
