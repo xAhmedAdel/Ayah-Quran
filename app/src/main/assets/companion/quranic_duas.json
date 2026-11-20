@@ -1,0 +1,413 @@
+{
+  "manifest": {
+    "datasetId": "ayah_quranic_duas_index",
+    "version": "1.0.0-2026-11-20",
+    "sourceName": "Ayah Verified Tanzil Uthmani Quran Index",
+    "sourceUrl": "https://tanzil.net",
+    "license": "CC-BY-3.0 (Tanzil Quran text referenced by Surah:Ayah pointer only)",
+    "recordCount": 40,
+    "contentSha256": "b95d990d5a631555c72f5998650a3487eb3ce694ba3e3ac67fae40d2b74d7ab9"
+  },
+  "items": [
+    {
+      "id": "qdua_01",
+      "categoryId": "dua_guidance",
+      "surahId": 1,
+      "startAyah": 6,
+      "endAyah": 7,
+      "titleAr": "دعاء الهداية إلى الصراط المستقيم",
+      "titleEn": "Guidance to the Straight Path",
+      "sortOrder": 1
+    },
+    {
+      "id": "qdua_02",
+      "categoryId": "dua_forgiveness",
+      "surahId": 2,
+      "startAyah": 127,
+      "endAyah": 127,
+      "titleAr": "دعاء قبول العمل",
+      "titleEn": "Acceptance of Good Deeds",
+      "sortOrder": 2
+    },
+    {
+      "id": "qdua_03",
+      "categoryId": "dua_family",
+      "surahId": 2,
+      "startAyah": 128,
+      "endAyah": 128,
+      "titleAr": "دعاء التوبة والذرية المسلمة",
+      "titleEn": "Submission and Righteous Offspring",
+      "sortOrder": 3
+    },
+    {
+      "id": "qdua_04",
+      "categoryId": "dua_gratitude",
+      "surahId": 2,
+      "startAyah": 201,
+      "endAyah": 201,
+      "titleAr": "دعاء خير الدنيا والآخرة",
+      "titleEn": "Good in This World and the Hereafter",
+      "sortOrder": 4
+    },
+    {
+      "id": "qdua_05",
+      "categoryId": "dua_anxiety",
+      "surahId": 2,
+      "startAyah": 250,
+      "endAyah": 250,
+      "titleAr": "دعاء الصبر والثبات",
+      "titleEn": "Patience and Steadfastness",
+      "sortOrder": 5
+    },
+    {
+      "id": "qdua_06",
+      "categoryId": "dua_forgiveness",
+      "surahId": 2,
+      "startAyah": 286,
+      "endAyah": 286,
+      "titleAr": "دعاء رفع الحرج والمغفرة",
+      "titleEn": "Ease, Pardon, and Mercy",
+      "sortOrder": 6
+    },
+    {
+      "id": "qdua_07",
+      "categoryId": "dua_guidance",
+      "surahId": 3,
+      "startAyah": 8,
+      "endAyah": 8,
+      "titleAr": "دعاء الثبات على الهداية",
+      "titleEn": "Steadfastness of the Heart",
+      "sortOrder": 7
+    },
+    {
+      "id": "qdua_08",
+      "categoryId": "dua_forgiveness",
+      "surahId": 3,
+      "startAyah": 16,
+      "endAyah": 16,
+      "titleAr": "دعاء المغفرة والوقاية من النار",
+      "titleEn": "Forgiveness and Protection from the Fire",
+      "sortOrder": 8
+    },
+    {
+      "id": "qdua_09",
+      "categoryId": "dua_family",
+      "surahId": 3,
+      "startAyah": 38,
+      "endAyah": 38,
+      "titleAr": "دعاء الذرية الطيبة",
+      "titleEn": "Righteous Offspring",
+      "sortOrder": 9
+    },
+    {
+      "id": "qdua_10",
+      "categoryId": "dua_guidance",
+      "surahId": 3,
+      "startAyah": 53,
+      "endAyah": 53,
+      "titleAr": "دعاء الإيمان والاتباع",
+      "titleEn": "Faith and Following Truth",
+      "sortOrder": 10
+    },
+    {
+      "id": "qdua_11",
+      "categoryId": "dua_forgiveness",
+      "surahId": 3,
+      "startAyah": 147,
+      "endAyah": 147,
+      "titleAr": "دعاء المغفرة وتثبيت الأقدام",
+      "titleEn": "Forgiveness and Firm Foothold",
+      "sortOrder": 11
+    },
+    {
+      "id": "qdua_12",
+      "categoryId": "dua_gratitude",
+      "surahId": 3,
+      "startAyah": 191,
+      "endAyah": 191,
+      "titleAr": "دعاء التسبيح والوقاية من النار",
+      "titleEn": "Remembrance and Protection",
+      "sortOrder": 12
+    },
+    {
+      "id": "qdua_13",
+      "categoryId": "dua_forgiveness",
+      "surahId": 3,
+      "startAyah": 193,
+      "endAyah": 193,
+      "titleAr": "دعاء مغفرة الذنوب وتكفير السيئات",
+      "titleEn": "Forgiveness and Remission of Sins",
+      "sortOrder": 13
+    },
+    {
+      "id": "qdua_14",
+      "categoryId": "dua_guidance",
+      "surahId": 3,
+      "startAyah": 194,
+      "endAyah": 194,
+      "titleAr": "دعاء حسن الخاتمة وعدم الخزي",
+      "titleEn": "Honor on the Day of Resurrection",
+      "sortOrder": 14
+    },
+    {
+      "id": "qdua_15",
+      "categoryId": "dua_forgiveness",
+      "surahId": 7,
+      "startAyah": 23,
+      "endAyah": 23,
+      "titleAr": "دعاء التوبة والرحمة",
+      "titleEn": "Repentance and Mercy",
+      "sortOrder": 15
+    },
+    {
+      "id": "qdua_16",
+      "categoryId": "dua_guidance",
+      "surahId": 7,
+      "startAyah": 47,
+      "endAyah": 47,
+      "titleAr": "دعاء السلامة من القوم الظالمين",
+      "titleEn": "Protection from Wrongdoing",
+      "sortOrder": 16
+    },
+    {
+      "id": "qdua_17",
+      "categoryId": "dua_guidance",
+      "surahId": 7,
+      "startAyah": 89,
+      "endAyah": 89,
+      "titleAr": "دعاء الفتح بالحق",
+      "titleEn": "Decisive Opening in Truth",
+      "sortOrder": 17
+    },
+    {
+      "id": "qdua_18",
+      "categoryId": "dua_anxiety",
+      "surahId": 7,
+      "startAyah": 126,
+      "endAyah": 126,
+      "titleAr": "دعاء الصبر والوفاة على الإسلام",
+      "titleEn": "Patience and Dying as Muslims",
+      "sortOrder": 18
+    },
+    {
+      "id": "qdua_19",
+      "categoryId": "dua_anxiety",
+      "surahId": 10,
+      "startAyah": 85,
+      "endAyah": 86,
+      "titleAr": "دعاء التوكل والنجاة",
+      "titleEn": "Reliance on Allah and Deliverance",
+      "sortOrder": 19
+    },
+    {
+      "id": "qdua_20",
+      "categoryId": "dua_forgiveness",
+      "surahId": 11,
+      "startAyah": 47,
+      "endAyah": 47,
+      "titleAr": "دعاء الاستعاذة والمغفرة",
+      "titleEn": "Seeking Refuge and Forgiveness",
+      "sortOrder": 20
+    },
+    {
+      "id": "qdua_21",
+      "categoryId": "dua_guidance",
+      "surahId": 12,
+      "startAyah": 101,
+      "endAyah": 101,
+      "titleAr": "دعاء الوفاة على الإسلام واللحاق بالصالحين",
+      "titleEn": "Dying in Submission with the Righteous",
+      "sortOrder": 21
+    },
+    {
+      "id": "qdua_22",
+      "categoryId": "dua_family",
+      "surahId": 14,
+      "startAyah": 40,
+      "endAyah": 40,
+      "titleAr": "دعاء إقامة الصلاة للذرية",
+      "titleEn": "Establishing Prayer for Family",
+      "sortOrder": 22
+    },
+    {
+      "id": "qdua_23",
+      "categoryId": "dua_family",
+      "surahId": 14,
+      "startAyah": 41,
+      "endAyah": 41,
+      "titleAr": "دعاء المغفرة للوالدين والمؤمنين",
+      "titleEn": "Forgiveness for Parents and Believers",
+      "sortOrder": 23
+    },
+    {
+      "id": "qdua_24",
+      "categoryId": "dua_family",
+      "surahId": 17,
+      "startAyah": 24,
+      "endAyah": 24,
+      "titleAr": "دعاء الرحمة للوالدين",
+      "titleEn": "Mercy for Parents",
+      "sortOrder": 24
+    },
+    {
+      "id": "qdua_25",
+      "categoryId": "dua_guidance",
+      "surahId": 17,
+      "startAyah": 80,
+      "endAyah": 80,
+      "titleAr": "دعاء مدخل الصدق ومخرج الصدق",
+      "titleEn": "Truthful Entry and Exit",
+      "sortOrder": 25
+    },
+    {
+      "id": "qdua_26",
+      "categoryId": "dua_guidance",
+      "surahId": 18,
+      "startAyah": 10,
+      "endAyah": 10,
+      "titleAr": "دعاء الرحمة والرشاد",
+      "titleEn": "Mercy and Right Guidance",
+      "sortOrder": 26
+    },
+    {
+      "id": "qdua_27",
+      "categoryId": "dua_anxiety",
+      "surahId": 20,
+      "startAyah": 25,
+      "endAyah": 28,
+      "titleAr": "دعاء انشراح الصدر وتيسير الأمر",
+      "titleEn": "Expanding the Chest and Ease of Task",
+      "sortOrder": 27
+    },
+    {
+      "id": "qdua_28",
+      "categoryId": "dua_guidance",
+      "surahId": 20,
+      "startAyah": 114,
+      "endAyah": 114,
+      "titleAr": "دعاء زيادة العلم",
+      "titleEn": "Increase in Knowledge",
+      "sortOrder": 28
+    },
+    {
+      "id": "qdua_29",
+      "categoryId": "dua_anxiety",
+      "surahId": 21,
+      "startAyah": 83,
+      "endAyah": 83,
+      "titleAr": "دعاء الشفاء وكشف الضر",
+      "titleEn": "Relief from Affliction",
+      "sortOrder": 29
+    },
+    {
+      "id": "qdua_30",
+      "categoryId": "dua_anxiety",
+      "surahId": 21,
+      "startAyah": 87,
+      "endAyah": 87,
+      "titleAr": "دعاء ذي النون في الكرب",
+      "titleEn": "Supplication of Yunus in Distress",
+      "sortOrder": 30
+    },
+    {
+      "id": "qdua_31",
+      "categoryId": "dua_family",
+      "surahId": 21,
+      "startAyah": 89,
+      "endAyah": 89,
+      "titleAr": "دعاء زكريا للذرية",
+      "titleEn": "Supplication of Zakariyya",
+      "sortOrder": 31
+    },
+    {
+      "id": "qdua_32",
+      "categoryId": "dua_anxiety",
+      "surahId": 23,
+      "startAyah": 97,
+      "endAyah": 98,
+      "titleAr": "دعاء الاستعاذة من همزات الشياطين",
+      "titleEn": "Refuge from Whisperings of Devils",
+      "sortOrder": 32
+    },
+    {
+      "id": "qdua_33",
+      "categoryId": "dua_forgiveness",
+      "surahId": 23,
+      "startAyah": 109,
+      "endAyah": 109,
+      "titleAr": "دعاء الإيمان والمغفرة والرحمة",
+      "titleEn": "Belief, Forgiveness, and Mercy",
+      "sortOrder": 33
+    },
+    {
+      "id": "qdua_34",
+      "categoryId": "dua_forgiveness",
+      "surahId": 23,
+      "startAyah": 118,
+      "endAyah": 118,
+      "titleAr": "دعاء المغفرة والرحمة الجامع",
+      "titleEn": "Forgive and Have Mercy",
+      "sortOrder": 34
+    },
+    {
+      "id": "qdua_35",
+      "categoryId": "dua_family",
+      "surahId": 25,
+      "startAyah": 74,
+      "endAyah": 74,
+      "titleAr": "دعاء قرة العين في الأزواج والذرية",
+      "titleEn": "Comfort of Eyes in Family",
+      "sortOrder": 35
+    },
+    {
+      "id": "qdua_36",
+      "categoryId": "dua_guidance",
+      "surahId": 26,
+      "startAyah": 83,
+      "endAyah": 85,
+      "titleAr": "دعاء الحكمة والصلاح والجنة",
+      "titleEn": "Wisdom, Righteousness, and Paradise",
+      "sortOrder": 36
+    },
+    {
+      "id": "qdua_37",
+      "categoryId": "dua_gratitude",
+      "surahId": 27,
+      "startAyah": 19,
+      "endAyah": 19,
+      "titleAr": "دعاء شكر النعمة والعمل الصالح",
+      "titleEn": "Gratitude and Righteous Action",
+      "sortOrder": 37
+    },
+    {
+      "id": "qdua_38",
+      "categoryId": "dua_anxiety",
+      "surahId": 28,
+      "startAyah": 24,
+      "endAyah": 24,
+      "titleAr": "دعاء الفقر إلى خير الله",
+      "titleEn": "Need of Whatever Good Allah Sends",
+      "sortOrder": 38
+    },
+    {
+      "id": "qdua_39",
+      "categoryId": "dua_gratitude",
+      "surahId": 46,
+      "startAyah": 15,
+      "endAyah": 15,
+      "titleAr": "دعاء شكر النعمة وصلاح الذرية",
+      "titleEn": "Gratitude and Righteousness in Offspring",
+      "sortOrder": 39
+    },
+    {
+      "id": "qdua_40",
+      "categoryId": "dua_forgiveness",
+      "surahId": 59,
+      "startAyah": 10,
+      "endAyah": 10,
+      "titleAr": "دعاء سلامة الصدر والمغفرة للمؤمنين",
+      "titleEn": "Pure Heart and Forgiveness for Believers",
+      "sortOrder": 40
+    }
+  ]
+}
