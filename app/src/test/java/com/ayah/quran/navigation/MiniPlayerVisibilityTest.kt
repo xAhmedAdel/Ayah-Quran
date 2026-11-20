@@ -17,6 +17,8 @@ class MiniPlayerVisibilityTest {
         assertTrue(shouldShowMiniPlayer(Routes.PRAYER_VOICE))
         assertTrue(shouldShowMiniPlayer(Routes.PRAYER_ONBOARDING))
         assertTrue(shouldShowMiniPlayer(Routes.PRAYER_ADHAN_LIBRARY))
+        assertTrue(shouldShowMiniPlayer(Routes.ADHKAR_HUB))
+        assertTrue(shouldShowMiniPlayer(Routes.DUAS_HUB))
     }
 
     @Test
@@ -26,5 +28,6 @@ class MiniPlayerVisibilityTest {
         assertFalse(shouldShowMiniPlayer(Routes.FULLSCREEN_PREVIEW))
         assertFalse(shouldShowMiniPlayer(Routes.MUSHAF))
         assertFalse(shouldShowMiniPlayer(Routes.READER))
+        assertFalse(shouldShowMiniPlayer(Routes.ADHKAR_SESSION))
     }
 }
