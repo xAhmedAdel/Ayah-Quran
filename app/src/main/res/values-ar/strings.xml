@@ -414,6 +414,12 @@
     <string name="audio_delete_confirm_title">حذف التلاوة المحملة؟</string>
     <string name="audio_delete_confirm_message">سيتم حذف ملفات الصوت المحفوظة لسورة %1$s ويمكنك تحميلها مجدداً في أي وقت.</string>
     <string name="audio_open_in_reader">المصحف</string>
+    <string name="prayer_hijri_adjust_label">تعديل التاريخ الهجري</string>
+    <string name="prayer_adjustments_default">افتراضي (0 دقيقة)</string>
+    <string name="prayer_diagnostics_section">أدوات الفحص والتشخيص</string>
+    <string name="prayer_voice_apply_all">تطبيق صوت واحد لجميع الصلوات</string>
+    <string name="prayer_voice_apply_all_subtitle">تعيين نفس الأذان من الفجر حتى العشاء</string>
+    <string name="prayer_change_city">تغيير المدينة</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="zero">لا توجد آيات</item>

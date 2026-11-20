@@ -3,8 +3,6 @@ package com.ayah.quran.ui.prayer
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -12,26 +10,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,23 +38,25 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.AyahCard
-import com.ayah.quran.core.designsystem.component.SectionCard
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.component.AyahGroupCard
+import com.ayah.quran.core.designsystem.component.AyahInsetDivider
+import com.ayah.quran.core.designsystem.component.AyahSelectionSheet
+import com.ayah.quran.core.designsystem.component.AyahSettingRow
+import com.ayah.quran.core.designsystem.component.AyahStatusBadge
+import com.ayah.quran.core.designsystem.component.AyahStatusKind
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
+import com.ayah.quran.core.designsystem.theme.withTabularNumbers
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.AsrMethod
 import com.ayah.quran.domain.model.prayer.CalculationMethod
 import com.ayah.quran.domain.model.prayer.HighLatitudeRulePref
 import com.ayah.quran.domain.model.prayer.Prayer
-import com.ayah.quran.domain.model.prayer.PrayerLocation
+import com.ayah.quran.domain.model.prayer.PrayerAdjustments
 
-/**
- * Prayer & Adhan settings: location (auto/manual), calculation method +
- * Asr + high-latitude rule + per-prayer minute adjustments, adhan modes per
- * prayer, custom adhan audio (user file), Hijri adjustment, and the
- * Advanced permission/battery status section.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrayerSettingsScreen(
@@ -74,20 +70,20 @@ fun PrayerSettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showCityPicker by remember { mutableStateOf(false) }
+    var showMethodSheet by remember { mutableStateOf(false) }
+    var showAsrSheet by remember { mutableStateOf(false) }
+    var showHighLatSheet by remember { mutableStateOf(false) }
+    var showAdjustmentsSheet by remember { mutableStateOf(false) }
+    var editingAdhanPrayer by remember { mutableStateOf<Prayer?>(null) }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) viewModel.refreshDeviceLocation() }
 
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { }
-
     val audioPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri != null) {
-            // Keep access across reboots for scheduled adhan playback.
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
@@ -98,19 +94,22 @@ fun PrayerSettingsScreen(
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.prayer_settings_title)) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.prayer_back),
-                    )
-                }
-            },
-        )
-    }) { padding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.prayer_settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = AyahIcons.Back,
+                            contentDescription = stringResource(R.string.prayer_back),
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -119,11 +118,9 @@ fun PrayerSettingsScreen(
                 .padding(AyahSpacing.m),
             verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
         ) {
-            val prefs = state.preferences
-            if (prefs == null) return@Column
+            val prefs = state.preferences ?: return@Column
 
-            // ---- Location ----
-            SectionCard(title = stringResource(R.string.prayer_settings_location)) {
+            AyahGroupCard(title = stringResource(R.string.prayer_settings_location)) {
                 val location = prefs.location
                 val arabic = AppLocale.isArabic
                 val label = location?.let {
@@ -135,215 +132,187 @@ fun PrayerSettingsScreen(
                         listOf(city, country).filter { c -> c.isNotBlank() }.joinToString(" · ")
                     }
                 } ?: stringResource(R.string.prayer_no_location)
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
-                    ButtonLike(
-                        label = stringResource(R.string.prayer_enable_auto_location),
-                        onClick = {
-                            if (viewModel.hasLocationPermission()) {
-                                viewModel.refreshDeviceLocation()
-                            } else {
-                                locationPermissionLauncher.launch(
-                                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                                )
-                            }
-                        },
-                    )
-                    ButtonLike(
-                        label = stringResource(R.string.prayer_select_city),
-                        onClick = { showCityPicker = true },
-                    )
-                }
-                if (state.locationError) {
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(AyahSpacing.m),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+                ) {
                     Text(
-                        text = stringResource(R.string.prayer_location_unavailable),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        text = label,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                if (viewModel.hasLocationPermission()) {
+                                    viewModel.refreshDeviceLocation()
+                                } else {
+                                    locationPermissionLauncher.launch(
+                                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                                    )
+                                }
+                            },
+                            shape = RoundedCornerShape(AyahRadii.pill),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.prayer_enable_auto_location))
+                        }
+                        OutlinedButton(
+                            onClick = { showCityPicker = true },
+                            shape = RoundedCornerShape(AyahRadii.pill),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.prayer_select_city))
+                        }
+                    }
+                    if (state.locationError) {
+                        Text(
+                            text = stringResource(R.string.prayer_location_unavailable),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
 
-            // ---- Calculation ----
-            SectionCard(title = stringResource(R.string.prayer_settings_calculation)) {
-                DropdownSetting(
-                    label = stringResource(R.string.prayer_method_label),
-                    options = CalculationMethod.entries,
-                    selected = prefs.method,
-                    labelFor = { methodLabel(it) },
-                    onSelect = viewModel::setMethod,
+            AyahGroupCard(title = stringResource(R.string.prayer_settings_calculation)) {
+                AyahSettingRow(
+                    title = stringResource(R.string.prayer_method_label),
+                    subtitle = methodLabel(prefs.method),
+                    onClick = { showMethodSheet = true },
                 )
-                DropdownSetting(
-                    label = stringResource(R.string.prayer_asr_label),
-                    options = AsrMethod.entries,
-                    selected = prefs.asrMethod,
-                    labelFor = { asrLabel(it) },
-                    onSelect = viewModel::setAsrMethod,
+                AyahInsetDivider()
+                AyahSettingRow(
+                    title = stringResource(R.string.prayer_asr_label),
+                    subtitle = asrLabel(prefs.asrMethod),
+                    onClick = { showAsrSheet = true },
                 )
-                DropdownSetting(
-                    label = stringResource(R.string.prayer_high_lat_label),
-                    options = HighLatitudeRulePref.entries,
-                    selected = prefs.highLatitudeRule,
-                    labelFor = { highLatLabel(it) },
-                    onSelect = viewModel::setHighLatitudeRule,
+                AyahInsetDivider()
+                AyahSettingRow(
+                    title = stringResource(R.string.prayer_high_lat_label),
+                    subtitle = highLatLabel(prefs.highLatitudeRule),
+                    onClick = { showHighLatSheet = true },
                 )
-                Text(
-                    text = stringResource(R.string.prayer_adjustments_label),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                AyahInsetDivider()
+                AyahSettingRow(
+                    title = stringResource(R.string.prayer_adjustments_label),
+                    subtitle = adjustmentsSummary(prefs.adjustments),
+                    onClick = { showAdjustmentsSheet = true },
                 )
-                listOf(
-                    Prayer.FAJR, Prayer.DHUHR, Prayer.ASR, Prayer.MAGHRIB, Prayer.ISHA,
-                ).forEach { prayer ->
-                    val value = when (prayer) {
-                        Prayer.FAJR -> prefs.adjustments.fajr
-                        Prayer.DHUHR -> prefs.adjustments.dhuhr
-                        Prayer.ASR -> prefs.adjustments.asr
-                        Prayer.MAGHRIB -> prefs.adjustments.maghrib
-                        Prayer.ISHA -> prefs.adjustments.isha
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(prayerName(prayer))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { viewModel.adjustPrayer(prayer, -1) }) {
-                                Text(stringResource(R.string.prayer_adjust_decrease))
-                            }
-                            Text(
-                                text = "%+d".format(value),
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(horizontal = AyahSpacing.s),
-                            )
-                            TextButton(onClick = { viewModel.adjustPrayer(prayer, +1) }) {
-                                Text(stringResource(R.string.prayer_adjust_increase))
-                            }
+                AyahInsetDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(R.string.prayer_hijri_adjust_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = { viewModel.setHijriAdjustment(prefs.hijriAdjustmentDays - 1) },
+                            enabled = prefs.hijriAdjustmentDays > -2,
+                        ) {
+                            Text(stringResource(R.string.prayer_adjust_decrease))
+                        }
+                        Text(
+                            text = AyahNumbering.isolateLtr("%+d".format(prefs.hijriAdjustmentDays)),
+                            style = MaterialTheme.typography.titleSmall.withTabularNumbers(),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = AyahSpacing.xs),
+                        )
+                        TextButton(
+                            onClick = { viewModel.setHijriAdjustment(prefs.hijriAdjustmentDays + 1) },
+                            enabled = prefs.hijriAdjustmentDays < 2,
+                        ) {
+                            Text(stringResource(R.string.prayer_adjust_increase))
                         }
                     }
                 }
             }
 
-            // ---- Adhan ----
-            SectionCard(title = stringResource(R.string.prayer_settings_adhan)) {
-                TextButton(onClick = onOpenVoices) {
-                    Text(stringResource(R.string.prayer_voice_open_settings))
-                }
+            AyahGroupCard(title = stringResource(R.string.prayer_settings_adhan)) {
+                AyahSettingRow(
+                    title = stringResource(R.string.prayer_voice_open_settings),
+                    leadingIcon = AyahIcons.Audio,
+                    onClick = onOpenVoices,
+                )
                 listOf(
-                    Prayer.FAJR, Prayer.DHUHR, Prayer.ASR, Prayer.MAGHRIB, Prayer.ISHA,
+                    Prayer.FAJR,
+                    Prayer.DHUHR,
+                    Prayer.ASR,
+                    Prayer.MAGHRIB,
+                    Prayer.ISHA,
                 ).forEach { prayer ->
+                    AyahInsetDivider()
+                    val mode = prefs.adhanConfig.modeOf(prayer)
+                    AyahSettingRow(
+                        title = prayerName(prayer),
+                        onClick = { editingAdhanPrayer = prayer },
+                        trailing = {
+                            AyahStatusBadge(
+                                label = adhanModeLabel(mode),
+                                kind = if (mode == AdhanMode.DISABLED) {
+                                    AyahStatusKind.NEUTRAL
+                                } else {
+                                    AyahStatusKind.SUCCESS
+                                },
+                            )
+                        },
+                    )
+                }
+                AyahInsetDivider()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(AyahSpacing.m),
+                    verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+                ) {
                     Text(
-                        text = prayerName(prayer),
+                        text = stringResource(R.string.prayer_custom_audio),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xs)) {
-                        val modes = listOf(
-                            AdhanMode.FULL_ADHAN to R.string.prayer_adhan_mode_full,
-                            AdhanMode.NOTIFICATION_SOUND to R.string.prayer_adhan_mode_notification,
-                            AdhanMode.SILENT to R.string.prayer_adhan_mode_silent,
-                            AdhanMode.DISABLED to R.string.prayer_adhan_mode_disabled,
-                        )
-                        modes.forEach { (mode, labelRes) ->
-                            FilterChip(
-                                selected = prefs.adhanConfig.modeOf(prayer) == mode,
-                                onClick = { viewModel.setAdhanMode(prayer, mode) },
-                                label = { Text(stringResource(labelRes)) },
-                                modifier = Modifier.weight(1f),
-                            )
+                    Text(
+                        text = prefs.customAdhanAudioUri
+                            ?: stringResource(R.string.prayer_custom_audio_none),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
+                        OutlinedButton(
+                            onClick = { audioPicker.launch(arrayOf("audio/*")) },
+                            shape = RoundedCornerShape(AyahRadii.pill),
+                        ) {
+                            Text(stringResource(R.string.prayer_custom_audio_pick))
+                        }
+                        if (prefs.customAdhanAudioUri != null) {
+                            OutlinedButton(
+                                onClick = { viewModel.setCustomAdhanUri(null) },
+                                shape = RoundedCornerShape(AyahRadii.pill),
+                            ) {
+                                Text(stringResource(R.string.prayer_custom_audio_clear))
+                            }
                         }
                     }
                 }
-
-                Text(
-                    text = stringResource(R.string.prayer_custom_audio),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = prefs.customAdhanAudioUri
-                        ?: stringResource(R.string.prayer_custom_audio_none),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
-                    ButtonLike(
-                        label = stringResource(R.string.prayer_custom_audio_pick),
-                        onClick = { audioPicker.launch(arrayOf("audio/*")) },
-                    )
-                    if (prefs.customAdhanAudioUri != null) {
-                        ButtonLike(
-                            label = stringResource(R.string.prayer_custom_audio_clear),
-                            onClick = { viewModel.setCustomAdhanUri(null) },
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.prayer_adhan_library_empty_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.prayer_adhan_library_empty_detail),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
-            // ---- Notifications & reliability dashboard (Phase 14) ----
             PermissionsDashboardSection(
                 permissionsViewModel = permissionsViewModel,
                 onOpenOnboarding = onOpenOnboarding,
             )
-
-            // ---- Notifications ----
-            SectionCard(title = stringResource(R.string.prayer_settings_notifications)) {
-                NotificationPermissionRow(viewModel)
-            }
-
-            // ---- Advanced ----
-            SectionCard(title = stringResource(R.string.prayer_settings_advanced)) {
-                val exactGranted = viewModel.canScheduleExact()
-                Text(
-                    text = stringResource(
-                        R.string.prayer_exact_alarm_status,
-                        stringResource(
-                            if (exactGranted) {
-                                R.string.prayer_permission_granted
-                            } else {
-                                R.string.prayer_permission_denied
-                            },
-                        ),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (!exactGranted) {
-                    ButtonLike(
-                        label = stringResource(R.string.prayer_exact_alarm_denied),
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                                        Uri.parse("package:" + context.packageName),
-                                    ),
-                                )
-                            }
-                        },
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.prayer_battery_guidance),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 
@@ -357,77 +326,145 @@ fun PrayerSettingsScreen(
             onDismiss = { showCityPicker = false },
         )
     }
-}
 
-@Composable
-private fun NotificationPermissionRow(viewModel: PrayerTimesViewModel) {
-    val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { }
-    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-    } else {
-        true
+    val prefs = state.preferences
+    if (showMethodSheet && prefs != null) {
+        AyahSelectionSheet(
+            title = stringResource(R.string.prayer_method_label),
+            options = CalculationMethod.entries,
+            selected = prefs.method,
+            labelFor = { methodLabel(it) },
+            onSelect = viewModel::setMethod,
+            onDismiss = { showMethodSheet = false },
+        )
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            text = stringResource(
-                R.string.prayer_notification_permission_status,
-                stringResource(
-                    if (granted) R.string.prayer_permission_granted else R.string.prayer_permission_denied,
-                ),
+
+    if (showAsrSheet && prefs != null) {
+        AyahSelectionSheet(
+            title = stringResource(R.string.prayer_asr_label),
+            options = AsrMethod.entries,
+            selected = prefs.asrMethod,
+            labelFor = { asrLabel(it) },
+            onSelect = viewModel::setAsrMethod,
+            onDismiss = { showAsrSheet = false },
+        )
+    }
+
+    if (showHighLatSheet && prefs != null) {
+        AyahSelectionSheet(
+            title = stringResource(R.string.prayer_high_lat_label),
+            options = HighLatitudeRulePref.entries,
+            selected = prefs.highLatitudeRule,
+            labelFor = { highLatLabel(it) },
+            onSelect = viewModel::setHighLatitudeRule,
+            onDismiss = { showHighLatSheet = false },
+        )
+    }
+
+    if (showAdjustmentsSheet && prefs != null) {
+        AdjustmentsSheet(
+            adjustments = prefs.adjustments,
+            onAdjust = viewModel::adjustPrayer,
+            onDismiss = { showAdjustmentsSheet = false },
+        )
+    }
+
+    val activePrayer = editingAdhanPrayer
+    if (activePrayer != null && prefs != null) {
+        AyahSelectionSheet(
+            title = prayerName(activePrayer),
+            options = listOf(
+                AdhanMode.FULL_ADHAN,
+                AdhanMode.NOTIFICATION_SOUND,
+                AdhanMode.SILENT,
+                AdhanMode.DISABLED,
             ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            selected = prefs.adhanConfig.modeOf(activePrayer),
+            labelFor = { adhanModeLabel(it) },
+            onSelect = { mode -> viewModel.setAdhanMode(activePrayer, mode) },
+            onDismiss = { editingAdhanPrayer = null },
         )
-        if (!granted) {
-            ButtonLike(
-                label = stringResource(R.string.prayer_permission_granted),
-                onClick = {
-                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                },
-            )
-        }
     }
 }
 
-/** Compact action chip styled like the rest of the settings controls. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ButtonLike(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick) { Text(label) }
-}
-
-@Composable
-private fun <T> DropdownSetting(
-    label: String,
-    options: List<T>,
-    selected: T,
-    labelFor: @Composable (T) -> String,
-    onSelect: (T) -> Unit,
+private fun AdjustmentsSheet(
+    adjustments: PrayerAdjustments,
+    onAdjust: (Prayer, Int) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    var open by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(AyahSpacing.xs)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        // Segmented rows don't fit 10 methods; a compact chip-flow with an
-        // explicit selected state keeps everything visible and honest.
-        options.forEach { option ->
-            FilterChip(
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                label = { Text(labelFor(option)) },
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = AyahRadii.sheet, topEnd = AyahRadii.sheet),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = AyahSpacing.ml, vertical = AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
+            Text(
+                text = stringResource(R.string.prayer_adjustments_label),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
+            listOf(
+                Prayer.FAJR to adjustments.fajr,
+                Prayer.DHUHR to adjustments.dhuhr,
+                Prayer.ASR to adjustments.asr,
+                Prayer.MAGHRIB to adjustments.maghrib,
+                Prayer.ISHA to adjustments.isha,
+            ).forEach { (prayer, value) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = prayerName(prayer),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onAdjust(prayer, -1) }) {
+                            Text(stringResource(R.string.prayer_adjust_decrease))
+                        }
+                        Text(
+                            text = AyahNumbering.isolateLtr("%+d".format(value)),
+                            style = MaterialTheme.typography.titleSmall.withTabularNumbers(),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = AyahSpacing.s),
+                        )
+                        TextButton(onClick = { onAdjust(prayer, +1) }) {
+                            Text(stringResource(R.string.prayer_adjust_increase))
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun adjustmentsSummary(adjustments: PrayerAdjustments): String {
+    val nonZero = listOf(
+        Prayer.FAJR to adjustments.fajr,
+        Prayer.DHUHR to adjustments.dhuhr,
+        Prayer.ASR to adjustments.asr,
+        Prayer.MAGHRIB to adjustments.maghrib,
+        Prayer.ISHA to adjustments.isha,
+    ).filter { it.second != 0 }
+    if (nonZero.isEmpty()) return stringResource(R.string.prayer_adjustments_default)
+    val parts = mutableListOf<String>()
+    for ((prayer, delta) in nonZero) {
+        parts += "${prayerName(prayer)} ${AyahNumbering.isolateLtr("%+d".format(delta))}"
+    }
+    return parts.joinToString(" · ")
 }
 
 @Composable

@@ -3,58 +3,68 @@ package com.ayah.quran.ui.prayer
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.AyahCard
-import com.ayah.quran.core.designsystem.component.SectionCard
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.component.AyahBannerStrip
+import com.ayah.quran.core.designsystem.component.AyahBannerTone
+import com.ayah.quran.core.designsystem.component.AyahStatusBadge
+import com.ayah.quran.core.designsystem.component.AyahStatusKind
+import com.ayah.quran.core.designsystem.component.AyahStepProgress
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
+import com.ayah.quran.core.designsystem.theme.AyahTouchTargets
+import com.ayah.quran.core.designsystem.theme.withTabularNumbers
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.prayer.PermissionIntents
-import com.ayah.quran.domain.model.prayer.PrayerStatusBoard
+import com.ayah.quran.domain.model.prayer.AdhanMode
+import com.ayah.quran.domain.model.prayer.PrayerNotificationsChannels
 import com.ayah.quran.domain.model.prayer.VendorKind
 
-/**
- * First-launch permission onboarding (Phase 14 §2): a SEQUENTIAL checklist —
- * notifications, exact alarms, vendor background settings, adhan config —
- * each with live verified status and one action at a time. Skippable, with
- * an honest warning that alerts may not be reliable until enabled. The
- * "ready" banner appears only when statuses are ACTUALLY verified.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrayerOnboardingScreen(
@@ -67,11 +77,10 @@ fun PrayerOnboardingScreen(
     val context = LocalContext.current
     var showVendorGuide by remember { mutableStateOf(false) }
 
-    // Refresh verified statuses when returning from system settings.
     val lifecycleOwner = LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) viewModel.refresh()
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -82,10 +91,37 @@ fun PrayerOnboardingScreen(
     ) { viewModel.refresh() }
 
     val step = viewModel.nextStep(board)
+    val adhanAllConfigured = board.adhanConfig.let { config ->
+        config.fajr != AdhanMode.DISABLED &&
+            config.dhuhr != AdhanMode.DISABLED &&
+            config.asr != AdhanMode.DISABLED &&
+            config.maghrib != AdhanMode.DISABLED &&
+            config.isha != AdhanMode.DISABLED
+    }
+    val completedSteps = listOf(
+        board.notificationsGranted,
+        board.adhanChannelEnabled,
+        board.exactAlarmsGranted,
+        board.vendorGuidanceAcknowledged,
+        adhanAllConfigured,
+    ).count { it }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.prayer_onboarding_title)) })
-    }) { padding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.prayer_onboarding_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onSkip) {
+                        Icon(
+                            imageVector = AyahIcons.Back,
+                            contentDescription = stringResource(R.string.prayer_back),
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -94,14 +130,19 @@ fun PrayerOnboardingScreen(
                 .padding(AyahSpacing.m),
             verticalArrangement = Arrangement.spacedBy(AyahSpacing.m),
         ) {
+            AyahStepProgress(
+                currentStep = completedSteps,
+                totalSteps = 5,
+                label = stringResource(R.string.prayer_onboarding_title),
+            )
+
             Text(
                 text = stringResource(R.string.prayer_onboarding_intro),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Step 1 — notifications.
-            OnboardingItem(
+            OnboardingStepCard(
                 index = 1,
                 active = step == 1,
                 done = board.notificationsGranted,
@@ -117,8 +158,7 @@ fun PrayerOnboardingScreen(
                 },
             )
 
-            // Step 2 — adhan notification channel (auto-checked).
-            OnboardingItem(
+            OnboardingStepCard(
                 index = 2,
                 active = step == 2,
                 done = board.adhanChannelEnabled,
@@ -134,15 +174,14 @@ fun PrayerOnboardingScreen(
                         context.startActivity(
                             PermissionIntents.channelSettings(
                                 context,
-                                com.ayah.quran.domain.model.prayer.PrayerNotificationsChannels.ALERT,
+                                PrayerNotificationsChannels.ALERT,
                             ),
                         )
                     }
                 },
             )
 
-            // Step 3 — exact alarms.
-            OnboardingItem(
+            OnboardingStepCard(
                 index = 3,
                 active = step == 3,
                 done = board.exactAlarmsGranted,
@@ -160,8 +199,7 @@ fun PrayerOnboardingScreen(
                 },
             )
 
-            // Step 4 — vendor background settings (recommended, not verifiable).
-            OnboardingItem(
+            OnboardingStepCard(
                 index = 4,
                 active = step == 4,
                 done = board.vendorGuidanceAcknowledged,
@@ -177,17 +215,10 @@ fun PrayerOnboardingScreen(
                 onAction = { showVendorGuide = true },
             )
 
-            // Step 5 — adhan mode configuration.
-            OnboardingItem(
+            OnboardingStepCard(
                 index = 5,
                 active = step == 5,
-                done = board.adhanConfig.let { config ->
-                    config.fajr != com.ayah.quran.domain.model.prayer.AdhanMode.DISABLED &&
-                        config.dhuhr != com.ayah.quran.domain.model.prayer.AdhanMode.DISABLED &&
-                        config.asr != com.ayah.quran.domain.model.prayer.AdhanMode.DISABLED &&
-                        config.maghrib != com.ayah.quran.domain.model.prayer.AdhanMode.DISABLED &&
-                        config.isha != com.ayah.quran.domain.model.prayer.AdhanMode.DISABLED
-                },
+                done = adhanAllConfigured,
                 title = stringResource(R.string.prayer_onboarding_adhan_mode_title),
                 description = stringResource(R.string.prayer_onboarding_adhan_mode_desc),
                 actionLabel = stringResource(R.string.prayer_onboarding_open_adhan_settings),
@@ -197,19 +228,11 @@ fun PrayerOnboardingScreen(
                 },
             )
 
-            // Ready banner — only after VERIFIED essential statuses.
             if (board.readyForPrayerNotifications) {
-                AyahCard {
-                    Text(
-                        text = stringResource(R.string.prayer_onboarding_ready),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(AyahSpacing.m),
-                    )
-                }
+                AyahBannerStrip(
+                    message = stringResource(R.string.prayer_onboarding_ready),
+                    tone = AyahBannerTone.INFO,
+                )
             }
 
             Text(
@@ -236,13 +259,9 @@ fun PrayerOnboardingScreen(
         VendorGuidanceDialog(
             vendor = board.vendor,
             onOpenSettings = {
-                // Best-effort vendor intents; always falls back safely.
                 val intents = PermissionIntents.vendorAppLaunchCandidates(context)
                 for (candidate in intents) {
-                    if (runCatching {
-                            context.startActivity(candidate)
-                        }.isSuccess
-                    ) {
+                    if (runCatching { context.startActivity(candidate) }.isSuccess) {
                         break
                     }
                 }
@@ -257,9 +276,8 @@ fun PrayerOnboardingScreen(
     }
 }
 
-/** One checklist row; only the CURRENT step exposes its action button. */
 @Composable
-private fun OnboardingItem(
+private fun OnboardingStepCard(
     index: Int,
     active: Boolean,
     done: Boolean,
@@ -269,48 +287,113 @@ private fun OnboardingItem(
     actionLabel: String?,
     onAction: () -> Unit,
 ) {
-    SectionCard(title = stringResource(R.string.prayer_onboarding_step_format, index, title)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = if (done) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (done) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-            Text(
-                text = when {
-                    done -> stringResource(R.string.prayer_status_enabled)
-                    recommendedOnly -> stringResource(R.string.prayer_status_recommended)
-                    else -> stringResource(R.string.prayer_status_not_enabled)
-                },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = AyahSpacing.s),
-            )
-        }
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        actionLabel?.takeIf { active || done == false && recommendedOnly }?.let { label ->
-            if (active) {
-                Button(onClick = onAction, modifier = Modifier.fillMaxWidth()) {
-                    Text(label)
+    val border = when {
+        active -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        else -> BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant)
+    }
+    val container = when {
+        active -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        else -> MaterialTheme.colorScheme.surface
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(AyahRadii.l),
+        color = container,
+        border = border,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AyahSpacing.m),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                done -> MaterialTheme.colorScheme.primary
+                                active -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (done) {
+                        Icon(
+                            imageVector = AyahIcons.StatusSuccess,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else {
+                        Text(
+                            text = index.toString(),
+                            style = MaterialTheme.typography.labelLarge.withTabularNumbers(),
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (active) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                 }
-            } else {
-                OutlinedButton(onClick = onAction, modifier = Modifier.fillMaxWidth()) {
-                    Text(label)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                AyahStatusBadge(
+                    label = when {
+                        done -> stringResource(R.string.prayer_status_enabled)
+                        recommendedOnly -> stringResource(R.string.prayer_status_recommended)
+                        else -> stringResource(R.string.prayer_status_not_enabled)
+                    },
+                    kind = when {
+                        done -> AyahStatusKind.SUCCESS
+                        recommendedOnly -> AyahStatusKind.WARNING
+                        else -> AyahStatusKind.NEUTRAL
+                    },
+                )
+            }
+            if (!done || active) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            actionLabel?.takeIf { active || (!done && recommendedOnly) }?.let { label ->
+                if (active) {
+                    Button(
+                        onClick = onAction,
+                        shape = RoundedCornerShape(AyahRadii.pill),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(label)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onAction,
+                        shape = RoundedCornerShape(AyahRadii.pill),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(label)
+                    }
                 }
             }
         }
     }
 }
 
-/** HONOR/MagicOS (or generic) step-by-step background settings guide. */
 @Composable
 fun VendorGuidanceDialog(
     vendor: VendorKind,
@@ -324,7 +407,7 @@ fun VendorGuidanceDialog(
             "افتح إعدادات الجهاز ← التطبيقات ← تشغيل التطبيقات ← آية",
             "أطفئ «إدارة تلقائياً»",
             "فعّل: التشغيل التلقائي، التشغيل الثانوي، التشغيل في الخلفية",
-            "من إعدادات البطارية: اسمح لل تطبيق بالعمل في الخلفية",
+            "من إعدادات البطارية: اسمح للتطبيق بالعمل في الخلفية",
         )
     } else {
         listOf(
@@ -372,14 +455,14 @@ fun VendorGuidanceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onOpenSettings()
-            }) { Text(stringResource(R.string.prayer_onboarding_open_vendor)) }
+            TextButton(onClick = onOpenSettings) {
+                Text(stringResource(R.string.prayer_onboarding_open_vendor))
+            }
         },
         dismissButton = {
-            TextButton(onClick = {
-                onAcknowledge()
-            }) { Text(stringResource(R.string.prayer_onboarding_vendor_done)) }
+            TextButton(onClick = onAcknowledge) {
+                Text(stringResource(R.string.prayer_onboarding_vendor_done))
+            }
         },
     )
 }

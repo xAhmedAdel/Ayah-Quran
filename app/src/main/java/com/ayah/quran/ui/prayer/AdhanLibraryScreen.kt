@@ -1,76 +1,64 @@
 package com.ayah.quran.ui.prayer
 
-import android.Manifest
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayah.quran.R
-import com.ayah.quran.core.designsystem.component.SectionCard
+import com.ayah.quran.core.designsystem.AyahIcons
+import com.ayah.quran.core.designsystem.AyahNumbering
+import com.ayah.quran.core.designsystem.component.AyahBannerStrip
+import com.ayah.quran.core.designsystem.component.AyahBannerTone
+import com.ayah.quran.core.designsystem.component.AyahSearchBar
+import com.ayah.quran.core.designsystem.component.AyahStatusBadge
+import com.ayah.quran.core.designsystem.component.AyahStatusKind
+import com.ayah.quran.core.designsystem.component.AyahSurfaceCard
+import com.ayah.quran.core.designsystem.theme.AyahRadii
 import com.ayah.quran.core.designsystem.theme.AyahSpacing
 import com.ayah.quran.core.designsystem.theme.QuranTextFontFamily
+import com.ayah.quran.core.designsystem.theme.withTabularNumbers
 import com.ayah.quran.core.locale.AppLocale
 import com.ayah.quran.data.prayer.AdhanDownloadState
+import com.ayah.quran.data.prayer.AdhanPreviewState
 import com.ayah.quran.domain.model.prayer.AdhanCategory
-import com.ayah.quran.domain.model.prayer.AdhanRecording
 import com.ayah.quran.domain.model.prayer.Prayer
-import com.ayah.quran.domain.model.prayer.PrayerNotificationsChannels
 
-/**
- * Phase 15 — the premium adhan audio library: category filters, search,
- * downloaded-only filter, per-recording preview and download controls, and
- * per-prayer selection. Remote recordings stream for preview before
- * download and must be downloaded before they can be assigned for offline
- * scheduled playback.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdhanLibraryScreen(
@@ -80,61 +68,57 @@ fun AdhanLibraryScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
-    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
 
-    // Leaving the library always stops preview playback.
     DisposableEffect(Unit) {
         onDispose { viewModel.stopPreview() }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = {
-                val prayerName = state.prayer?.let { prayer ->
-                    stringResource(
-                        when (prayer) {
-                            Prayer.FAJR -> R.string.prayer_name_fajr
-                            Prayer.DHUHR -> R.string.prayer_name_dhuhr
-                            Prayer.ASR -> R.string.prayer_name_asr
-                            Prayer.MAGHRIB -> R.string.prayer_name_maghrib
-                            Prayer.ISHA -> R.string.prayer_name_isha
-                        },
-                    )
-                } ?: stringResource(R.string.prayer_voice_title)
-                Text(stringResource(R.string.prayer_library_title_format, prayerName))
-            },
-            navigationIcon = {
-                IconButton(onClick = {
-                    viewModel.stopPreview()
-                    onBack()
-                }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.prayer_back),
-                    )
-                }
-            },
-        )
-    }) { padding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = {
+                    val prayerName = state.prayer?.let { prayer ->
+                        stringResource(
+                            when (prayer) {
+                                Prayer.FAJR -> R.string.prayer_name_fajr
+                                Prayer.DHUHR -> R.string.prayer_name_dhuhr
+                                Prayer.ASR -> R.string.prayer_name_asr
+                                Prayer.MAGHRIB -> R.string.prayer_name_maghrib
+                                Prayer.ISHA -> R.string.prayer_name_isha
+                            },
+                        )
+                    } ?: stringResource(R.string.prayer_voice_title)
+                    Text(stringResource(R.string.prayer_library_title_format, prayerName))
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        viewModel.stopPreview()
+                        onBack()
+                    }) {
+                        Icon(
+                            imageVector = AyahIcons.Back,
+                            contentDescription = stringResource(R.string.prayer_back),
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(AyahSpacing.m),
+                .padding(horizontal = AyahSpacing.m),
             verticalArrangement = Arrangement.spacedBy(AyahSpacing.s),
         ) {
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = viewModel::setSearchQuery,
-                label = { Text(stringResource(R.string.prayer_library_search_hint)) },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+            AyahSearchBar(
+                query = state.searchQuery,
+                onQueryChange = viewModel::setSearchQuery,
+                placeholder = stringResource(R.string.prayer_library_search_hint),
             )
 
-            // Scrollable filter row: categories + downloaded-only toggle.
-            // LazyRow renders chips at their natural width — no vertical squeeze.
-            androidx.compose.foundation.lazy.LazyRow(
+            LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xs),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -189,7 +173,6 @@ fun AdhanLibraryScreen(
                 }
             }
 
-            // Honest Makkah state: no legally verified recording exists yet.
             if (state.categoryFilter == AdhanCategory.MAKKAH) {
                 Text(
                     text = stringResource(R.string.prayer_library_makkah_unavailable),
@@ -203,17 +186,16 @@ fun AdhanLibraryScreen(
             }
 
             if (state.selectedVoiceNeedsDownload) {
-                Text(
-                    text = stringResource(R.string.prayer_library_needs_download_warning),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AyahSpacing.s),
+                AyahBannerStrip(
+                    message = stringResource(R.string.prayer_library_needs_download_warning),
+                    tone = AyahBannerTone.ERROR,
                 )
             }
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(AyahSpacing.s)) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
+                modifier = Modifier.weight(1f),
+            ) {
                 items(state.rows, key = { it.recording.id }) { row ->
                     RecordingCard(
                         row = row,
@@ -228,21 +210,24 @@ fun AdhanLibraryScreen(
 
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(text = label, maxLines = 1) },
+    )
 }
 
 @Composable
 private fun RecordingCard(
     row: AdhanLibraryRow,
-    preview: com.ayah.quran.data.prayer.AdhanPreviewState,
+    preview: AdhanPreviewState,
     viewModel: AdhanLibraryViewModel,
 ) {
-    val context = LocalContext.current
     val arabic = AppLocale.isArabic
     val recording = row.recording
     val isPreviewing = preview.recording?.id == recording.id
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    AyahSurfaceCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -251,69 +236,90 @@ private fun RecordingCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.sm),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = if (arabic) recording.displayNameAr else recording.displayNameEn,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontFamily = QuranTextFontFamily,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (row.isSelectedForPrayer) {
+                FilledTonalIconButton(
+                    onClick = {
+                        when {
+                            isPreviewing && preview.isPlaying -> viewModel.pausePreview()
+                            isPreviewing && preview.isPaused -> viewModel.resumePreview()
+                            else -> viewModel.startPreview(recording)
+                        }
+                    },
+                ) {
                     Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = stringResource(R.string.prayer_voice_selected_cd),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+                        imageVector = if (isPreviewing && preview.isPlaying) {
+                            AyahIcons.Pause
+                        } else {
+                            AyahIcons.Play
+                        },
+                        contentDescription = stringResource(
+                            if (isPreviewing && preview.isPlaying) {
+                                R.string.prayer_voice_preview_pause
+                            } else {
+                                R.string.prayer_voice_preview_play
+                            },
+                        ),
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (arabic) recording.displayNameAr else recording.displayNameEn,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontFamily = QuranTextFontFamily,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    val location = if (arabic) recording.mosqueCityAr else recording.mosqueCityEn
+                    val muadhin = if (arabic) recording.muadhinNameAr else recording.muadhinNameEn
+                    listOfNotNull(muadhin, location).joinToString(" · ")
+                        .takeIf { it.isNotBlank() }
+                        ?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    val durationText = AyahNumbering.isolateLtr(
+                        "${recording.durationSeconds / 60}:" +
+                            "%02d".format(recording.durationSeconds % 60),
+                    )
+                    Text(
+                        text = listOfNotNull(durationText, recording.license).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall.withTabularNumbers(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (row.isSelectedForPrayer) {
+                    AyahStatusBadge(
+                        label = stringResource(R.string.prayer_voice_selected_cd),
+                        kind = AyahStatusKind.SUCCESS,
                     )
                 }
             }
-            val location = if (arabic) {
-                recording.mosqueCityAr
-            } else {
-                recording.mosqueCityEn
-            }
-            val muadhin = if (arabic) recording.muadhinNameAr else recording.muadhinNameEn
-            listOfNotNull(muadhin, location).joinToString(" · ").takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            recording.descriptionAr?.takeIf { arabic }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            recording.descriptionEn?.takeIf { !arabic }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = listOfNotNull(
-                    "${recording.durationSeconds / 60}:" +
-                        "%02d".format(recording.durationSeconds % 60),
-                    recording.license,
-                ).joinToString("  ·  "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
-            // Download controls (remote recordings only).
+            if (isPreviewing) {
+                Text(
+                    text = AyahNumbering.isolateLtr(
+                        formatMs(preview.elapsedMs) + " / " + formatMs(
+                            preview.totalMs.coerceAtLeast(recording.durationSeconds * 1000L),
+                        ),
+                    ),
+                    style = MaterialTheme.typography.labelSmall.withTabularNumbers(),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
             when (val download = row.downloadState) {
                 is AdhanDownloadState.Downloading -> {
                     LinearProgressIndicator(
                         progress = { download.progress },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(AyahRadii.pill)),
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -321,12 +327,12 @@ private fun RecordingCard(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = "%d%%".format((download.progress * 100).toInt()),
-                            style = MaterialTheme.typography.labelSmall,
+                            text = AyahNumbering.isolateLtr("%d%%".format((download.progress * 100).toInt())),
+                            style = MaterialTheme.typography.labelSmall.withTabularNumbers(),
                         )
                         IconButton(onClick = { viewModel.cancelDownload(recording) }) {
                             Icon(
-                                Icons.Filled.Close,
+                                imageVector = AyahIcons.Close,
                                 contentDescription = stringResource(R.string.prayer_download_cancel),
                             )
                         }
@@ -353,113 +359,84 @@ private fun RecordingCard(
                     }
                 }
 
-                is AdhanDownloadState.Downloaded -> if (!recording.isBundled) {
+                is AdhanDownloadState.Downloaded -> {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp),
+                        if (!recording.isBundled) {
+                            AyahStatusBadge(
+                                label = stringResource(R.string.prayer_download_done),
+                                kind = AyahStatusKind.SUCCESS,
                             )
-                            Spacer(Modifier.width(AyahSpacing.xs))
+                        } else {
+                            Spacer(Modifier.width(1.dp))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!recording.isBundled) {
+                                IconButton(onClick = { viewModel.deleteDownload(recording) }) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = stringResource(R.string.prayer_download_delete),
+                                    )
+                                }
+                            }
+                            if (!row.isSelectedForPrayer) {
+                                FilledTonalButton(
+                                    onClick = { viewModel.select(recording) },
+                                    shape = RoundedCornerShape(AyahRadii.pill),
+                                ) {
+                                    Text(stringResource(R.string.prayer_voice_select))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (recording.isBundled) {
+                            Spacer(Modifier.width(1.dp))
+                            if (!row.isSelectedForPrayer) {
+                                FilledTonalButton(
+                                    onClick = { viewModel.select(recording) },
+                                    shape = RoundedCornerShape(AyahRadii.pill),
+                                ) {
+                                    Text(stringResource(R.string.prayer_voice_select))
+                                }
+                            }
+                        } else {
                             Text(
-                                text = stringResource(R.string.prayer_download_done),
+                                text = stringResource(R.string.prayer_library_select_needs_download),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
                             )
-                        }
-                        IconButton(onClick = { viewModel.deleteDownload(recording) }) {
-                            Icon(
-                                Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.prayer_download_delete),
-                            )
-                        }
-                    }
-                }
-
-                else -> if (!recording.isBundled) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            text = formatSize(recording.expectedSizeBytes ?: 0L),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { viewModel.download(recording) }) {
+                            OutlinedButton(
+                                onClick = { viewModel.download(recording) },
+                                shape = RoundedCornerShape(AyahRadii.pill),
+                            ) {
                                 Icon(
-                                    Icons.Filled.Download,
-                                    contentDescription = stringResource(R.string.prayer_download),
+                                    imageVector = AyahIcons.Download,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
                                 )
-                            }
-                            IconButton(onClick = { viewModel.deleteDownload(recording) }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = stringResource(R.string.prayer_download_delete),
+                                Spacer(Modifier.width(AyahSpacing.xs))
+                                Text(
+                                    text = "${stringResource(R.string.prayer_download)} · ${
+                                        AyahNumbering.isolateLtr(formatSize(recording.expectedSizeBytes ?: 0L))
+                                    }",
+                                    style = MaterialTheme.typography.labelMedium,
                                 )
                             }
                         }
                     }
                 }
-            }
-
-            // Preview + select row.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                IconButton(onClick = {
-                    when {
-                        isPreviewing && preview.isPlaying -> viewModel.pausePreview()
-                        isPreviewing && preview.isPaused -> viewModel.resumePreview()
-                        else -> viewModel.startPreview(recording)
-                    }
-                }) {
-                    when {
-                        isPreviewing && preview.isPlaying -> Icon(
-                            Icons.Filled.Pause,
-                            contentDescription = stringResource(R.string.prayer_voice_preview_pause),
-                        )
-
-                        else -> Icon(
-                            Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.prayer_voice_preview_play),
-                        )
-                    }
-                }
-                if (isPreviewing) {
-                    Text(
-                        text = formatMs(preview.elapsedMs) + " / " + formatMs(
-                            preview.totalMs.coerceAtLeast(
-                                recording.durationSeconds * 1000L,
-                            ),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                TextButton(
-                    onClick = { viewModel.select(recording) },
-                    enabled = row.isDownloaded,
-                ) {
-                    Text(stringResource(R.string.prayer_voice_select))
-                }
-            }
-            if (!row.isDownloaded && !recording.isBundled) {
-                Text(
-                    text = stringResource(R.string.prayer_library_select_needs_download),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

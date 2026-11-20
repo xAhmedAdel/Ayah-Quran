@@ -43,6 +43,14 @@ class AdhanVoiceViewModel @Inject constructor(
         }
     }
 
+    fun selectVoiceForAll(recordingId: String) {
+        viewModelScope.launch {
+            Prayer.entries.forEach { prayer ->
+                preferencesRepository.setVoice(prayer, recordingId)
+            }
+        }
+    }
+
     fun startPreview(recording: AdhanRecording) = previewController.start(recording)
 
     fun pausePreview() = previewController.pause()

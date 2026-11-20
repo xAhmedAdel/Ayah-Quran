@@ -419,6 +419,12 @@
     <string name="audio_delete_confirm_title">Delete downloaded recitation?</string>
     <string name="audio_delete_confirm_message">Remove offline audio files for %1$s? You can download them again anytime.</string>
     <string name="audio_open_in_reader">Mushaf</string>
+    <string name="prayer_hijri_adjust_label">Hijri date adjustment</string>
+    <string name="prayer_adjustments_default">Default (0 min)</string>
+    <string name="prayer_diagnostics_section">Diagnostics &amp; testing</string>
+    <string name="prayer_voice_apply_all">Apply one voice to all prayers</string>
+    <string name="prayer_voice_apply_all_subtitle">Set the same adhan across Fajr through Isha</string>
+    <string name="prayer_change_city">Change city</string>
 
     <plurals name="ayah_count_plurals">
         <item quantity="one">%1$d ayah</item>

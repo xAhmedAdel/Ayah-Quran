@@ -103,9 +103,16 @@ class PrayerTimesViewModel @Inject constructor(
             val s = (total / 1_000) % 60
             "%02d:%02d:%02d".format(h, m, s)
         }
+        val locale = java.util.Locale.forLanguageTag(
+            if (com.ayah.quran.core.locale.AppLocale.isArabic) {
+                com.ayah.quran.core.locale.AppLocale.ARABIC
+            } else {
+                com.ayah.quran.core.locale.AppLocale.ENGLISH
+            },
+        )
         val gregorian = LocalDate.now(zone)
-            .format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy"))
-        val hijri = hijriText(LocalDate.now(zone).plusDays(prefs.hijriAdjustmentDays.toLong()))
+            .format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
+        val hijri = hijriText(LocalDate.now(zone).plusDays(prefs.hijriAdjustmentDays.toLong()), locale)
         return PrayerUiState(
             preferences = prefs,
             today = today,
@@ -120,8 +127,7 @@ class PrayerTimesViewModel @Inject constructor(
         )
     }
 
-    /** Umm al-Qura Hijri date via java.time; NOT an official moon-sighting. */
-    private fun hijriText(localDate: LocalDate): String {
+    private fun hijriText(localDate: LocalDate, locale: java.util.Locale): String {
         val hijri = HijrahDate.from(localDate)
         val formatter = DateTimeFormatterBuilder()
             .appendValue(ChronoField.DAY_OF_MONTH)
@@ -129,9 +135,10 @@ class PrayerTimesViewModel @Inject constructor(
             .appendPattern("MMMM")
             .appendLiteral(" ")
             .appendValue(ChronoField.YEAR_OF_ERA)
-            .toFormatter()
+            .toFormatter(locale)
             .withChronology(java.time.chrono.HijrahChronology.INSTANCE)
-        return formatter.format(hijri) + " AH"
+        val suffix = if (com.ayah.quran.core.locale.AppLocale.isArabic) " هـ" else " AH"
+        return formatter.format(hijri) + suffix
     }
 
     // ---- user actions ----
