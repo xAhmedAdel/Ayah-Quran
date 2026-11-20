@@ -19,6 +19,7 @@ class MiniPlayerVisibilityTest {
         assertTrue(shouldShowMiniPlayer(Routes.PRAYER_ADHAN_LIBRARY))
         assertTrue(shouldShowMiniPlayer(Routes.ADHKAR_HUB))
         assertTrue(shouldShowMiniPlayer(Routes.DUAS_HUB))
+        assertTrue(shouldShowMiniPlayer(Routes.HADITH_LIBRARY))
     }
 
     @Test
@@ -30,5 +31,6 @@ class MiniPlayerVisibilityTest {
         assertFalse(shouldShowMiniPlayer(Routes.READER))
         assertFalse(shouldShowMiniPlayer(Routes.ADHKAR_SESSION))
         assertFalse(shouldShowMiniPlayer(Routes.TASBIH))
+        assertFalse(shouldShowMiniPlayer(Routes.HADITH_DETAIL))
     }
 }
