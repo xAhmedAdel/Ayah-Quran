@@ -162,10 +162,10 @@ class CompanionContentImporter @Inject constructor(
             updatedAtMillis = nowMillis,
         ),
         TasbihCounterEntity(
-            stableKey = "astaghfirullah",
-            titleAr = "أَسْتَغْفِرُ اللَّهَ",
-            titleEn = "Astaghfirullah",
-            dhikrTextAr = "أَسْتَغْفِرُ اللَّهَ",
+            stableKey = "lailahaillallah",
+            titleAr = "لَا إِلَهَ إِلَّا اللَّهُ",
+            titleEn = "La ilaha illallah",
+            dhikrTextAr = "لَا إِلَهَ إِلَّا اللَّهُ",
             targetCount = 100,
             currentCount = 0,
             completedRounds = 0,
@@ -175,16 +175,29 @@ class CompanionContentImporter @Inject constructor(
             updatedAtMillis = nowMillis,
         ),
         TasbihCounterEntity(
-            stableKey = "salawat",
-            titleAr = "الصلاة على النبي ﷺ",
-            titleEn = "Salawat upon the Prophet",
-            dhikrTextAr = "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ",
-            targetCount = 10,
+            stableKey = "astaghfirullah",
+            titleAr = "أَسْتَغْفِرُ اللَّهَ",
+            titleEn = "Astaghfirullah",
+            dhikrTextAr = "أَسْتَغْفِرُ اللَّهَ",
+            targetCount = 100,
             currentCount = 0,
             completedRounds = 0,
             lifetimeCount = 0,
             isCustom = false,
             sortOrder = 5,
+            updatedAtMillis = nowMillis,
+        ),
+        TasbihCounterEntity(
+            stableKey = "salawat",
+            titleAr = "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ",
+            titleEn = "Salawat upon the Prophet",
+            dhikrTextAr = "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ",
+            targetCount = 100,
+            currentCount = 0,
+            completedRounds = 0,
+            lifetimeCount = 0,
+            isCustom = false,
+            sortOrder = 6,
             updatedAtMillis = nowMillis,
         ),
         TasbihCounterEntity(
@@ -197,15 +210,15 @@ class CompanionContentImporter @Inject constructor(
             completedRounds = 0,
             lifetimeCount = 0,
             isCustom = false,
-            sortOrder = 6,
+            sortOrder = 7,
             updatedAtMillis = nowMillis,
         ),
     )
 
     companion object {
         private const val TAG = "CompanionImporter"
-        const val CURRENT_CONTENT_VERSION = 1
-        private const val DEFAULT_TASBIH_SEED_COUNT = 6
+        const val CURRENT_CONTENT_VERSION = 2
+        private const val DEFAULT_TASBIH_SEED_COUNT = 7
         val KEY_COMPANION_CONTENT_VERSION = intPreferencesKey("companion_content_version")
         const val ADHKAR_ASSET = "companion/adhkar_hisn.json"
         const val QURANIC_DUAS_ASSET = "companion/quranic_duas.json"

@@ -28,6 +28,7 @@ interface TasbihRepository {
     fun observeCounters(): Flow<List<TasbihCounter>>
     fun observeDayTotal(dayKey: String): Flow<Int>
     suspend fun increment(counterId: Long, dayKey: String): Boolean
+    suspend fun incrementSession(counterId: Long, dayKey: String): Boolean
     suspend fun undo(counterId: Long, dayKey: String)
     suspend fun reset(counterId: Long)
     suspend fun createCustomCounter(titleAr: String, titleEn: String, dhikrTextAr: String, targetCount: Int): Long

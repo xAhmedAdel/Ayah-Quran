@@ -176,14 +176,45 @@ class TasbihRepositoryImpl @Inject constructor(
             reachedTarget
         }
 
+    override suspend fun incrementSession(counterId: Long, dayKey: String): Boolean =
+        database.withTransaction {
+            val entity = tasbihDao.getById(counterId) ?: return@withTransaction false
+            val now = System.currentTimeMillis()
+            val incremented = entity.currentCount + 1
+            val justReachedTarget = entity.targetCount > 0 && incremented == entity.targetCount
+            val updated = entity.copy(
+                currentCount = incremented,
+                completedRounds = if (justReachedTarget) entity.completedRounds + 1 else entity.completedRounds,
+                lifetimeCount = entity.lifetimeCount + 1,
+                updatedAtMillis = now,
+            )
+            tasbihDao.upsertCounter(updated)
+            val existingLog = tasbihDao.getDailyLog(dayKey, counterId)
+            tasbihDao.upsertDailyLog(
+                TasbihDailyLogEntity(
+                    dayKey = dayKey,
+                    counterId = counterId,
+                    countTotal = (existingLog?.countTotal ?: 0) + 1,
+                    updatedAtMillis = now,
+                ),
+            )
+            justReachedTarget
+        }
+
     override suspend fun undo(counterId: Long, dayKey: String) {
         database.withTransaction {
             val entity = tasbihDao.getById(counterId) ?: return@withTransaction
             if (entity.currentCount <= 0) return@withTransaction
             val now = System.currentTimeMillis()
+            val wasExactTarget = entity.targetCount > 0 && entity.currentCount == entity.targetCount
             tasbihDao.upsertCounter(
                 entity.copy(
                     currentCount = entity.currentCount - 1,
+                    completedRounds = if (wasExactTarget && entity.completedRounds > 0) {
+                        entity.completedRounds - 1
+                    } else {
+                        entity.completedRounds
+                    },
                     lifetimeCount = (entity.lifetimeCount - 1).coerceAtLeast(0L),
                     updatedAtMillis = now,
                 ),
@@ -224,7 +255,7 @@ class TasbihRepositoryImpl @Inject constructor(
             TasbihCounterEntity(
                 stableKey = null,
                 titleAr = titleAr.trim().ifEmpty { cleanText },
-                titleEn = titleEn.trim().ifEmpty { cleanText },
+                titleEn = titleEn.trim(),
                 dhikrTextAr = cleanText,
                 targetCount = clampedTarget,
                 currentCount = 0,
@@ -239,11 +270,13 @@ class TasbihRepositoryImpl @Inject constructor(
 
     override suspend fun updateCounter(counter: TasbihCounter) {
         val existing = tasbihDao.getById(counter.id) ?: return
+        val cleanText = counter.dhikrTextAr.trim()
+        if (cleanText.isEmpty()) return
         tasbihDao.upsertCounter(
             existing.copy(
-                titleAr = counter.titleAr.trim(),
+                titleAr = counter.titleAr.trim().ifEmpty { cleanText },
                 titleEn = counter.titleEn.trim(),
-                dhikrTextAr = counter.dhikrTextAr.trim(),
+                dhikrTextAr = cleanText,
                 targetCount = counter.targetCount.coerceIn(0, 10_000),
                 updatedAtMillis = System.currentTimeMillis(),
             ),

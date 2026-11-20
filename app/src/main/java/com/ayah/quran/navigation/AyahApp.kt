@@ -52,6 +52,7 @@ import com.ayah.quran.ui.bookmarks.BookmarksScreen
 import com.ayah.quran.ui.companion.adhkar.AdhkarHubScreen
 import com.ayah.quran.ui.companion.adhkar.AdhkarSessionScreen
 import com.ayah.quran.ui.companion.duas.DuasHubScreen
+import com.ayah.quran.ui.companion.tasbih.TasbihScreen
 import com.ayah.quran.ui.home.HomeScreen
 import com.ayah.quran.ui.main.MainViewModel
 import com.ayah.quran.ui.prayer.AdhanLibraryScreen
@@ -81,6 +82,7 @@ object Routes {
     const val ADHKAR_HUB = "companion/adhkar"
     const val ADHKAR_SESSION = "companion/adhkar/session/{categoryId}?itemId={itemId}"
     const val DUAS_HUB = "companion/duas"
+    const val TASBIH = "companion/tasbih"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
         "reader/$surahId" + (ayahNumber?.let { "?ayah=$it" } ?: "")
@@ -102,6 +104,7 @@ internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
     Routes.MUSHAF,
     Routes.READER,
     Routes.ADHKAR_SESSION,
+    Routes.TASBIH,
     -> false
     else -> true
 }
@@ -437,6 +440,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
                         navController.navigate(Routes.adhkarSession(categoryId, itemId))
                     },
                     onOpenDuas = { navController.navigate(Routes.DUAS_HUB) },
+                    onOpenTasbih = { navController.navigate(Routes.TASBIH) },
                     onOpenSurahInMushaf = { surahId ->
                         navController.navigate(Routes.mushaf(surahId = surahId))
                     },
@@ -468,6 +472,12 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     onOpenInMushaf = { surahId, ayahNumber ->
                         navController.navigate(Routes.mushaf(surahId = surahId, ayahNumber = ayahNumber))
                     },
+                )
+            }
+
+            composable(route = Routes.TASBIH) {
+                TasbihScreen(
+                    onBack = { navController.popBackStack() },
                 )
             }
 

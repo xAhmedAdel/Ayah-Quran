@@ -7,10 +7,12 @@ import com.ayah.quran.core.database.dao.companion.TasbihDao
 import com.ayah.quran.core.time.CompanionDateProvider
 import com.ayah.quran.core.time.SystemCompanionDateProvider
 import com.ayah.quran.data.companion.AdhkarRepositoryImpl
+import com.ayah.quran.data.companion.DataStoreTasbihPreferencesRepository
 import com.ayah.quran.data.companion.HadithRepositoryImpl
 import com.ayah.quran.data.companion.TasbihRepositoryImpl
 import com.ayah.quran.domain.repository.companion.AdhkarRepository
 import com.ayah.quran.domain.repository.companion.HadithRepository
+import com.ayah.quran.domain.repository.companion.TasbihPreferencesRepository
 import com.ayah.quran.domain.repository.companion.TasbihRepository
 import dagger.Binds
 import dagger.Module
@@ -30,6 +32,12 @@ abstract class CompanionModule {
     @Binds
     @Singleton
     abstract fun bindTasbihRepository(impl: TasbihRepositoryImpl): TasbihRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTasbihPreferencesRepository(
+        impl: DataStoreTasbihPreferencesRepository,
+    ): TasbihPreferencesRepository
 
     @Binds
     @Singleton

@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,6 +76,7 @@ fun AdhkarHubScreen(
     onBack: () -> Unit,
     onOpenSession: (categoryId: String, itemId: String?) -> Unit,
     onOpenDuas: () -> Unit,
+    onOpenTasbih: () -> Unit = {},
     onOpenSurahInMushaf: (surahId: Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AdhkarHubViewModel = hiltViewModel(),
@@ -106,6 +108,12 @@ fun AdhkarHubScreen(
                     }
                 },
                 actions = {
+                    TextButton(
+                        onClick = onOpenTasbih,
+                        modifier = Modifier.testTag("adhkar_open_tasbih"),
+                    ) {
+                        Text(stringResource(R.string.tasbih_title))
+                    }
                     TextButton(
                         onClick = onOpenDuas,
                         modifier = Modifier.testTag("adhkar_open_duas"),
@@ -260,6 +268,20 @@ fun AdhkarHubScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    item(key = "tasbih_entry") {
+                        AyahSurfaceCard(
+                            onClick = onOpenTasbih,
+                            modifier = Modifier.testTag("adhkar_tasbih_card"),
+                        ) {
+                            AyahSettingRow(
+                                title = stringResource(R.string.tasbih_title),
+                                subtitle = stringResource(R.string.tasbih_open_subtitle),
+                                leadingIcon = Icons.Outlined.TouchApp,
+                                onClick = onOpenTasbih,
+                            )
                         }
                     }
 
