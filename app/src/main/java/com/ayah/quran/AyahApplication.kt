@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.ayah.quran.core.locale.AppLocale
+import com.ayah.quran.data.companion.CompanionContentImporter
 import com.ayah.quran.data.quran.QuranImporter
 import com.ayah.quran.prayer.PrayerNotifications
 import com.ayah.quran.prayer.PrayerTimeManager
@@ -21,6 +22,9 @@ class AyahApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var quranImporter: QuranImporter
+
+    @Inject
+    lateinit var companionContentImporter: CompanionContentImporter
 
     @Inject
     lateinit var hiltWorkerFactory: HiltWorkerFactory
@@ -44,6 +48,7 @@ class AyahApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         quranImporter.startAsync()
+        companionContentImporter.startAsync()
         // Notification channels exist from install (the permissions
         // onboarding and dashboard verify the alert channel's state).
         prayerNotifications.createChannels()

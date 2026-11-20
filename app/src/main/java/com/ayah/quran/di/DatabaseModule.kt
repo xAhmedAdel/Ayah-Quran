@@ -3,6 +3,7 @@ package com.ayah.quran.di
 import android.content.Context
 import androidx.room.Room
 import com.ayah.quran.core.database.AyahDatabase
+import com.ayah.quran.core.database.AyahMigrations
 import com.ayah.quran.core.database.dao.AyahDao
 import com.ayah.quran.core.database.dao.BookmarkDao
 import com.ayah.quran.core.database.dao.ReadingProgressDao
@@ -22,10 +23,7 @@ object DatabaseModule {
     @Singleton
     fun provideAyahDatabase(@ApplicationContext context: Context): AyahDatabase =
         Room.databaseBuilder(context, AyahDatabase::class.java, AyahDatabase.NAME)
-            // NO destructive fallback: the beta is released, so user data
-            // (bookmarks, reading progress, wallpaper history) must survive
-            // schema changes. Future schema bumps require explicit
-            // Migration objects registered via .addMigrations(...).
+            .addMigrations(AyahMigrations.MIGRATION_3_4)
             .build()
 
     @Provides
