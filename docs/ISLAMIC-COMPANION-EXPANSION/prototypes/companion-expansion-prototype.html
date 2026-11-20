@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ayah — Islamic Daily Companion Prototype (Direction D)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #F6F2E9;
+    --surface: #FCF9F2;
+    --surface-high: #EFE8D8;
+    --mushaf: #FBF6EA;
+    --ink: #17201B;
+    --ink-muted: #56635B;
+    --outline: #DDD4C2;
+    --emerald: #0F3D32;
+    --emerald-soft: #E1EFEA;
+    --emerald-ink: #0F3D32;
+    --gold: #C4A052;
+    --gold-aa: #8F6E2A;
+    --gold-soft: #F2E5C6;
+    --hero-bg: linear-gradient(155deg, #0D3329 0%, #154E3F 100%);
+    --hero-ink: #F6F2E9;
+    --hero-muted: #C8D9D2;
+    --danger: #B33A3A;
+    --nav-bg: #F3EDE0;
+    --shadow: 0 18px 48px rgba(15, 36, 28, 0.16);
+  }
+  [data-theme="dark"] {
+    --canvas: #0C1210;
+    --surface: #131B17;
+    --surface-high: #1B2620;
+    --mushaf: #111915;
+    --ink: #F2EDE2;
+    --ink-muted: #9FAEA6;
+    --outline: #26332C;
+    --emerald: #D6B66B;
+    --emerald-soft: #1B332A;
+    --emerald-ink: #9DD6BE;
+    --gold: #D6B66B;
+    --gold-aa: #E4C986;
+    --gold-soft: #2E2718;
+    --hero-bg: linear-gradient(155deg, #0E2B23 0%, #174035 100%);
+    --hero-ink: #F6F2E9;
+    --hero-muted: #BCD2C8;
+    --danger: #E58C8C;
+    --nav-bg: #101714;
+    --shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+    background: #1B211E;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 14px 32px;
+    gap: 14px;
+  }
+  .toolbar {
+    width: 100%;
+    max-width: 760px;
+    background: #121815;
+    border: 1px solid #2A352F;
+    border-radius: 16px;
+    padding: 12px 16px;
+    color: #F2EDE2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .toolbar-title { font-size: 14px; font-weight: 600; color: #E4C986; }
+  .toolbar-note { font-size: 12px; color: #9FAEA6; }
+  .toolbar-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ctrl-btn {
+    background: #1E2823;
+    color: #F2EDE2;
+    border: 1px solid #314239;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ctrl-btn.active { background: #C4A052; color: #0C1210; border-color: #C4A052; }
+
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    height: 820px;
+    background: var(--canvas);
+    border-radius: 36px;
+    border: 6px solid #242C28;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .status-bar {
+    height: 30px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    background: var(--canvas);
+    flex-shrink: 0;
+  }
+  .screen-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .screen-wrap::-webkit-scrollbar { width: 4px; }
+  .screen-wrap::-webkit-scrollbar-thumb { background: var(--outline); border-radius: 4px; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 0 2px;
+  }
+  .wordmark {
+    font-family: 'Amiri', serif;
+    font-size: 32px;
+    line-height: 1.1;
+    color: var(--emerald);
+    font-weight: 700;
+  }
+  .hijri { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+  .screen-title { font-size: 19px; font-weight: 700; color: var(--ink); flex: 1; }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .icon-btn.gold { background: var(--gold-soft); border-color: transparent; color: var(--gold-aa); }
+
+  .hero-card {
+    background: var(--hero-bg);
+    color: var(--hero-ink);
+    border-radius: 22px;
+    padding: 18px;
+    border: 1px solid rgba(196, 160, 82, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .hero-eyebrow { font-size: 12px; font-weight: 600; color: var(--gold); }
+  .hero-title { font-family: 'Amiri', serif; font-size: 26px; font-weight: 700; line-height: 1.25; }
+  .hero-sub { font-size: 13px; color: var(--hero-muted); }
+  .hero-cta {
+    align-self: flex-start;
+    margin-top: 4px;
+    background: var(--gold);
+    color: #0C1210;
+    border: none;
+    border-radius: 999px;
+    padding: 9px 18px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 18px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .section-label { font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+
+  .companion-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 16px;
+    padding: 11px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .15s ease, transform .12s ease;
+  }
+  .tile:hover { border-color: var(--gold); }
+  .tile:active { transform: scale(0.97); }
+  .tile-ico {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: var(--emerald-soft);
+    color: var(--emerald-ink);
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .tile-ico.gold { background: var(--gold-soft); color: var(--gold-aa); }
+  .tile-name { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .tile-meta { font-size: 10px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+
+  .pill-tabs {
+    display: flex;
+    background: var(--surface-high);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .pill-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    border-radius: 999px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pill-tab.active {
+    background: var(--surface);
+    color: var(--emerald);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .amiri-text {
+    font-family: 'Amiri', serif;
+    font-size: 22px;
+    line-height: 1.85;
+    color: var(--ink);
+  }
+  .mushaf-box {
+    background: var(--mushaf);
+    border: 1px solid var(--outline);
+    border-radius: 18px;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--emerald-soft);
+    color: var(--emerald-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .badge.gold { background: var(--gold-soft); color: var(--gold-aa); }
+  .badge.neutral { background: var(--surface-high); color: var(--ink-muted); }
+
+  .search-box {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 14px;
+    padding: 9px 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-box input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    width: 100%;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cat-card {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 16px;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .cat-card:hover { border-color: var(--gold); }
+  .progress-bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--surface-high);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 999px;
+    transition: width .2s ease;
+  }
+
+  .row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--outline);
+    cursor: pointer;
+  }
+  .row-item:last-child { border-bottom: none; padding-bottom: 2px; }
+  .row-item:first-child { padding-top: 2px; }
+
+  .primary-btn {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 999px;
+    border: none;
+    background: #0F3D32;
+    color: #F6F2E9;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  [data-theme="dark"] .primary-btn { background: #D6B66B; color: #0C1210; }
+  .tonal-btn {
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--outline);
+    background: var(--surface-high);
+    color: var(--ink);
+    padding: 0 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--ink-muted);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .chip.active { background: var(--emerald-soft); color: var(--emerald-ink); border-color: var(--emerald); }
+
+  .tasbih-pad {
+    flex: 1;
+    min-height: 290px;
+    background: var(--hero-bg);
+    border: 1px solid rgba(196, 160, 82, 0.45);
+    border-radius: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: transform .08s ease;
+  }
+  .tasbih-pad:active { transform: scale(0.985); }
+  .tasbih-ring { position: relative; width: 176px; height: 176px; display: grid; place-items: center; }
+  .tasbih-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .tasbih-num {
+    font-size: 50px;
+    font-weight: 700;
+    color: #F6F2E9;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .tasbih-target { font-size: 13px; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .tasbih-cycle { font-size: 12px; color: var(--hero-muted); font-variant-numeric: tabular-nums; }
+
+  .bottom-nav {
+    height: 68px;
+    background: var(--nav-bg);
+    border-top: 1px solid var(--outline);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    padding: 4px 6px 8px;
+    flex-shrink: 0;
+  }
+  .nav-item {
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+  }
+  .nav-pill {
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .nav-item.active { color: var(--emerald); }
+  .nav-item.active .nav-pill { background: var(--gold-soft); color: var(--gold-aa); }
+
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 12, 10, 0.68);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 14px;
+    z-index: 20;
+  }
+  .modal-backdrop.open { display: flex; }
+  .sheet {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 22px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .share-preview {
+    border-radius: 18px;
+    padding: 22px 18px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid rgba(196, 160, 82, 0.55);
+  }
+  .share-preview.emerald { background: linear-gradient(155deg, #0D3329, #154E3F); color: #F6F2E9; }
+  .share-preview.parchment { background: #F6F2E9; color: #17201B; }
+  .toast {
+    position: absolute;
+    bottom: 82px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #17201B;
+    color: #F6F2E9;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 30;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  .proto-banner {
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-align: center;
+    padding: 4px 8px;
+    background: var(--surface-high);
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <div class="toolbar-title">Ayah — Islamic Daily Companion Interactive Prototype</div>
+      <div class="toolbar-note">Direction D (Al-Mushaf Al-Hadith) · Illustrative prototype content only</div>
+    </div>
+    <div class="toolbar-controls">
+      <button class="ctrl-btn active" id="btnAr">العربية (RTL)</button>
+      <button class="ctrl-btn" id="btnEn">English (LTR)</button>
+      <button class="ctrl-btn active" id="btnLight">Warm Parchment</button>
+      <button class="ctrl-btn" id="btnDark">Obsidian Moss</button>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="status-bar">
+      <span>09:41</span>
+      <span>5G · 100%</span>
+    </div>
+    <div class="screen-wrap" id="screen"></div>
+    <div class="bottom-nav" id="bottomNav"></div>
+    <div class="modal-backdrop" id="modal"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+<script>
+const STATE = {
+  lang: 'ar',
+  theme: 'light',
+  route: 'home',
+  dailyTab: 'ayah',
+  adhkarQuery: '',
+  sessionIdx: 0,
+  sessionCounts: { m1: 0, m2: 0, m3: 0, m4: 0 },
+  showVirtue: false,
+  duaTab: 'quranic',
+  duaSit: 'all',
+  duaFavs: new Set(['qd1']),
+  hadithTab: 'collections',
+  hadithQuery: '',
+  activeHadithId: 'h1',
+  hadithFavs: new Set(['h1']),
+  showSharh: false,
+  shareStyle: 'emerald',
+  tasbihIdx: 0,
+  tasbihHaptic: true,
+  tasbihCounters: [
+    { id: 1, titleAr: 'سُبْحَانَ اللَّهِ', titleEn: 'SubhanAllah', target: 33, count: 14, cycles: 0 },
+    { id: 2, titleAr: 'الْحَمْدُ لِلَّهِ', titleEn: 'Alhamdulillah', target: 33, count: 0, cycles: 0 },
+    { id: 3, titleAr: 'اللَّهُ أَكْبَرُ', titleEn: 'Allahu Akbar', target: 33, count: 0, cycles: 0 },
+    { id: 4, titleAr: 'أَسْتَغْفِرُ اللَّهَ', titleEn: 'Astaghfirullah', target: 100, count: 0, cycles: 0 },
+    { id: 5, titleAr: 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ', titleEn: 'Salawat upon the Prophet', target: 10, count: 0, cycles: 0 }
+  ]
+};
+
+const T = {
+  ar: {
+    brand: 'آية',
+    hijri: '١٠ جمادى الآخرة ١٤٤٨ هـ',
+    continueEyebrow: 'متابعة القراءة',
+    continueTitle: 'سورة الكهف',
+    continueSub: 'صفحة ٢٩٣ · الجزء ١٥',
+    continueCta: 'متابعة القراءة',
+    nextPrayer: 'الصلاة القادمة',
+    dhuhr: 'الظهر',
+    cairo: 'القاهرة · مصر',
+    companionTitle: 'الذكر والسنن اليومية',
+    adhkar: 'الأذكار',
+    tasbih: 'المسبحة',
+    hadith: 'الحديث',
+    duas: 'الأدعية',
+    dailyAyah: 'آية اليوم',
+    dailyHadith: 'حديث اليوم',
+    openMushaf: 'فتح في المصحف',
+    readFull: 'قراءة التفاصيل',
+    morningAdhkar: 'أذكار الصباح',
+    eveningAdhkar: 'أذكار المساء',
+    afterPrayer: 'بعد الصلاة',
+    sleepAdhkar: 'أذكار النوم',
+    startSession: 'بدء الجلسة',
+    continueSession: 'متابعة الجلسة',
+    dailySurahs: 'سور السُّنة اليومية',
+    kahf: 'سورة الكهف (الجمعة)',
+    mulk: 'سورة الملك (قبل النوم)',
+    searchAdhkar: 'ابحث في الأذكار بدون تشكيل...',
+    tapToCount: 'اضغط للعد',
+    markRead: 'تمت القراءة',
+    completed: 'تم بفضل الله',
+    undo: 'تراجع -1',
+    reset: 'تصفير',
+    virtueToggle: 'الفضل والترجمة',
+    copy: 'نسخ',
+    shareCard: 'بطاقة مشاركة',
+    sessionDone: 'أتممت أذكار الصباح بفضل الله',
+    repeatSession: 'إعادة الجلسة',
+    backToHub: 'العودة للأذكار',
+    tasbihCycle: 'الدورة',
+    nextPreset: 'التالي',
+    addCustom: 'ذكر مخصص',
+    save: 'حفظ',
+    cancel: 'إلغاء',
+    confirmReset: 'تصفير العداد الحالي؟',
+    quranicDuas: 'قرآنية',
+    propheticDuas: 'نبوية',
+    bySituation: 'حسب الحال',
+    all: 'الكل',
+    anxiety: 'الهم',
+    gratitude: 'الشكر',
+    forgiveness: 'الاستغفار',
+    collections: 'المجموعات',
+    saved: 'المحفوظات',
+    searchHadith: 'ابحث في الأحاديث...',
+    gradeLabel: 'درجة الحديث',
+    sourceLabel: 'المصدر والتخريج',
+    datasetLabel: 'المصدر الرقمي',
+    sharhToggle: 'الشرح المختصر',
+    shareTitle: 'معاينة بطاقة المشاركة',
+    emeraldStyle: 'زمردي',
+    parchmentStyle: 'ورقي دافئ',
+    shareNow: 'مشاركة البطاقة',
+    protoNote: 'محتوى تجريبي للمعاينة فقط — النسخة النهائية تعتمد مصادر موثقة',
+    nav: ['الرئيسية', 'القرآن', 'الصلوات', 'الصوت', 'الخلفيات']
+  },
+  en: {
+    brand: 'Ayah',
+    hijri: '10 Jumada al-Akhirah 1448 AH',
+    continueEyebrow: 'Continue Reading',
+    continueTitle: 'Surah Al-Kahf',
+    continueSub: 'Page 293 · Juz 15',
+    continueCta: 'Resume Reading',
+    nextPrayer: 'Next Prayer',
+    dhuhr: 'Dhuhr',
+    cairo: 'Cairo · Egypt',
+    companionTitle: 'Daily Worship Companion',
+    adhkar: 'Adhkar',
+    tasbih: 'Tasbih',
+    hadith: 'Hadith',
+    duas: 'Duas',
+    dailyAyah: 'Daily Ayah',
+    dailyHadith: 'Daily Hadith',
+    openMushaf: 'Open in Mushaf',
+    readFull: 'Read Details',
+    morningAdhkar: 'Morning Adhkar',
+    eveningAdhkar: 'Evening Adhkar',
+    afterPrayer: 'After Prayer',
+    sleepAdhkar: 'Before Sleep',
+    startSession: 'Start Session',
+    continueSession: 'Resume Session',
+    dailySurahs: 'Daily Sunnah Surahs',
+    kahf: 'Surah Al-Kahf (Friday)',
+    mulk: 'Surah Al-Mulk (Nightly)',
+    searchAdhkar: 'Search adhkar (Arabic / English)...',
+    tapToCount: 'Tap to count',
+    markRead: 'Mark as read',
+    completed: 'Completed',
+    undo: 'Undo -1',
+    reset: 'Reset',
+    virtueToggle: 'Virtue & Translation',
+    copy: 'Copy',
+    shareCard: 'Share Card',
+    sessionDone: 'Morning Adhkar session completed',
+    repeatSession: 'Repeat Session',
+    backToHub: 'Back to Adhkar',
+    tasbihCycle: 'Cycle',
+    nextPreset: 'Next Preset',
+    addCustom: 'Custom Dhikr',
+    save: 'Save',
+    cancel: 'Cancel',
+    confirmReset: 'Reset active counter to zero?',
+    quranicDuas: 'Quranic',
+    propheticDuas: 'Prophetic',
+    bySituation: 'By Situation',
+    all: 'All',
+    anxiety: 'Anxiety',
+    gratitude: 'Gratitude',
+    forgiveness: 'Forgiveness',
+    collections: 'Collections',
+    saved: 'Saved',
+    searchHadith: 'Search hadith...',
+    gradeLabel: 'Grade & Grader',
+    sourceLabel: 'Source Reference',
+    datasetLabel: 'Verified Dataset',
+    sharhToggle: 'Brief Explanation',
+    shareTitle: 'Share Card Preview',
+    emeraldStyle: 'Sanctuary Emerald',
+    parchmentStyle: 'Warm Parchment',
+    shareNow: 'Share Image',
+    protoNote: 'Illustrative prototype data only — production uses verified datasets',
+    nav: ['Home', 'Quran', 'Prayer', 'Audio', 'Wallpapers']
+  }
+};
+
+const MORNING_ADHKAR = [
+  {
+    id: 'm1',
+    titleAr: 'آية الكرسي',
+    titleEn: 'Ayat al-Kursi',
+    textAr: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ',
+    textEn: 'Allah — there is no deity except Him, the Ever-Living, the Sustainer of all existence...',
+    sourceAr: 'سورة البقرة: ٢٥٥ (نموذج معاينة)',
+    sourceEn: 'Surah Al-Baqarah 2:255 (Sample excerpt)',
+    target: 1,
+    isQuran: true
+  },
+  {
+    id: 'm2',
+    titleAr: 'سيد الاستغفار',
+    titleEn: 'Sayyid al-Istighfar',
+    textAr: 'اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَٰهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ',
+    textEn: 'O Allah, You are my Lord, none has the right to be worshipped except You. You created me and I am Your servant...',
+    sourceAr: 'صحيح البخاري · ٦٣٠٦',
+    sourceEn: 'Sahih al-Bukhari 6306',
+    target: 1,
+    isQuran: false
+  },
+  {
+    id: 'm3',
+    titleAr: 'بسم الله الذي لا يضر مع اسمه شيء',
+    titleEn: 'In the Name of Allah',
+    textAr: 'بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ',
+    textEn: 'In the Name of Allah, with Whose Name nothing on earth or in heaven can cause harm, and He is the All-Hearing, All-Knowing.',
+    sourceAr: 'سنن أبي داود · ٥٠٨٨',
+    sourceEn: 'Sunan Abi Dawud 5088',
+    target: 3,
+    isQuran: false
+  },
+  {
+    id: 'm4',
+    titleAr: 'رضيت بالله ربّاً',
+    titleEn: 'Pleased with Allah as Lord',
+    textAr: 'رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ ﷺ نَبِيًّا',
+    textEn: 'I am pleased with Allah as my Lord, with Islam as my religion, and with Muhammad (peace be upon him) as my Prophet.',
+    sourceAr: 'سنن أبي داود · ٥٠٧٢',
+    sourceEn: 'Sunan Abi Dawud 5072',
+    target: 3,
+    isQuran: false
+  }
+];
+
+const DUAS = [
+  {
+    id: 'qd1', kind: 'quranic', sit: 'gratitude',
+    titleAr: 'دعاء خير الدنيا والآخرة', titleEn: 'Good in This World & Hereafter',
+    textAr: 'رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ',
+    textEn: 'Our Lord, give us in this world that which is good and in the Hereafter that which is good and protect us from the punishment of the Fire.',
+    refAr: 'البقرة · 2:201', refEn: 'Al-Baqarah · 2:201'
+  },
+  {
+    id: 'qd2', kind: 'quranic', sit: 'anxiety',
+    titleAr: 'دعاء انشراح الصدر', titleEn: 'Ease & Expanding the Chest',
+    textAr: 'رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي',
+    textEn: 'My Lord, expand for me my chest and ease for me my task.',
+    refAr: 'طه · 20:25-26', refEn: 'Taha · 20:25-26'
+  },
+  {
+    id: 'pd1', kind: 'prophetic', sit: 'anxiety',
+    titleAr: 'دعاء تفريج الهم والحزن', titleEn: 'Relief from Anxiety & Grief',
+    textAr: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ، وَالْعَجْزِ وَالْكَسَلِ، وَالْبُخْلِ وَالْجُبْنِ، وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ',
+    textEn: 'O Allah, I seek refuge in You from anxiety and sorrow, weakness and laziness, miserliness and cowardice, the burden of debt and overpowering by men.',
+    refAr: 'صحيح البخاري · ٦٣٦٩', refEn: 'Sahih al-Bukhari 6369'
+  },
+  {
+    id: 'pd2', kind: 'prophetic', sit: 'forgiveness',
+    titleAr: 'دعاء العفو والمغفرة', titleEn: 'Seeking Pardon',
+    textAr: 'اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي',
+    textEn: 'O Allah, You are Pardoning and love to pardon, so pardon me.',
+    refAr: 'سنن الترمذي · ٣٥١٣', refEn: 'Jami at-Tirmidhi 3513'
+  }
+];
+
+const HADITHS = [
+  {
+    id: 'h1',
+    collectionAr: 'الأربعون النووية',
+    collectionEn: '40 Hadith An-Nawawi',
+    num: '1',
+    titleAr: 'إنما الأعمال بالنيات',
+    titleEn: 'Actions are judged by intentions',
+    textAr: 'عَنْ أَمِيرِ الْمُؤْمِنِينَ أَبِي حَفْصٍ عُمَرَ بْنِ الْخَطَّابِ رَضِيَ اللَّهُ عَنْهُ قَالَ: سَمِعْتُ رَسُولَ اللَّهِ ﷺ يَقُولُ: «إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى»',
+    textEn: 'Narrated Umar ibn al-Khattab: I heard the Messenger of Allah say: "Actions are only by intentions, and every person will have only what they intended."',
+    gradeAr: 'متفق عليه (صحيح)',
+    gradeEn: 'Agreed Upon (Sahih)',
+    grader: 'Al-Bukhari & Muslim',
+    refAr: 'صحيح البخاري (١) · صحيح مسلم (١٩٠٧)',
+    refEn: 'Sahih al-Bukhari 1 · Sahih Muslim 1907',
+    version: 'HadeethEnc.com v1.x (Prototype Sample)',
+    sharhAr: 'أصل عظيم في إخلاص النية لله تعالى؛ فصحة العبادة وقبولها مرتهنان بقصد العبد وإخلاصه.',
+    sharhEn: 'A foundational principle of sincerity: the validity and reward of deeds depend upon the worshipper’s intention.'
+  },
+  {
+    id: 'h2',
+    collectionAr: 'مختارات موسوعة الحديث',
+    collectionEn: 'HadeethEnc Thematic Selection',
+    num: '24',
+    titleAr: 'كلمتان حبيبتان إلى الرحمن',
+    titleEn: 'Two phrases beloved to the Most Merciful',
+    textAr: 'قَالَ رَسُولُ اللَّهِ ﷺ: «كَلِمَتَانِ خَفِيفَتَانِ عَلَى اللِّسَانِ، ثَقِيلَتَانِ فِي الْمِيزَانِ، حَبِيبَتَانِ إِلَى الرَّحْمَٰنِ: سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ»',
+    textEn: 'The Messenger of Allah said: "Two phrases are light on the tongue, heavy on the scale, and beloved to the Most Merciful: SubhanAllahi wa bihamdihi, SubhanAllahil-Azim."',
+    gradeAr: 'صحيح',
+    gradeEn: 'Sahih',
+    grader: 'Al-Bukhari & Muslim',
+    refAr: 'صحيح البخاري (٦٤٠٦) · صحيح مسلم (٢٦٩٤)',
+    refEn: 'Sahih al-Bukhari 6406 · Sahih Muslim 2694',
+    version: 'HadeethEnc.com v1.x (Prototype Sample)',
+    sharhAr: 'فضل الذكر اليسير على اللسان وعِظَم أثره في ميزان الأعمال الصالحة يوم القيامة.',
+    sharhEn: 'Highlights the immense virtue and weight of consistent, sincere remembrance of Allah.'
+  }
+];
+
+function normAr(s) {
+  return String(s || '')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').toLowerCase();
+}
+
+function morningDoneCount() {
+  return MORNING_ADHKAR.filter(a => (STATE.sessionCounts[a.id] || 0) >= a.target).length;
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1700);
+}
+
+function navTo(route) {
+  STATE.route = route;
+  render();
+  document.getElementById('screen').scrollTop = 0;
+}
+
+function renderBottomNav() {
+  const t = T[STATE.lang];
+  const nav = document.getElementById('bottomNav');
+  const icons = ['H', 'Q', 'P', 'A', 'W'];
+  const show = STATE.route === 'home';
+  nav.style.display = show ? 'grid' : 'none';
+  if (!show) return;
+  nav.innerHTML = t.nav.map((label, i) => `
+    <button class="nav-item ${i === 0 ? 'active' : ''}" onclick="showToast('${label}')">
+      <span class="nav-pill">${icons[i]}</span>
+      <span>${label}</span>
+    </button>
+  `).join('');
+}
+
+function renderHome() {
+  const t = T[STATE.lang];
+  const done = morningDoneCount();
+  const total = MORNING_ADHKAR.length;
+  const activeTasbih = STATE.tasbihCounters[STATE.tasbihIdx];
+  const dailyH = HADITHS[0];
+
+  return `
+    <div class="topbar">
+      <div>
+        <div class="wordmark">${t.brand}</div>
+        <div class="hijri">${t.hijri}</div>
+      </div>
+      <button class="icon-btn gold" onclick="showToast('Settings -> Daily Reminders')">S</button>
+    </div>
+
+    <div class="hero-card">
+      <div class="hero-eyebrow">${t.continueEyebrow}</div>
+      <div class="hero-title">${t.continueTitle}</div>
+      <div class="hero-sub">${t.continueSub}</div>
+      <button class="hero-cta" onclick="showToast('${t.openMushaf}')">${t.continueCta}</button>
+    </div>
+
+    <div class="card">
+      <div class="card-row">
+        <div>
+          <div class="section-label">${t.nextPrayer} · ${t.cairo}</div>
+          <div style="font-size:20px;font-weight:700;margin-top:2px">${t.dhuhr} · 11:42</div>
+        </div>
+        <span class="badge gold">01:58:14</span>
+      </div>
+    </div>
+
+    <div class="section-label">${t.companionTitle}</div>
+    <div class="companion-strip">
+      <button class="tile" onclick="navTo('adhkar')">
+        <span class="tile-ico">ذ</span>
+        <span class="tile-name">${t.adhkar}</span>
+        <span class="tile-meta">${done}/${total}</span>
+      </button>
+      <button class="tile" onclick="navTo('tasbih')">
+        <span class="tile-ico gold">ت</span>
+        <span class="tile-name">${t.tasbih}</span>
+        <span class="tile-meta">${activeTasbih.count}/${activeTasbih.target}</span>
+      </button>
+      <button class="tile" onclick="navTo('hadith')">
+        <span class="tile-ico">ح</span>
+        <span class="tile-name">${t.hadith}</span>
+        <span class="tile-meta">40+</span>
+      </button>
+      <button class="tile" onclick="navTo('duas')">
+        <span class="tile-ico gold">د</span>
+        <span class="tile-name">${t.duas}</span>
+        <span class="tile-meta">${DUAS.length}</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="pill-tabs">
+        <button class="pill-tab ${STATE.dailyTab === 'ayah' ? 'active' : ''}" onclick="STATE.dailyTab='ayah';render()">${t.dailyAyah}</button>
+        <button class="pill-tab ${STATE.dailyTab === 'hadith' ? 'active' : ''}" onclick="STATE.dailyTab='hadith';render()">${t.dailyHadith}</button>
+      </div>
+      ${STATE.dailyTab === 'ayah' ? `
+        <div class="amiri-text" style="font-size:20px">وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا</div>
+        <div class="card-row">
+          <span class="badge neutral">${STATE.lang === 'ar' ? 'الطلاق · 65:2' : 'At-Talaq · 65:2'}</span>
+          <button class="tonal-btn" style="min-height:34px;font-size:12px" onclick="showToast('${t.openMushaf}')">${t.openMushaf}</button>
+        </div>
+      ` : `
+        <div class="amiri-text" style="font-size:19px">${STATE.lang === 'ar' ? dailyH.textAr : dailyH.textEn}</div>
+        <div class="card-row">
+          <span class="badge">${STATE.lang === 'ar' ? dailyH.gradeAr : dailyH.gradeEn}</span>
+          <button class="tonal-btn" style="min-height:34px;font-size:12px" onclick="STATE.activeHadithId='${dailyH.id}';navTo('hadith_detail')">${t.readFull}</button>
+        </div>
+      `}
+    </div>
+
+    <div class="proto-banner">${t.protoNote}</div>
+  `;
+}
+
+function renderAdhkarHub() {
+  const t = T[STATE.lang];
+  const done = morningDoneCount();
+  const total = MORNING_ADHKAR.length;
+  const pct = Math.round((done / total) * 100);
+  const q = normAr(STATE.adhkarQuery);
+  const filtered = q ? MORNING_ADHKAR.filter(a => normAr(a.titleAr + ' ' + a.textAr + ' ' + a.titleEn).includes(q)) : null;
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('home')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${t.adhkar}</div>
+      <span class="badge gold">${done}/${total}</span>
+    </div>
+
+    <div class="search-box">
+      <input id="adhkarSearchInput" value="${STATE.adhkarQuery}" placeholder="${t.searchAdhkar}" oninput="STATE.adhkarQuery=this.value;render()" />
+    </div>
+
+    ${filtered ? `
+      <div class="card">
+        ${filtered.length ? filtered.map((a, idx) => `
+          <div class="row-item" onclick="STATE.sessionIdx=${MORNING_ADHKAR.indexOf(a)};navTo('adhkar_session')">
+            <div>
+              <div style="font-weight:700;font-size:14px">${STATE.lang === 'ar' ? a.titleAr : a.titleEn}</div>
+              <div style="font-size:12px;color:var(--ink-muted)">${STATE.lang === 'ar' ? a.sourceAr : a.sourceEn}</div>
+            </div>
+            <span class="badge">${STATE.sessionCounts[a.id] || 0}/${a.target}</span>
+          </div>
+        `).join('') : `<div style="font-size:13px;color:var(--ink-muted);text-align:center;padding:12px">No matches</div>`}
+      </div>
+    ` : `
+      <div class="hero-card">
+        <div class="hero-eyebrow">${STATE.lang === 'ar' ? 'موصى به الآن' : 'Recommended Now'}</div>
+        <div class="hero-title">${t.morningAdhkar}</div>
+        <div class="hero-sub">${done}/${total} · ${pct}%</div>
+        <div class="progress-bar" style="background:rgba(255,255,255,0.16)"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <button class="hero-cta" onclick="navTo('adhkar_session')">${done > 0 ? t.continueSession : t.startSession}</button>
+      </div>
+
+      <div class="grid-2">
+        <div class="cat-card" onclick="navTo('adhkar_session')">
+          <div style="font-weight:700;font-size:14px">${t.morningAdhkar}</div>
+          <div style="font-size:12px;color:var(--ink-muted)">${done}/${total}</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="cat-card" onclick="navTo('adhkar_session')">
+          <div style="font-weight:700;font-size:14px">${t.eveningAdhkar}</div>
+          <div style="font-size:12px;color:var(--ink-muted)">0/10</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+        </div>
+        <div class="cat-card" onclick="navTo('adhkar_session')">
+          <div style="font-weight:700;font-size:14px">${t.afterPrayer}</div>
+          <div style="font-size:12px;color:var(--ink-muted)">0/7</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+        </div>
+        <div class="cat-card" onclick="navTo('adhkar_session')">
+          <div style="font-weight:700;font-size:14px">${t.sleepAdhkar}</div>
+          <div style="font-size:12px;color:var(--ink-muted)">0/7</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="section-label">${t.dailySurahs}</div>
+      <div class="card">
+        <div class="row-item" onclick="showToast('${t.openMushaf}: Al-Kahf (p. 293)')">
+          <div>
+            <div style="font-weight:700;font-size:14px">${t.kahf}</div>
+            <div style="font-size:12px;color:var(--ink-muted)">${t.openMushaf}</div>
+          </div>
+          <span class="badge gold">${STATE.lang === 'ar' ? 'ص 293' : 'p. 293'}</span>
+        </div>
+        <div class="row-item" onclick="showToast('${t.openMushaf}: Al-Mulk (p. 562)')">
+          <div>
+            <div style="font-weight:700;font-size:14px">${t.mulk}</div>
+            <div style="font-size:12px;color:var(--ink-muted)">${t.openMushaf}</div>
+          </div>
+          <span class="badge neutral">${STATE.lang === 'ar' ? 'ص 562' : 'p. 562'}</span>
+        </div>
+      </div>
+    `}
+  `;
+}
+
+function renderAdhkarSession() {
+  const t = T[STATE.lang];
+  const doneAll = morningDoneCount() === MORNING_ADHKAR.length;
+  const item = MORNING_ADHKAR[STATE.sessionIdx];
+  const cur = STATE.sessionCounts[item.id] || 0;
+  const done = cur >= item.target;
+  const pct = Math.round(((STATE.sessionIdx + 1) / MORNING_ADHKAR.length) * 100);
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('adhkar')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${t.morningAdhkar}</div>
+      <span class="badge gold">${STATE.sessionIdx + 1}/${MORNING_ADHKAR.length}</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+    ${doneAll ? `
+      <div class="hero-card" style="text-align:center;align-items:center;padding:28px 18px">
+        <div class="hero-title">${t.sessionDone}</div>
+        <div class="hero-sub">${MORNING_ADHKAR.length}/${MORNING_ADHKAR.length}</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="hero-cta" onclick="navTo('adhkar')">${t.backToHub}</button>
+          <button class="tonal-btn" onclick="MORNING_ADHKAR.forEach(x=>STATE.sessionCounts[x.id]=0);STATE.sessionIdx=0;render()">${t.repeatSession}</button>
+        </div>
+      </div>
+    ` : `
+      <div class="mushaf-box">
+        <div class="card-row">
+          <span style="font-weight:700;font-size:14px">${STATE.lang === 'ar' ? item.titleAr : item.titleEn}</span>
+          <span class="badge ${done ? '' : 'gold'}">${cur}/${item.target}</span>
+        </div>
+        <div class="amiri-text">${item.textAr}</div>
+        <div class="card-row">
+          <span class="badge neutral">${STATE.lang === 'ar' ? item.sourceAr : item.sourceEn}</span>
+          ${item.isQuran ? `<button class="tonal-btn" style="min-height:32px;font-size:11px" onclick="showToast('${t.openMushaf}')">${t.openMushaf}</button>` : ''}
+        </div>
+        <button class="tonal-btn" style="min-height:36px;font-size:12px" onclick="STATE.showVirtue=!STATE.showVirtue;render()">${t.virtueToggle}</button>
+        ${STATE.showVirtue || STATE.lang === 'en' ? `<div style="font-size:13px;line-height:1.6;color:var(--ink-muted)">${item.textEn}</div>` : ''}
+        <div style="display:flex;gap:8px">
+          <button class="tonal-btn" style="flex:1;min-height:38px" onclick="showToast('${t.copy}')">${t.copy}</button>
+          <button class="tonal-btn" style="flex:1;min-height:38px" onclick="openShareCard('${item.textAr.replace(/'/g, '')}','${(STATE.lang==='ar'?item.sourceAr:item.sourceEn).replace(/'/g,'')}')">${t.shareCard}</button>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+        <button class="primary-btn" onclick="tapSession()">
+          <span>${done ? t.completed : (item.target === 1 ? t.markRead : t.tapToCount)}</span>
+          <span class="badge gold">${cur}/${item.target}</span>
+        </button>
+        <div style="display:flex;gap:8px">
+          <button class="tonal-btn" style="flex:1" ${cur === 0 ? 'disabled style="opacity:.45;flex:1"' : ''} onclick="undoSession()">${t.undo}</button>
+          <button class="tonal-btn" onclick="STATE.sessionIdx=Math.max(0,STATE.sessionIdx-1);render()">${STATE.lang === 'ar' ? 'السابق' : 'Prev'}</button>
+          <button class="tonal-btn" onclick="STATE.sessionIdx=Math.min(MORNING_ADHKAR.length-1,STATE.sessionIdx+1);render()">${STATE.lang === 'ar' ? 'التالي' : 'Next'}</button>
+        </div>
+      </div>
+    `}
+  `;
+}
+
+function tapSession() {
+  const item = MORNING_ADHKAR[STATE.sessionIdx];
+  const cur = STATE.sessionCounts[item.id] || 0;
+  if (cur >= item.target) return;
+  const next = cur + 1;
+  STATE.sessionCounts[item.id] = next;
+  if (navigator.vibrate) navigator.vibrate(next >= item.target ? 60 : 15);
+  render();
+  if (next >= item.target && STATE.sessionIdx < MORNING_ADHKAR.length - 1) {
+    setTimeout(() => {
+      if (STATE.route === 'adhkar_session') {
+        STATE.sessionIdx++;
+        render();
+      }
+    }, 380);
+  }
+}
+
+function undoSession() {
+  const item = MORNING_ADHKAR[STATE.sessionIdx];
+  const cur = STATE.sessionCounts[item.id] || 0;
+  if (cur > 0) {
+    STATE.sessionCounts[item.id] = cur - 1;
+    render();
+  }
+}
+
+function renderTasbih() {
+  const t = T[STATE.lang];
+  const c = STATE.tasbihCounters[STATE.tasbihIdx];
+  const radius = 78;
+  const circ = 2 * Math.PI * radius;
+  const ratio = c.target > 0 ? Math.min(1, c.count / c.target) : 0;
+  const dashOffset = circ * (1 - ratio);
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('home')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${t.tasbih}</div>
+      <button class="tonal-btn" style="min-height:36px;font-size:12px" onclick="openCustomTasbih()">+ ${t.addCustom}</button>
+    </div>
+
+    <div class="chip-row">
+      ${STATE.tasbihCounters.map((item, idx) => `
+        <button class="chip ${idx === STATE.tasbihIdx ? 'active' : ''}" onclick="STATE.tasbihIdx=${idx};render()">
+          ${STATE.lang === 'ar' ? item.titleAr : item.titleEn} (${item.target})
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="card" style="text-align:center;padding:12px">
+      <div class="amiri-text" style="font-size:23px;line-height:1.5">${c.titleAr}</div>
+      ${STATE.lang === 'en' ? `<div style="font-size:12px;color:var(--ink-muted)">${c.titleEn}</div>` : ''}
+    </div>
+
+    <div class="tasbih-pad" onclick="tapTasbih()">
+      <div class="tasbih-ring">
+        <svg width="176" height="176">
+          <circle cx="88" cy="88" r="${radius}" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="7"></circle>
+          <circle cx="88" cy="88" r="${radius}" fill="none" stroke="#C4A052" stroke-width="7" stroke-linecap="round"
+            stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}"></circle>
+        </svg>
+        <div style="text-align:center">
+          <div class="tasbih-num">${c.count}</div>
+          <div class="tasbih-target">/ ${c.target}</div>
+        </div>
+      </div>
+      <div class="tasbih-cycle">${t.tasbihCycle}: ${c.cycles} · ${t.tapToCount}</div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="tonal-btn" style="flex:1" onclick="undoTasbih()">${t.undo}</button>
+      <button class="tonal-btn" style="flex:1" onclick="STATE.tasbihIdx=(STATE.tasbihIdx+1)%STATE.tasbihCounters.length;render()">${t.nextPreset}</button>
+      <button class="tonal-btn" style="color:var(--danger)" onclick="confirmResetTasbih()">${t.reset}</button>
+    </div>
+  `;
+}
+
+function tapTasbih() {
+  const c = STATE.tasbihCounters[STATE.tasbihIdx];
+  c.count++;
+  if (c.target > 0 && c.count >= c.target) {
+    c.cycles++;
+    if (navigator.vibrate) navigator.vibrate([40, 40, 60]);
+    showToast(`${T[STATE.lang].completed} (${c.target})`);
+    c.count = 0;
+  } else if (navigator.vibrate) {
+    navigator.vibrate(14);
+  }
+  render();
+}
+
+function undoTasbih() {
+  const c = STATE.tasbihCounters[STATE.tasbihIdx];
+  if (c.count > 0) {
+    c.count--;
+    render();
+  }
+}
+
+function confirmResetTasbih() {
+  const t = T[STATE.lang];
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="sheet">
+      <div style="font-size:16px;font-weight:700">${t.confirmReset}</div>
+      <div style="display:flex;gap:8px">
+        <button class="tonal-btn" style="flex:1" onclick="closeModal()">${t.cancel}</button>
+        <button class="primary-btn" style="flex:1;min-height:44px" onclick="STATE.tasbihCounters[STATE.tasbihIdx].count=0;closeModal();render()">${t.reset}</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+function openCustomTasbih() {
+  const t = T[STATE.lang];
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="sheet">
+      <div style="font-size:16px;font-weight:700">${t.addCustom}</div>
+      <div class="search-box"><input id="customDhikrText" placeholder="${STATE.lang==='ar'?'نص الذكر...':'Dhikr text...'}" /></div>
+      <div class="search-box"><input id="customDhikrTarget" type="number" min="1" max="10000" value="100" /></div>
+      <div style="display:flex;gap:8px">
+        <button class="tonal-btn" style="flex:1" onclick="closeModal()">${t.cancel}</button>
+        <button class="primary-btn" style="flex:1;min-height:44px" onclick="saveCustomTasbih()">${t.save}</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+function saveCustomTasbih() {
+  const txt = document.getElementById('customDhikrText').value.trim();
+  const target = Math.max(1, Math.min(10000, parseInt(document.getElementById('customDhikrTarget').value, 10) || 33));
+  if (!txt) return;
+  STATE.tasbihCounters.push({ id: Date.now(), titleAr: txt, titleEn: txt, target, count: 0, cycles: 0 });
+  STATE.tasbihIdx = STATE.tasbihCounters.length - 1;
+  closeModal();
+  render();
+}
+
+function renderDuas() {
+  const t = T[STATE.lang];
+  const list = DUAS.filter(d => {
+    if (STATE.duaTab === 'quranic') return d.kind === 'quranic';
+    if (STATE.duaTab === 'prophetic') return d.kind === 'prophetic';
+    return STATE.duaSit === 'all' || d.sit === STATE.duaSit;
+  });
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('home')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${t.duas}</div>
+      <span class="badge gold">${list.length}</span>
+    </div>
+
+    <div class="pill-tabs">
+      <button class="pill-tab ${STATE.duaTab === 'quranic' ? 'active' : ''}" onclick="STATE.duaTab='quranic';render()">${t.quranicDuas}</button>
+      <button class="pill-tab ${STATE.duaTab === 'prophetic' ? 'active' : ''}" onclick="STATE.duaTab='prophetic';render()">${t.propheticDuas}</button>
+      <button class="pill-tab ${STATE.duaTab === 'situation' ? 'active' : ''}" onclick="STATE.duaTab='situation';render()">${t.bySituation}</button>
+    </div>
+
+    ${STATE.duaTab === 'situation' ? `
+      <div class="chip-row">
+        ${[['all', t.all], ['anxiety', t.anxiety], ['gratitude', t.gratitude], ['forgiveness', t.forgiveness]].map(([k, lbl]) => `
+          <button class="chip ${STATE.duaSit === k ? 'active' : ''}" onclick="STATE.duaSit='${k}';render()">${lbl}</button>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    ${list.map(d => `
+      <div class="mushaf-box">
+        <div class="card-row">
+          <span style="font-weight:700;font-size:14px">${STATE.lang === 'ar' ? d.titleAr : d.titleEn}</span>
+          <span class="badge ${d.kind === 'quranic' ? '' : 'gold'}">${STATE.lang === 'ar' ? d.refAr : d.refEn}</span>
+        </div>
+        <div class="amiri-text" style="font-size:21px">${d.textAr}</div>
+        ${STATE.lang === 'en' ? `<div style="font-size:13px;color:var(--ink-muted);line-height:1.5">${d.textEn}</div>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${d.kind === 'quranic' ? `<button class="tonal-btn" style="min-height:36px;font-size:12px" onclick="showToast('${t.openMushaf}: ${d.refEn}')">${t.openMushaf}</button>` : ''}
+          <button class="tonal-btn" style="min-height:36px;font-size:12px" onclick="toggleDuaFav('${d.id}')">${STATE.duaFavs.has(d.id) ? (STATE.lang==='ar'?'محفوظ':'Saved') : (STATE.lang==='ar'?'حفظ':'Save')}</button>
+          <button class="tonal-btn" style="min-height:36px;font-size:12px" onclick="openShareCard('${d.textAr.replace(/'/g,'')}','${(STATE.lang==='ar'?d.refAr:d.refEn).replace(/'/g,'')}')">${t.shareCard}</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function toggleDuaFav(id) {
+  if (STATE.duaFavs.has(id)) STATE.duaFavs.delete(id); else STATE.duaFavs.add(id);
+  render();
+}
+
+function renderHadithLibrary() {
+  const t = T[STATE.lang];
+  const q = normAr(STATE.hadithQuery);
+  const items = HADITHS.filter(h => {
+    if (STATE.hadithTab === 'saved' && !STATE.hadithFavs.has(h.id)) return false;
+    if (!q) return true;
+    return normAr(h.titleAr + ' ' + h.textAr + ' ' + h.titleEn + ' ' + h.textEn).includes(q);
+  });
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('home')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${t.hadith}</div>
+      <span class="badge">${HADITHS.length}</span>
+    </div>
+
+    <div class="search-box">
+      <input value="${STATE.hadithQuery}" placeholder="${t.searchHadith}" oninput="STATE.hadithQuery=this.value;render()" />
+    </div>
+
+    <div class="pill-tabs">
+      <button class="pill-tab ${STATE.hadithTab === 'collections' ? 'active' : ''}" onclick="STATE.hadithTab='collections';render()">${t.collections}</button>
+      <button class="pill-tab ${STATE.hadithTab === 'saved' ? 'active' : ''}" onclick="STATE.hadithTab='saved';render()">${t.saved} (${STATE.hadithFavs.size})</button>
+    </div>
+
+    ${items.map(h => `
+      <div class="card" style="cursor:pointer" onclick="STATE.activeHadithId='${h.id}';STATE.showSharh=false;navTo('hadith_detail')">
+        <div class="card-row">
+          <span class="badge gold">${STATE.lang === 'ar' ? h.collectionAr : h.collectionEn} · #${h.num}</span>
+          <span class="badge">${STATE.lang === 'ar' ? h.gradeAr : h.gradeEn}</span>
+        </div>
+        <div style="font-weight:700;font-size:15px">${STATE.lang === 'ar' ? h.titleAr : h.titleEn}</div>
+        <div style="font-size:13px;color:var(--ink-muted);line-height:1.55">${STATE.lang === 'ar' ? h.textAr.slice(0, 115) + '…' : h.textEn.slice(0, 120) + '…'}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderHadithDetail() {
+  const t = T[STATE.lang];
+  const h = HADITHS.find(x => x.id === STATE.activeHadithId) || HADITHS[0];
+  const fav = STATE.hadithFavs.has(h.id);
+
+  return `
+    <div class="topbar">
+      <button class="icon-btn" onclick="navTo('hadith')">${STATE.lang === 'ar' ? '→' : '←'}</button>
+      <div class="screen-title">${STATE.lang === 'ar' ? h.collectionAr : h.collectionEn}</div>
+      <button class="icon-btn ${fav ? 'gold' : ''}" onclick="toggleHadithFav('${h.id}')">${fav ? '★' : '☆'}</button>
+    </div>
+
+    <div class="mushaf-box">
+      <div class="card-row">
+        <span style="font-weight:700;font-size:15px">${STATE.lang === 'ar' ? h.titleAr : h.titleEn}</span>
+        <span class="badge">#${h.num}</span>
+      </div>
+      <div class="amiri-text">${h.textAr}</div>
+      ${STATE.lang === 'en' ? `<div style="font-size:14px;line-height:1.65;color:var(--ink-muted)">${h.textEn}</div>` : ''}
+    </div>
+
+    <div class="card">
+      <div class="row-item" style="cursor:default">
+        <span style="font-size:12px;color:var(--ink-muted)">${t.gradeLabel}</span>
+        <span class="badge">${STATE.lang === 'ar' ? h.gradeAr : h.gradeEn} · ${h.grader}</span>
+      </div>
+      <div class="row-item" style="cursor:default">
+        <span style="font-size:12px;color:var(--ink-muted)">${t.sourceLabel}</span>
+        <span style="font-size:12px;font-weight:600">${STATE.lang === 'ar' ? h.refAr : h.refEn}</span>
+      </div>
+      <div class="row-item" style="cursor:default">
+        <span style="font-size:12px;color:var(--ink-muted)">${t.datasetLabel}</span>
+        <span style="font-size:11px;color:var(--ink-muted)">${h.version}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="tonal-btn" style="min-height:38px" onclick="STATE.showSharh=!STATE.showSharh;render()">${t.sharhToggle}</button>
+      ${STATE.showSharh ? `<div style="font-size:13px;line-height:1.65;color:var(--ink-muted)">${STATE.lang === 'ar' ? h.sharhAr : h.sharhEn}</div>` : ''}
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="tonal-btn" style="flex:1" onclick="showToast('${t.copy}')">${t.copy}</button>
+      <button class="primary-btn" style="flex:2;min-height:46px" onclick="openShareCard('${h.textAr.replace(/'/g,'')}','${(STATE.lang==='ar'?h.refAr:h.refEn).replace(/'/g,'')}')">${t.shareCard}</button>
+    </div>
+  `;
+}
+
+function toggleHadithFav(id) {
+  if (STATE.hadithFavs.has(id)) STATE.hadithFavs.delete(id); else STATE.hadithFavs.add(id);
+  render();
+}
+
+let _sharePayload = { text: '', ref: '' };
+function openShareCard(text, ref) {
+  _sharePayload = { text, ref };
+  renderShareModal();
+}
+
+function renderShareModal() {
+  const t = T[STATE.lang];
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="sheet">
+      <div class="card-row">
+        <span style="font-weight:700;font-size:15px">${t.shareTitle}</span>
+        <button class="icon-btn" style="width:34px;height:34px" onclick="closeModal()">×</button>
+      </div>
+      <div class="share-preview ${STATE.shareStyle}">
+        <div class="amiri-text" style="font-size:18px;color:inherit;line-height:1.75">${_sharePayload.text}</div>
+        <div style="font-size:11px;opacity:.85;color:${STATE.shareStyle==='emerald'?'#E4C986':'#8F6E2A'}">${_sharePayload.ref}</div>
+        <div style="font-family:'Amiri',serif;font-size:16px;font-weight:700;opacity:.75">${t.brand}</div>
+      </div>
+      <div class="pill-tabs">
+        <button class="pill-tab ${STATE.shareStyle==='emerald'?'active':''}" onclick="STATE.shareStyle='emerald';renderShareModal()">${t.emeraldStyle}</button>
+        <button class="pill-tab ${STATE.shareStyle==='parchment'?'active':''}" onclick="STATE.shareStyle='parchment';renderShareModal()">${t.parchmentStyle}</button>
+      </div>
+      <button class="primary-btn" style="min-height:46px" onclick="closeModal();showToast('${t.shareNow}')">${t.shareNow}</button>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function render() {
+  document.documentElement.lang = STATE.lang;
+  document.documentElement.dir = STATE.lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('data-theme', STATE.theme);
+  const el = document.getElementById('screen');
+  if (STATE.route === 'home') el.innerHTML = renderHome();
+  else if (STATE.route === 'adhkar') el.innerHTML = renderAdhkarHub();
+  else if (STATE.route === 'adhkar_session') el.innerHTML = renderAdhkarSession();
+  else if (STATE.route === 'tasbih') el.innerHTML = renderTasbih();
+  else if (STATE.route === 'duas') el.innerHTML = renderDuas();
+  else if (STATE.route === 'hadith') el.innerHTML = renderHadithLibrary();
+  else if (STATE.route === 'hadith_detail') el.innerHTML = renderHadithDetail();
+  renderBottomNav();
+}
+
+document.getElementById('btnAr').onclick = () => { STATE.lang = 'ar'; btnAr.classList.add('active'); btnEn.classList.remove('active'); render(); };
+document.getElementById('btnEn').onclick = () => { STATE.lang = 'en'; btnEn.classList.add('active'); btnAr.classList.remove('active'); render(); };
+document.getElementById('btnLight').onclick = () => { STATE.theme = 'light'; btnLight.classList.add('active'); btnDark.classList.remove('active'); render(); };
+document.getElementById('btnDark').onclick = () => { STATE.theme = 'dark'; btnDark.classList.add('active'); btnLight.classList.remove('active'); render(); };
+document.getElementById('modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# 03 — Feature Comparison Matrix (Reference Repo vs. Ayah vs. Expansion)
+
+## Classification Legend
+
+1. **Already Implemented in Ayah** — Present in Ayah `v1.0.0-beta.9` at equal or higher quality.
+2. **Partially Implemented in Ayah** — Core foundation exists in Ayah; targeted refinement adds value.
+3. **Missing & Worth Adding** — High daily spiritual value; fits Ayah's offline-first calm companion identity.
+4. **Missing & Not Recommended** — Redundant, low-value, cluttered, or poor fit for native Android.
+5. **Requires Further Research / License Verification** — Valuable concept blocked or gated by content/audio licensing.
+
+---
+
+## Master Comparison Matrix
+
+| # | Feature / Capability | Reference Repo (`BelalYehiaSwilam0/quran-app`) | Ayah (`v1.0.0-beta.9`) | Classification | Recommendation & Rationale |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | **Quran Text Reading (604-Page Mushaf + Continuous)** | Absent (single-ayah subtitle strip only) | Full 604-page Mushaf + Continuous Reader + font/auto-scroll | **1. Already implemented in Ayah** | Keep untouched; deep-link into it from Daily Sunnah Surahs & Quranic Duas. |
+| 2 | **Quran Bookmarks & Reading Progress** | Absent | Room-persisted bookmarks with Undo + Continue Reading hero | **1. Already implemented in Ayah** | Keep untouched; do not mix non-Quran items into `bookmarks` table. |
+| 3 | **Prayer Times, Hijri Date & Adhan Scheduling** | Absent | Full offline `adhan-java`, 5-prayer Adhan modes, Adhan library, onboarding | **1. Already implemented in Ayah** | Keep untouched; add contextual After-Prayer Adhkar link on Prayer screen. |
+| 4 | **Islamic Wallpapers & Automation** | Absent | 5 templates, live preview studio, fullscreen preview, WorkManager rotation, history | **1. Already implemented in Ayah** | Keep untouched; reuse `WallpaperRenderer` Canvas pattern for Hadith/Dhikr Share Cards. |
+| 5 | **Quran Audio Playback, Reciters, Speed & Sleep Timer** | 6 reciters (`mp3quran.net`), speed, sleep timer, live subtitle | 5 reciters, Media3 background service, Now Playing, Repeat Range, Speed, Sleep Timer | **1. Already implemented in Ayah** | Keep core Media3 architecture untouched. |
+| 6 | **Dark / Light Theme & Arabic RTL** | Dark/Light toggle, Arabic-only RTL | System/Light/Dark visual cards, Direction D palette, full AR RTL + EN LTR | **1. Already implemented in Ayah** | Reuse Direction D tokens & bilingual localization across all new features. |
+| 7 | **Daily Ayah on Home** | Absent | Deterministic daily Ayah card on Home | **2. Partially implemented in Ayah** | Evolve into calm **Daily Reflection** switcher (`Daily Ayah \| Daily Hadith`) to avoid adding another large Home card. |
+| 8 | **Arabic Diacritic-Normalized Search** | `normAr()` in `js/adhkar.js` + digit normalization in `js/app.js` | Basic Surah search (`SearchSurahsUseCase`) | **2. Partially implemented in Ayah** | Build shared `ArabicTextNormalizer` + Room FTS4 for instant offline Hadith, Adhkar, and Dua search. |
+| 9 | **Audio Storage Breakdown & Bulk Download** | Multi-select surah downloader + per-reciter storage quota modal | Per-surah download + Downloaded filter in Audio Studio | **2. Partially implemented in Ayah** | Nice-to-have audio polish later; out of scope for core Islamic Companion phases. |
+| 10 | **Cross-Surah Audio Range & Play Queue** | Cross-surah range (`Range`), duration end mode, `Queue` drawer | Intra-surah `RepeatRangeDialog` | **2. Partially implemented in Ayah** | Out of scope for Companion expansion; log for future Audio backlog. |
+| 11 | **Morning, Evening, After-Prayer, Sleep & Waking Adhkar (Guided Sessions)** | 65 hardcoded items (16 categories), ephemeral counters wiped on close, truncated texts | Absent | **3. Missing & worth adding** | Build verified, complete Hisn al-Muslim structured **guided sessions** with persistent daily progress, Undo, and sequential flow. |
+| 12 | **Daily Sunnah Surahs (`Al-Kahf`, `Al-Mulk`, `As-Sajdah`)** | 3 static unlinked reminder cards (`سور يومية`) | Surahs exist in Mushaf, no daily/Friday Sunnah prompt | **3. Missing & worth adding** | Include inside Adhkar/Companion with **real one-tap deep links** into `MushafPageReaderScreen` (Surah 18 / 67 / 32) and completion checkmark. |
+| 13 | **Standalone One-Handed Digital Tasbih** | Absent (only 3 static items + editable Salawat card inside Adhkar) | Absent | **3. Missing & worth adding** | Build calm one-handed Tasbih with presets, custom Dhikr/Salawat targets (inspired by ref), Undo, confirmation Reset, haptics, optional soft tick, and persistent Room counters. |
+| 14 | **Quranic & Prophetic Dua Library** | Absent (~10 situational duas inside Adhkar) | Quran text exists in DB; no curated Dua browsing | **3. Missing & worth adding** | Integrate cleanly alongside Adhkar: **Quranic Duas** backed directly by `AyahEntity` + verified **Prophetic & Situational Duas** with references, favorites, search, copy, and share. |
+| 15 | **Hadith Library (Verified Collections, Grading, Search, Favorites, Daily Hadith, Share Card)** | Absent | Absent | **3. Missing & worth adding** | High-impact pillar. Start with verified offline starter (**40 Hadith An-Nawawi** + curated **HadeethEnc.com** collections with Arabic, verified English, explicit grading & attribution, concise `Sharh`), optional downloadable books later. |
+| 16 | **Optional Daily Companion Reminders (Morning/Evening Adhkar, Daily Hadith, Daily Reading)** | Absent | Prayer/Adhan alarms only | **3. Missing & worth adding** | Opt-in, quiet-hours aware, dedicated WorkManager/reminder channel completely decoupled from Adhan alarms. |
+| 17 | **Shareable Content Cards (Hadith / Dhikr / Dua)** | Absent (clipboard plain-text copy only) | Wallpaper rendering engine exists | **3. Missing & worth adding** | Render Direction D Sanctuary Emerald / Warm Parchment shareable PNG cards via existing `FileProvider` + system share sheet. |
+| 18 | **Gamification (Streaks, Badges, Leaderboards, Dense Charts)** | Absent | Absent | **4. Missing & not recommended** | Contradicts Ayah's calm, sincere worship philosophy and clutters UI. Use quiet progress indicators only. |
+| 19 | **PWA Install / Update Banners & Browser IndexedDB** | Present (`js/pwa.js`, `sw.js`, `IDB`) | Native Android APK + GitHub Releases in-app updater | **4. Missing & not recommended** | Web-only mechanics; irrelevant for native Android. |
+| 20 | **Colloquial Arabic UI Strings & Ephemeral Drawer Counters** | Present in `js/adhkar.js` | Modern Standard Arabic (Fusha) + English | **4. Missing & not recommended** | Always use clean Modern Standard Arabic (Fusha) and full English localization; persist all session progress safely. |
+| 21 | **Adhkar Audio Playback** | Absent | Media3 infrastructure exists | **5. Requires further research / license verification** | Open GitHub Adhkar repos (e.g., `YousefAsalya/Islamic-Pro-azkar-API`, `rn0x/Adhkar-json`) bundle MP3s without verifiable reciter/recording copyright clearance. Defer until legally cleared audio is sourced. |
+| 22 | **Full Kutub al-Sittah English Translations Offline** | Absent | Absent | **5. Requires further research / license verification** | Classical Arabic texts are Public Domain, but modern English translations of Bukhari/Muslim/Sunan in community repos often have unclear Darussalam/translator copyright provenance. Use **HadeethEnc.com** (explicit free offline redistribution license with attribution + version) for bilingual Hadith, and verify any additional English books separately before bundling. |
+| 23 | **Qibla Compass** | Absent | Absent | **5. Requires further research / license verification** | Valuable companion utility, but requires magnetometer sensor calibration, magnetic declination handling, and graceful degradation on sensorless devices. Recommend evaluating as a separate post-expansion phase rather than diluting Adhkar/Tasbih/Hadith focus. |
