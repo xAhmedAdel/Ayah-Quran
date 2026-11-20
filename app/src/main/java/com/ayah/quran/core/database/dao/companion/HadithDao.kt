@@ -24,6 +24,15 @@ interface HadithDao {
     @Query(
         "SELECT h.*, u.isFavorite AS isFavorite, u.lastReadAtMillis AS lastReadAtMillis " +
             "FROM hadith_items h " +
+            "INNER JOIN hadith_collections c ON h.collectionId = c.id " +
+            "LEFT JOIN hadith_user_state u ON h.id = u.hadithId " +
+            "ORDER BY c.sortOrder ASC, h.sortOrder ASC",
+    )
+    fun observeAll(): Flow<List<HadithWithUserState>>
+
+    @Query(
+        "SELECT h.*, u.isFavorite AS isFavorite, u.lastReadAtMillis AS lastReadAtMillis " +
+            "FROM hadith_items h " +
             "LEFT JOIN hadith_user_state u ON h.id = u.hadithId " +
             "WHERE h.collectionId = :collectionId " +
             "ORDER BY h.sortOrder ASC",

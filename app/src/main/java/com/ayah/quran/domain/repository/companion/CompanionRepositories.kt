@@ -38,6 +38,7 @@ interface TasbihRepository {
 
 interface HadithRepository {
     fun observeCollections(): Flow<List<HadithCollection>>
+    fun observeAll(): Flow<List<HadithItem>>
     fun observeByCollection(collectionId: String): Flow<List<HadithItem>>
     fun observeById(hadithId: String): Flow<HadithItem?>
     fun observeFavorites(): Flow<List<HadithItem>>

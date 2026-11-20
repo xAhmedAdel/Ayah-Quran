@@ -297,6 +297,9 @@ class HadithRepositoryImpl @Inject constructor(
     override fun observeCollections(): Flow<List<HadithCollection>> =
         hadithDao.observeCollections().map { list -> list.map { it.toDomain() } }
 
+    override fun observeAll(): Flow<List<HadithItem>> =
+        hadithDao.observeAll().map { list -> list.map { it.toDomain() } }
+
     override fun observeByCollection(collectionId: String): Flow<List<HadithItem>> =
         hadithDao.observeByCollection(collectionId).map { list -> list.map { it.toDomain() } }
 

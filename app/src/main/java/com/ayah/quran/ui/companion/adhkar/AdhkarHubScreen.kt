@@ -77,6 +77,7 @@ fun AdhkarHubScreen(
     onOpenSession: (categoryId: String, itemId: String?) -> Unit,
     onOpenDuas: () -> Unit,
     onOpenTasbih: () -> Unit = {},
+    onOpenHadith: () -> Unit = {},
     onOpenSurahInMushaf: (surahId: Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AdhkarHubViewModel = hiltViewModel(),
@@ -281,6 +282,20 @@ fun AdhkarHubScreen(
                                 subtitle = stringResource(R.string.tasbih_open_subtitle),
                                 leadingIcon = Icons.Outlined.TouchApp,
                                 onClick = onOpenTasbih,
+                            )
+                        }
+                    }
+
+                    item(key = "hadith_entry") {
+                        AyahSurfaceCard(
+                            onClick = onOpenHadith,
+                            modifier = Modifier.testTag("adhkar_hadith_card"),
+                        ) {
+                            AyahSettingRow(
+                                title = stringResource(R.string.hadith_title),
+                                subtitle = stringResource(R.string.hadith_open_subtitle),
+                                leadingIcon = Icons.Outlined.MenuBook,
+                                onClick = onOpenHadith,
                             )
                         }
                     }

@@ -52,6 +52,8 @@ import com.ayah.quran.ui.bookmarks.BookmarksScreen
 import com.ayah.quran.ui.companion.adhkar.AdhkarHubScreen
 import com.ayah.quran.ui.companion.adhkar.AdhkarSessionScreen
 import com.ayah.quran.ui.companion.duas.DuasHubScreen
+import com.ayah.quran.ui.companion.hadith.HadithDetailScreen
+import com.ayah.quran.ui.companion.hadith.HadithLibraryScreen
 import com.ayah.quran.ui.companion.tasbih.TasbihScreen
 import com.ayah.quran.ui.home.HomeScreen
 import com.ayah.quran.ui.main.MainViewModel
@@ -83,6 +85,8 @@ object Routes {
     const val ADHKAR_SESSION = "companion/adhkar/session/{categoryId}?itemId={itemId}"
     const val DUAS_HUB = "companion/duas"
     const val TASBIH = "companion/tasbih"
+    const val HADITH_LIBRARY = "companion/hadith"
+    const val HADITH_DETAIL = "companion/hadith/{hadithId}"
 
     fun reader(surahId: Int, ayahNumber: Int? = null): String =
         "reader/$surahId" + (ayahNumber?.let { "?ayah=$it" } ?: "")
@@ -95,6 +99,9 @@ object Routes {
 
     fun adhkarSession(categoryId: String, itemId: String? = null): String =
         "companion/adhkar/session/$categoryId" + (itemId?.let { "?itemId=$it" } ?: "")
+
+    fun hadithDetail(hadithId: String): String =
+        "companion/hadith/$hadithId"
 }
 
 internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
@@ -105,6 +112,7 @@ internal fun shouldShowMiniPlayer(route: String?): Boolean = when (route) {
     Routes.READER,
     Routes.ADHKAR_SESSION,
     Routes.TASBIH,
+    Routes.HADITH_DETAIL,
     -> false
     else -> true
 }
@@ -441,6 +449,7 @@ fun AyahApp(modifier: Modifier = Modifier) {
                     },
                     onOpenDuas = { navController.navigate(Routes.DUAS_HUB) },
                     onOpenTasbih = { navController.navigate(Routes.TASBIH) },
+                    onOpenHadith = { navController.navigate(Routes.HADITH_LIBRARY) },
                     onOpenSurahInMushaf = { surahId ->
                         navController.navigate(Routes.mushaf(surahId = surahId))
                     },
@@ -477,6 +486,26 @@ fun AyahApp(modifier: Modifier = Modifier) {
 
             composable(route = Routes.TASBIH) {
                 TasbihScreen(
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(route = Routes.HADITH_LIBRARY) {
+                HadithLibraryScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenHadith = { hadithId ->
+                        navController.navigate(Routes.hadithDetail(hadithId))
+                    },
+                )
+            }
+
+            composable(
+                route = Routes.HADITH_DETAIL,
+                arguments = listOf(
+                    navArgument("hadithId") { type = NavType.StringType },
+                ),
+            ) {
+                HadithDetailScreen(
                     onBack = { navController.popBackStack() },
                 )
             }
