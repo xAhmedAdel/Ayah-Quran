@@ -116,5 +116,40 @@ All 7 screenshots were captured on `ayah_avd` (API 36) and visually inspected:
 
 ---
 
-## 6. Completion Gate Status
-Phase C-2 is **COMPLETE** locally and ready for review. Stopping here; Phase C-3 has **NOT** been started.
+## 6. Final Verification Gate Results (Pre-C-3 Audit)
+
+- **Git Integrity:**
+  - Branch: `main` (6 local commits ahead of `origin/main`, **not pushed**, zero tags on `HEAD`, `versionName = "1.0.0-beta.9"` unchanged).
+  - Exact Commit Chain Verified Intact:
+    - Phase 0: `5d032c0d569671f19951be7146a29b01508082de`
+    - Phase C-1: `0b27ed2c918b2e940ec8456c4f6baf593e1ca528`, `7fe3b316fbfadf849d24a766e894e16cf6724a92`, `b121808fb056788028a1de56e941ead0837ce15a`
+    - Phase C-2: `22ecbc599d9560a81eb9251d2cfbd4e57926e841`, `099e184d59e30687fe702c3eeaec953b3299a65a`
+  - Working tree clean before report update (only pre-existing untracked `docs/UI-UX-HANDOVER.zip`).
+- **Complete `connectedDebugAndroidTest` Suite After Clean Emulator Reboot (`ayah_avd`, API 36):**
+  - Command: `.\gradlew :app:connectedDebugAndroidTest`
+  - Final Gradle Result: **`BUILD SUCCESSFUL in 2m 3s`** (single uninterrupted run, zero crashes)
+  - Exact XML Counts (`TEST-ayah_avd(AVD) - 16-_app-.xml`):
+    - **Total:** 69
+    - **Passed:** 68
+    - **Failed:** 0
+    - **Skipped:** 1 (`com.ayah.quran.ui.PrayerPermissionsInstrumentedTest.notificationDenialDisablesPostingPath` — pre-existing API-gated skip)
+    - **Aborted:** 0
+- **Live Process-Kill Persistence Verification (`am force-stop com.ayah.quran.debug`):**
+  - Started `after_prayer` session from Prayer tab, completed item 1 -> auto-advanced to page `2 / 8` with `1 / 8` completed and item 2 at `0 / 1`.
+  - Terminated app process via `adb shell am force-stop com.ayah.quran.debug`, relaunched `MainActivity`, reopened `after_prayer` -> restored identically to page `2 / 8`, `1 / 8` completed, item 2 at `0 / 1` (zero unrelated items affected).
+- **Content Integrity Re-Verification:**
+  - `app/src/main/assets/companion/adhkar_hisn.json`: 16 categories, 127 items, 0 empty Arabic texts, 0 empty sources, 0 non-positive repeat counts; 53 items with `textEn` strictly restricted to licensed `morning`, `evening` (MIT `Seen-Arabic/Morning-And-Evening-Adhkar-DB`), and `daily_surahs`.
+  - `app/src/main/assets/companion/quranic_duas.json`: 40 pointers, 0 embedded Quran text fields; live-joined against `ayahs` (`AyahEntity`) via `AdhkarRepositoryImpl.observeQuranicDuas()` and opened to exact page + ayah highlight via `Routes.mushaf(surahId, ayahNumber)` -> `MushafPageViewModel`.
+- **Visual Verification Screenshots (Repository Paths):**
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/01_prayer_after_adhkar_ar_light.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/02_adhkar_hub_ar_light.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/03_adhkar_session_ar_light.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/04_duas_hub_quranic_ar_light.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/05_adhkar_session_ar_dark.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/06_adhkar_hub_en_light.png`
+  - `docs/ISLAMIC-COMPANION-EXPANSION/screenshots/c-2/07_adhkar_session_font150.png`
+
+---
+
+## 7. Completion Gate Status
+Phase C-2 Final Verification Gate is **COMPLETE** locally with zero critical defects found. Stopping here; Phase C-3 has **NOT** been started, nothing has been pushed, and no release has been created.
