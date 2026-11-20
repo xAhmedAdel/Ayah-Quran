@@ -6,40 +6,133 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.ayah.quran.MainActivity
 import com.ayah.quran.R
 import com.ayah.quran.data.prayer.AdhanPlaybackSource
 import com.ayah.quran.data.prayer.AdhanRawResources
 import com.ayah.quran.data.prayer.AdhanVoiceResolver
 import com.ayah.quran.data.prayer.BundledAdhanCatalog
-import com.ayah.quran.domain.model.prayer.Prayer
+import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.AdhanVoiceDefaults
+import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
-import com.ayah.quran.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-/**
- * Foreground service that plays the selected adhan audio when a prayer time
- * arrives — including with the app in the background.
- *
- * Honest limitations (also surfaced in the Advanced settings section):
- * - Audio comes ONLY from a user-selected local file (verified bundled
- *   recordings are not yet available; the catalog shows a truthful empty
- *   state). With no file selected the service falls back to the short
- *   notification and exits — it never fakes playback.
- * - OEM battery managers can delay or kill foreground services; we document
- *   this, we cannot promise playback under every configuration.
- *
- * Audio focus: gains ALARM focus; transient-loss pauses, permanent loss or
- * completion stops the service cleanly. Device volume is respected — the
- * service never changes system volume.
- */
+internal interface AdhanPlaybackHandle {
+    fun pause()
+    fun play()
+    fun stopAndRelease()
+}
+
+internal class AdhanPlaybackLifecycleController(
+    private val onActiveChanged: (Boolean) -> Unit,
+    private val onRequestFocus: () -> Boolean,
+    private val onAbandonFocus: () -> Unit,
+    private val onFallbackNotify: (Prayer) -> Unit,
+    private val onStopQuran: () -> Unit,
+    private val onStopSelf: () -> Unit,
+    private val createAndStartPlayer: (uri: String, onEnded: () -> Unit, onError: (Throwable?) -> Unit) -> AdhanPlaybackHandle,
+) {
+    private var currentHandle: AdhanPlaybackHandle? = null
+    private var generation: Long = 0L
+
+    fun nextGeneration(): Long {
+        generation += 1L
+        return generation
+    }
+
+    fun isCurrentGeneration(token: Long): Boolean = token == generation
+
+    fun startPlayback(token: Long, prayer: Prayer, audioUri: String?) {
+        if (!isCurrentGeneration(token)) return
+        cleanup()
+        if (audioUri.isNullOrBlank()) {
+            onFallbackNotify(prayer)
+            onStopSelf()
+            return
+        }
+        if (!onRequestFocus()) {
+            onFallbackNotify(prayer)
+            onStopSelf()
+            return
+        }
+        try {
+            val handle = createAndStartPlayer(
+                audioUri,
+                {
+                    if (isCurrentGeneration(token)) {
+                        cleanup()
+                        onStopSelf()
+                    }
+                },
+                {
+                    if (isCurrentGeneration(token)) {
+                        onFallbackNotify(prayer)
+                        cleanup()
+                        onStopSelf()
+                    }
+                },
+            )
+            if (!isCurrentGeneration(token)) {
+                runCatching { handle.stopAndRelease() }
+                onAbandonFocus()
+                return
+            }
+            currentHandle = handle
+            onActiveChanged(true)
+            onStopQuran()
+        } catch (t: Throwable) {
+            onFallbackNotify(prayer)
+            cleanup()
+            onStopSelf()
+        }
+    }
+
+    fun onFocusLossPermanent() {
+        cleanup()
+        onStopSelf()
+    }
+
+    fun onFocusLossTransient() {
+        currentHandle?.pause()
+    }
+
+    fun onFocusGain() {
+        currentHandle?.play()
+    }
+
+    fun stopAll() {
+        generation += 1L
+        cleanup()
+        onStopSelf()
+    }
+
+    fun cleanup() {
+        onActiveChanged(false)
+        currentHandle?.let { handle ->
+            runCatching { handle.stopAndRelease() }
+        }
+        currentHandle = null
+        onAbandonFocus()
+    }
+}
+
 @AndroidEntryPoint
 class AdhanPlaybackService : android.app.Service() {
 
@@ -49,29 +142,69 @@ class AdhanPlaybackService : android.app.Service() {
     @Inject lateinit var sourceResolver: com.ayah.quran.data.prayer.AdhanPlaybackSourceResolver
     @Inject lateinit var catalog: BundledAdhanCatalog
 
-    private var player: ExoPlayer? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var startJob: Job? = null
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
 
+    private val lifecycleController by lazy {
+        AdhanPlaybackLifecycleController(
+            onActiveChanged = { active -> isAdhanActive = active },
+            onRequestFocus = { requestFocus() },
+            onAbandonFocus = { abandonFocus() },
+            onFallbackNotify = { prayer -> notifications.post(prayer, AdhanMode.SILENT) },
+            onStopQuran = {
+                runCatching {
+                    stopService(Intent(this, com.ayah.quran.data.audio.QuranPlaybackService::class.java))
+                }
+            },
+            onStopSelf = { stopSelf() },
+            createAndStartPlayer = { uri, onEnded, onError ->
+                createExoPlayerHandle(uri, onEnded, onError)
+            },
+        )
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> {
-                cleanup()
-                stopSelf()
-                return START_NOT_STICKY
-            }
+        if (intent?.action == ACTION_STOP) {
+            startJob?.cancel()
+            startJob = null
+            lifecycleController.stopAll()
+            return START_NOT_STICKY
         }
 
         val isTest = intent?.getBooleanExtra(EXTRA_TEST, false) ?: false
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER) ?: Prayer.FAJR.name
         val prayer = runCatching { Prayer.valueOf(prayerName) }.getOrDefault(Prayer.FAJR)
-        val prefs = runBlocking { preferencesRepository.preferences.first() }
 
-        // Phase 13/15: resolve THIS prayer's selected voice. Legacy user-file
-        // selection still wins when chosen; otherwise the catalog resolution
-        // (bundled resource, downloaded file, or DEFAULT fallback when a
-        // remote voice is not downloaded — never silence).
-        val audioUri: String? = when {
+        startInForeground(prayer, isTest)
+
+        startJob?.cancel()
+        val token = lifecycleController.nextGeneration()
+        lifecycleController.cleanup()
+
+        startJob = serviceScope.launch {
+            val audioUri = try {
+                withContext(Dispatchers.IO) {
+                    resolveAudioUri(prayer)
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to resolve Adhan preferences/audio source", t)
+                null
+            }
+            if (!lifecycleController.isCurrentGeneration(token)) return@launch
+            audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            lifecycleController.startPlayback(token, prayer, audioUri)
+        }
+
+        return START_NOT_STICKY
+    }
+
+    private suspend fun resolveAudioUri(prayer: Prayer): String? {
+        val prefs = preferencesRepository.preferences.first()
+        return when {
             prefs.voiceSelection.voiceOf(prayer) == AdhanVoiceDefaults.USER_FILE_ID ->
                 prefs.customAdhanAudioUri
 
@@ -91,57 +224,51 @@ class AdhanPlaybackService : android.app.Service() {
                     AdhanRawResources.resIdOf(recording.id)
             }
         } ?: prefs.customAdhanAudioUri
+    }
 
-        startInForeground(prayer, isTest)
-
-        if (audioUri == null) {
-            // No resolvable audio: honest fallback to a notification, no
-            // fake playback.
-            notifications.post(prayer, com.ayah.quran.domain.model.prayer.AdhanMode.SILENT)
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (!requestFocus()) {
-            // Incoming call / other focus holder: stop cleanly, notify only.
-            notifications.post(prayer, com.ayah.quran.domain.model.prayer.AdhanMode.SILENT)
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        val player = ExoPlayer.Builder(this).build().also {
-            this.player = it
-            it.setAudioAttributes(
-                androidx.media3.common.AudioAttributes.Builder()
-                    .setUsage(androidx.media3.common.C.USAGE_ALARM)
-                    .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH)
-                    .build(),
-                /* handleAudioFocus = */ false, // focus handled above, explicitly
-            )
-            it.setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
-            it.setMediaItem(MediaItem.fromUri(audioUri))
-            it.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
-                        cleanup()
-                        stopSelf()
-                    }
+    private fun createExoPlayerHandle(
+        audioUri: String,
+        onEnded: () -> Unit,
+        onError: (Throwable?) -> Unit,
+    ): AdhanPlaybackHandle {
+        val exoPlayer = ExoPlayer.Builder(this).build()
+        exoPlayer.setAudioAttributes(
+            androidx.media3.common.AudioAttributes.Builder()
+                .setUsage(androidx.media3.common.C.USAGE_ALARM)
+                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH)
+                .build(),
+            false,
+        )
+        exoPlayer.setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
+        exoPlayer.setMediaItem(MediaItem.fromUri(audioUri))
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    onEnded()
                 }
-            })
-            it.prepare()
-            it.play()
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(TAG, "Adhan ExoPlayer playback error: ${error.errorCodeName}", error)
+                onError(error)
+            }
+        })
+        exoPlayer.prepare()
+        exoPlayer.play()
+        return object : AdhanPlaybackHandle {
+            override fun pause() {
+                exoPlayer.pause()
+            }
+
+            override fun play() {
+                exoPlayer.play()
+            }
+
+            override fun stopAndRelease() {
+                runCatching { exoPlayer.stop() }
+                runCatching { exoPlayer.release() }
+            }
         }
-        isAdhanActive = true
-        // Conflict policy (Phase 17 slice 2): stop Quran recitation — the
-        // adhan never overlaps it.
-        runCatching {
-            startService(
-                Intent(this, com.ayah.quran.data.audio.QuranPlaybackService::class.java)
-                    .setAction(com.ayah.quran.data.audio.QuranPlaybackService.ACTION_STOP_QURAN),
-            )
-        }
-        return START_NOT_STICKY
     }
 
     private fun requestFocus(): Boolean {
@@ -155,25 +282,22 @@ class AdhanPlaybackService : android.app.Service() {
             )
             .setOnAudioFocusChangeListener { change ->
                 when (change) {
-                    AudioManager.AUDIOFOCUS_LOSS -> {
-                        cleanup()
-                        stopSelf()
-                    }
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        player?.pause()
-                    }
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        // Adhan keeps playing — duck is inappropriate for
-                        // a religious obligation.
-                    }
-                    AudioManager.AUDIOFOCUS_GAIN -> {
-                        player?.play()
-                    }
+                    AudioManager.AUDIOFOCUS_LOSS -> lifecycleController.onFocusLossPermanent()
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> lifecycleController.onFocusLossTransient()
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Unit
+                    AudioManager.AUDIOFOCUS_GAIN -> lifecycleController.onFocusGain()
                 }
             }
             .build()
         focusRequest = request
         return manager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    private fun abandonFocus() {
+        focusRequest?.let { req ->
+            runCatching { audioManager?.abandonAudioFocusRequest(req) }
+        }
+        focusRequest = null
     }
 
     override fun onBind(intent: Intent?): android.os.IBinder? = null
@@ -220,32 +344,20 @@ class AdhanPlaybackService : android.app.Service() {
         return notification
     }
 
-    private fun cleanup() {
-        isAdhanActive = false
-        player?.run {
-            runCatching { stop() }
-            runCatching { release() }
-        }
-        player = null
-        focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-        focusRequest = null
-    }
-
     override fun onDestroy() {
-        cleanup()
+        startJob?.cancel()
+        startJob = null
+        serviceScope.cancel()
+        lifecycleController.cleanup()
         super.onDestroy()
     }
 
     companion object {
+        private const val TAG = "AdhanPlaybackService"
         const val EXTRA_PRAYER = "prayer"
         const val EXTRA_TEST = "test"
         const val ACTION_STOP = "com.ayah.quran.prayer.STOP_ADHAN"
 
-        /**
-         * Slice-2 audio conflict policy: TRUE while adhan audio is actually
-         * playing. Quran recitation refuses to start during the adhan, and
-         * an incoming adhan stops Quran playback first (the adhan wins).
-         */
         @Volatile
         var isAdhanActive: Boolean = false
             private set

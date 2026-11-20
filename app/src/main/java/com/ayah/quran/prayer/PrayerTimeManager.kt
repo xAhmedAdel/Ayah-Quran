@@ -61,80 +61,80 @@ class PrayerTimeManager @Inject constructor(
     private val _exactAlarmGranted = MutableStateFlow(true)
     val exactAlarmGranted: StateFlow<Boolean> = _exactAlarmGranted.asStateFlow()
 
-    /** Recompute state and re-arm the next alarm. Safe to call repeatedly. */
     fun reconcile() {
         scope.launch {
-            val prefs = preferencesRepository.preferences.first()
-            _preferences.value = prefs
-            reconcileMutex.withLock {
-                val location = prefs.location
-                if (location == null) {
-                    _todayTimes.value = null
-                    _tomorrowFajr.value = null
-                    scheduler.cancel()
-                    return@withLock
-                }
-                val zone = ZoneId.of(location.timezoneId)
-                val today = LocalDate.now(zone)
-                val todayTimes = calculator.calculate(
-                    date = today,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    timezoneId = zone,
-                    method = prefs.method,
-                    asrMethod = prefs.asrMethod,
-                    highLatitudeRule = prefs.highLatitudeRule,
-                    adjustments = prefs.adjustments,
-                )
-                val tomorrowTimes = calculator.calculate(
-                    date = today.plusDays(1),
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    timezoneId = zone,
-                    method = prefs.method,
-                    asrMethod = prefs.asrMethod,
-                    highLatitudeRule = prefs.highLatitudeRule,
-                    adjustments = prefs.adjustments,
-                )
-                _todayTimes.value = todayTimes
-                _tomorrowFajr.value = tomorrowTimes.fajr
+            reconcileNow()
+        }
+    }
 
-                // Overdue detection: log if a prayer time has already passed
-                // without its alarm having been delivered (diagnostic only —
-                // the next alarm is always armed regardless).
-                val now = java.time.LocalDateTime.now(zone)
-                val allToday = listOf(
-                    todayTimes.fajr to "FAJR",
-                    todayTimes.dhuhr to "DHUHR",
-                    todayTimes.asr to "ASR",
-                    todayTimes.maghrib to "MAGHRIB",
-                    todayTimes.isha to "ISHA",
-                )
-                val overdue = allToday.filter { (time, _) -> time.isBefore(now) }
-                if (overdue.isNotEmpty()) {
-                    android.util.Log.w(
-                        com.ayah.quran.prayer.PrayerAlarmLog.TAG,
-                        "RECONCILE | overdue prayers detected: " +
-                            overdue.joinToString(", ") { (time, name) -> "$name at $time" },
-                    )
-                }
+    suspend fun reconcileNow() {
+        val prefs = preferencesRepository.preferences.first()
+        _preferences.value = prefs
+        reconcileMutex.withLock {
+            val location = prefs.location
+            if (location == null) {
+                _todayTimes.value = null
+                _tomorrowFajr.value = null
+                scheduler.cancel()
+                return@withLock
+            }
+            val zone = ZoneId.of(location.timezoneId)
+            val today = LocalDate.now(zone)
+            val todayTimes = calculator.calculate(
+                date = today,
+                latitude = location.latitude,
+                longitude = location.longitude,
+                timezoneId = zone,
+                method = prefs.method,
+                asrMethod = prefs.asrMethod,
+                highLatitudeRule = prefs.highLatitudeRule,
+                adjustments = prefs.adjustments,
+            )
+            val tomorrowTimes = calculator.calculate(
+                date = today.plusDays(1),
+                latitude = location.latitude,
+                longitude = location.longitude,
+                timezoneId = zone,
+                method = prefs.method,
+                asrMethod = prefs.asrMethod,
+                highLatitudeRule = prefs.highLatitudeRule,
+                adjustments = prefs.adjustments,
+            )
+            _todayTimes.value = todayTimes
+            _tomorrowFajr.value = tomorrowTimes.fajr
 
-                val next = nextAlarm(todayTimes, tomorrowTimes.fajr, zone)
-                if (next == null) {
-                    scheduler.cancel()
-                } else {
-                    _exactAlarmGranted.value = scheduler.schedule(next)
-                }
+            val now = java.time.LocalDateTime.now(zone)
+            val allToday = listOf(
+                todayTimes.fajr to "FAJR",
+                todayTimes.dhuhr to "DHUHR",
+                todayTimes.asr to "ASR",
+                todayTimes.maghrib to "MAGHRIB",
+                todayTimes.isha to "ISHA",
+            )
+            val overdue = allToday.filter { (time, _) -> time.isBefore(now) }
+            if (overdue.isNotEmpty()) {
+                android.util.Log.w(
+                    com.ayah.quran.prayer.PrayerAlarmLog.TAG,
+                    "RECONCILE | overdue prayers detected: " +
+                        overdue.joinToString(", ") { (time, name) -> "$name at $time" },
+                )
+            }
+
+            val next = nextAlarm(todayTimes, tomorrowTimes.fajr, zone)
+            if (next == null) {
+                scheduler.cancel()
+            } else {
+                _exactAlarmGranted.value = scheduler.schedule(next)
             }
         }
     }
 
-    /**
-     * Called by [com.ayah.quran.prayer.PrayerAlarmReceiver] when an alarm
-     * fires. The caller handles notify/play; this re-arms the next prayer.
-     */
     fun onAlarmFired() {
         reconcile()
+    }
+
+    suspend fun onAlarmFiredNow() {
+        reconcileNow()
     }
 
     /** Pure next-alarm selection (first upcoming prayer; Isha → tomorrow Fajr). */

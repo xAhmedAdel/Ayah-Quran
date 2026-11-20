@@ -5,30 +5,27 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.ayah.quran.data.prayer.AlarmPrayerAlarmScheduler
+import com.ayah.quran.di.ApplicationScope
 import com.ayah.quran.domain.model.prayer.AdhanMode
 import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
-/**
- * Fired by AlarmManager at prayer time. Dispatches per the prayer's adhan
- * mode (notification / silent / full adhan service) and re-arms the NEXT
- * prayer alarm. Duplicate protection: a single fixed PendingIntent is armed
- * at any time, plus a same-minute in-memory guard for OEM double delivery.
- *
- * Phase 16: structured logging with correlation IDs, delivery-delay tracking,
- * and defensive `finally` to guarantee `goAsync().finish()` is always called.
- */
 @AndroidEntryPoint
 class PrayerAlarmReceiver : BroadcastReceiver() {
 
     @Inject lateinit var preferencesRepository: PrayerPreferencesRepository
     @Inject lateinit var manager: PrayerTimeManager
     @Inject lateinit var notifications: PrayerNotifications
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != AlarmPrayerAlarmScheduler.ACTION_PRAYER_ALARM) return
@@ -51,53 +48,61 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
         }
 
         val result = goAsync()
-        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+        val scope = if (::appScope.isInitialized) {
+            appScope
+        } else {
+            CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        }
         scope.launch {
             try {
-                val prefs = preferencesRepository.preferences.first()
-                val mode = prefs.adhanConfig.modeOf(prayer)
-                val voiceId = prefs.voiceSelection.voiceOf(prayer)
-                PrayerAlarmLog.notificationSuppressed(
-                    correlationId,
-                    "mode=${mode.name} voice=$voiceId",
-                )
+                withTimeout(8_000L) {
+                    val prefs = preferencesRepository.preferences.first()
+                    val mode = prefs.adhanConfig.modeOf(prayer)
+                    val voiceId = prefs.voiceSelection.voiceOf(prayer)
+                    PrayerAlarmLog.notificationSuppressed(
+                        correlationId,
+                        "mode=${mode.name} voice=$voiceId",
+                    )
 
-                if (FiredAlarmGuard.mark(prayer, mode)) {
-                    when (mode) {
-                        AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
-                            notifications.post(prayer, mode)
-                            PrayerAlarmLog.notificationPosted(
-                                correlationId,
-                                if (mode == AdhanMode.NOTIFICATION_SOUND) {
-                                    PrayerNotifications.CHANNEL_ALERT
-                                } else {
-                                    PrayerNotifications.CHANNEL_SILENT
-                                },
-                            )
-                        }
-
-                        AdhanMode.FULL_ADHAN -> {
-                            val serviceIntent = Intent(context, AdhanPlaybackService::class.java)
-                                .putExtra(AdhanPlaybackService.EXTRA_PRAYER, prayer.name)
-                                .putExtra(AdhanPlaybackService.EXTRA_TEST, false)
-                            runCatching {
-                                context.startForegroundService(serviceIntent)
-                                PrayerAlarmLog.playbackStarted(correlationId, voiceId)
-                            }.onFailure { e ->
-                                PrayerAlarmLog.playbackFallback(
+                    if (FiredAlarmGuard.mark(prayer, mode)) {
+                        when (mode) {
+                            AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
+                                notifications.post(prayer, mode)
+                                PrayerAlarmLog.notificationPosted(
                                     correlationId,
-                                    "startForegroundService failed: ${e.message}",
+                                    if (mode == AdhanMode.NOTIFICATION_SOUND) {
+                                        PrayerNotifications.CHANNEL_ALERT
+                                    } else {
+                                        PrayerNotifications.CHANNEL_SILENT
+                                    },
                                 )
-                                notifications.post(prayer, AdhanMode.SILENT)
+                            }
+
+                            AdhanMode.FULL_ADHAN -> {
+                                val serviceIntent = Intent(context, AdhanPlaybackService::class.java)
+                                    .putExtra(AdhanPlaybackService.EXTRA_PRAYER, prayer.name)
+                                    .putExtra(AdhanPlaybackService.EXTRA_TEST, false)
+                                runCatching {
+                                    context.startForegroundService(serviceIntent)
+                                    PrayerAlarmLog.playbackStarted(correlationId, voiceId)
+                                }.onFailure { e ->
+                                    PrayerAlarmLog.playbackFallback(
+                                        correlationId,
+                                        "startForegroundService failed: ${e.message}",
+                                    )
+                                    notifications.post(prayer, AdhanMode.SILENT)
+                                }
+                            }
+
+                            AdhanMode.DISABLED -> {
+                                PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
                             }
                         }
-
-                        AdhanMode.DISABLED -> {
-                            PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
-                        }
                     }
+                    manager.onAlarmFiredNow()
                 }
-                manager.onAlarmFired()
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (e: Exception) {
                 Log.e(PrayerAlarmLog.TAG, "$correlationId | RECEIVER_ERROR | ${e.message}", e)
             } finally {
