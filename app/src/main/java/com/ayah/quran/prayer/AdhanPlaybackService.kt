@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Handler
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
@@ -29,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,6 +40,54 @@ internal interface AdhanPlaybackHandle {
     fun pause()
     fun play()
     fun stopAndRelease()
+    fun postPlaybackLooperBarrier(action: () -> Unit): Boolean = true.also { action() }
+}
+
+internal class HandoverTokenTracker(
+    private val wakeLockProvider: () -> PrayerAlarmWakeLock?,
+) {
+    private val lock = Any()
+    private val byGeneration = LinkedHashMap<Long, Long>()
+    private val allPending = LinkedHashSet<Long>()
+
+    fun register(generationToken: Long, wakeLockTokenId: Long) {
+        val superseded: List<Long>
+        synchronized(lock) {
+            superseded = byGeneration.values.toList()
+            byGeneration.clear()
+            allPending.removeAll(superseded.toSet())
+            if (wakeLockTokenId > PrayerAlarmWakeLock.INVALID_TOKEN_ID) {
+                byGeneration[generationToken] = wakeLockTokenId
+                allPending.add(wakeLockTokenId)
+            }
+        }
+        if (superseded.isNotEmpty()) {
+            wakeLockProvider()?.releaseTokens(superseded)
+        }
+    }
+
+    fun releaseForGeneration(generationToken: Long) {
+        val wakeLockTokenId = synchronized(lock) {
+            byGeneration.remove(generationToken)?.also { allPending.remove(it) }
+        }
+        if (wakeLockTokenId != null) {
+            wakeLockProvider()?.releaseToken(wakeLockTokenId)
+        }
+    }
+
+    fun releaseAll() {
+        val drained: List<Long>
+        synchronized(lock) {
+            drained = allPending.toList()
+            allPending.clear()
+            byGeneration.clear()
+        }
+        if (drained.isNotEmpty()) {
+            wakeLockProvider()?.releaseTokens(drained)
+        }
+    }
+
+    internal fun pendingCountForTest(): Int = synchronized(lock) { allPending.size }
 }
 
 internal class AdhanPlaybackLifecycleController(
@@ -48,43 +98,70 @@ internal class AdhanPlaybackLifecycleController(
     private val onStopQuran: () -> Unit,
     private val onStopSelf: () -> Unit,
     private val createAndStartPlayer: (uri: String, onEnded: () -> Unit, onError: (Throwable?) -> Unit) -> AdhanPlaybackHandle,
+    private val onReleaseHandover: (Long) -> Unit = {},
+    private val onCancelPreparationWatchdog: () -> Unit = {},
 ) {
     private var currentHandle: AdhanPlaybackHandle? = null
+    private var currentPrayer: Prayer? = null
+    private var activeGeneration: Long = 0L
     private var generation: Long = 0L
+    private var playbackConfirmed: Boolean = false
 
     fun nextGeneration(): Long {
         generation += 1L
+        playbackConfirmed = false
         return generation
     }
 
+    fun currentGeneration(): Long = generation
+
     fun isCurrentGeneration(token: Long): Boolean = token == generation
 
+    fun hasActivePlayback(): Boolean = currentHandle != null || activeGeneration > 0L
+
     fun startPlayback(token: Long, prayer: Prayer, audioUri: String?) {
-        if (!isCurrentGeneration(token)) return
+        if (!isCurrentGeneration(token)) {
+            onReleaseHandover(token)
+            return
+        }
         cleanup()
         if (audioUri.isNullOrBlank()) {
+            generation += 1L
+            onCancelPreparationWatchdog()
             onFallbackNotify(prayer)
+            onReleaseHandover(token)
             onStopSelf()
             return
         }
         if (!onRequestFocus()) {
+            generation += 1L
+            onCancelPreparationWatchdog()
             onFallbackNotify(prayer)
+            onReleaseHandover(token)
             onStopSelf()
             return
         }
         try {
+            currentPrayer = prayer
+            activeGeneration = token
             val handle = createAndStartPlayer(
                 audioUri,
                 {
                     if (isCurrentGeneration(token)) {
+                        generation += 1L
+                        onCancelPreparationWatchdog()
                         cleanup()
+                        onReleaseHandover(token)
                         onStopSelf()
                     }
                 },
                 {
                     if (isCurrentGeneration(token)) {
+                        generation += 1L
+                        onCancelPreparationWatchdog()
                         onFallbackNotify(prayer)
                         cleanup()
+                        onReleaseHandover(token)
                         onStopSelf()
                     }
                 },
@@ -92,20 +169,71 @@ internal class AdhanPlaybackLifecycleController(
             if (!isCurrentGeneration(token)) {
                 runCatching { handle.stopAndRelease() }
                 onAbandonFocus()
+                onReleaseHandover(token)
                 return
             }
             currentHandle = handle
             onActiveChanged(true)
             onStopQuran()
         } catch (t: Throwable) {
+            if (isCurrentGeneration(token)) {
+                generation += 1L
+            }
+            onCancelPreparationWatchdog()
             onFallbackNotify(prayer)
             cleanup()
+            onReleaseHandover(token)
             onStopSelf()
         }
     }
 
-    fun onFocusLossPermanent() {
+    fun onIsPlayingStarted(token: Long) {
+        if (!isCurrentGeneration(token) || playbackConfirmed) return
+        playbackConfirmed = true
+        onCancelPreparationWatchdog()
+        val handle = currentHandle
+        if (handle == null) {
+            onReleaseHandover(token)
+            return
+        }
+        val posted = handle.postPlaybackLooperBarrier {
+            onReleaseHandover(token)
+        }
+        if (!posted) {
+            val fallbackPrayer = currentPrayer
+            generation += 1L
+            if (fallbackPrayer != null) {
+                onFallbackNotify(fallbackPrayer)
+            }
+            cleanup()
+            onReleaseHandover(token)
+            onStopSelf()
+        }
+    }
+
+    fun onPreparationTimeout(token: Long, prayer: Prayer): Boolean {
+        if (!isCurrentGeneration(token) || playbackConfirmed) return false
+        generation += 1L
+        onCancelPreparationWatchdog()
+        onFallbackNotify(prayer)
         cleanup()
+        onReleaseHandover(token)
+        onStopSelf()
+        return true
+    }
+
+    fun onFocusLossPermanent() {
+        val pendingToken = activeGeneration
+        val fallbackPrayer = if (!playbackConfirmed) currentPrayer else null
+        generation += 1L
+        onCancelPreparationWatchdog()
+        if (fallbackPrayer != null) {
+            onFallbackNotify(fallbackPrayer)
+        }
+        cleanup()
+        if (pendingToken > 0L) {
+            onReleaseHandover(pendingToken)
+        }
         onStopSelf()
     }
 
@@ -118,12 +246,20 @@ internal class AdhanPlaybackLifecycleController(
     }
 
     fun stopAll() {
+        val previousToken = generation
         generation += 1L
+        onCancelPreparationWatchdog()
         cleanup()
+        if (previousToken > 0L) {
+            onReleaseHandover(previousToken)
+        }
         onStopSelf()
     }
 
     fun cleanup() {
+        playbackConfirmed = false
+        currentPrayer = null
+        activeGeneration = 0L
         onActiveChanged(false)
         currentHandle?.let { handle ->
             runCatching { handle.stopAndRelease() }
@@ -141,13 +277,19 @@ class AdhanPlaybackService : android.app.Service() {
     @Inject lateinit var voiceResolver: AdhanVoiceResolver
     @Inject lateinit var sourceResolver: com.ayah.quran.data.prayer.AdhanPlaybackSourceResolver
     @Inject lateinit var catalog: BundledAdhanCatalog
+    @Inject lateinit var wakeLock: PrayerAlarmWakeLock
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var startJob: Job? = null
+    private var prepareTimeoutJob: Job? = null
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
 
-    private val lifecycleController by lazy {
+    private val handoverTokens by lazy {
+        HandoverTokenTracker { if (::wakeLock.isInitialized) wakeLock else null }
+    }
+
+    private val lifecycleController: AdhanPlaybackLifecycleController by lazy {
         AdhanPlaybackLifecycleController(
             onActiveChanged = { active -> isAdhanActive = active },
             onRequestFocus = { requestFocus() },
@@ -160,16 +302,37 @@ class AdhanPlaybackService : android.app.Service() {
             },
             onStopSelf = { stopSelf() },
             createAndStartPlayer = { uri, onEnded, onError ->
-                createExoPlayerHandle(uri, onEnded, onError)
+                createExoPlayerHandle(
+                    token = lifecycleController.currentGeneration(),
+                    audioUri = uri,
+                    onEnded = onEnded,
+                    onError = onError,
+                )
+            },
+            onReleaseHandover = { token -> handoverTokens.releaseForGeneration(token) },
+            onCancelPreparationWatchdog = {
+                prepareTimeoutJob?.cancel()
+                prepareTimeoutJob = null
             },
         )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val wakeLockToken = intent?.getLongExtra(
+            EXTRA_WAKE_LOCK_TOKEN,
+            PrayerAlarmWakeLock.INVALID_TOKEN_ID,
+        ) ?: PrayerAlarmWakeLock.INVALID_TOKEN_ID
+
         if (intent?.action == ACTION_STOP) {
+            prepareTimeoutJob?.cancel()
+            prepareTimeoutJob = null
             startJob?.cancel()
             startJob = null
             lifecycleController.stopAll()
+            handoverTokens.releaseAll()
+            if (wakeLockToken > PrayerAlarmWakeLock.INVALID_TOKEN_ID && ::wakeLock.isInitialized) {
+                wakeLock.releaseToken(wakeLockToken)
+            }
             return START_NOT_STICKY
         }
 
@@ -177,11 +340,40 @@ class AdhanPlaybackService : android.app.Service() {
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER) ?: Prayer.FAJR.name
         val prayer = runCatching { Prayer.valueOf(prayerName) }.getOrDefault(Prayer.FAJR)
 
-        startInForeground(prayer, isTest)
+        val token = beginReEntrantStart(
+            prayer = prayer,
+            incomingWakeLockToken = wakeLockToken,
+            lifecycleController = lifecycleController,
+            handoverTokens = handoverTokens,
+            onEnterForeground = { startInForeground(prayer, isTest) },
+            onReleaseIncomingToken = { incoming ->
+                if (incoming > PrayerAlarmWakeLock.INVALID_TOKEN_ID && ::wakeLock.isInitialized) {
+                    wakeLock.releaseToken(incoming)
+                }
+            },
+            onFallbackNotify = { failedPrayer ->
+                runCatching { notifications.post(failedPrayer, AdhanMode.SILENT) }
+            },
+            onCancelPriorJobs = {
+                prepareTimeoutJob?.cancel()
+                prepareTimeoutJob = null
+                startJob?.cancel()
+                startJob = null
+            },
+            onStopSelfIfIdle = {
+                val hasPendingJobs = startJob?.isActive == true || prepareTimeoutJob?.isActive == true
+                if (!lifecycleController.hasActivePlayback() && !hasPendingJobs) {
+                    stopSelf(startId)
+                }
+            },
+        ) ?: return START_NOT_STICKY
 
-        startJob?.cancel()
-        val token = lifecycleController.nextGeneration()
-        lifecycleController.cleanup()
+        prepareTimeoutJob = serviceScope.launch {
+            delay(PREPARATION_TIMEOUT_MILLIS)
+            if (lifecycleController.onPreparationTimeout(token, prayer)) {
+                startJob?.cancel()
+            }
+        }
 
         startJob = serviceScope.launch {
             val audioUri = try {
@@ -189,12 +381,16 @@ class AdhanPlaybackService : android.app.Service() {
                     resolveAudioUri(prayer)
                 }
             } catch (ce: CancellationException) {
+                handoverTokens.releaseForGeneration(token)
                 throw ce
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to resolve Adhan preferences/audio source", t)
                 null
             }
-            if (!lifecycleController.isCurrentGeneration(token)) return@launch
+            if (!lifecycleController.isCurrentGeneration(token)) {
+                handoverTokens.releaseForGeneration(token)
+                return@launch
+            }
             audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             lifecycleController.startPlayback(token, prayer, audioUri)
         }
@@ -227,6 +423,7 @@ class AdhanPlaybackService : android.app.Service() {
     }
 
     private fun createExoPlayerHandle(
+        token: Long,
         audioUri: String,
         onEnded: () -> Unit,
         onError: (Throwable?) -> Unit,
@@ -242,6 +439,12 @@ class AdhanPlaybackService : android.app.Service() {
         exoPlayer.setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
         exoPlayer.setMediaItem(MediaItem.fromUri(audioUri))
         exoPlayer.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) {
+                    lifecycleController.onIsPlayingStarted(token)
+                }
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     onEnded()
@@ -267,6 +470,12 @@ class AdhanPlaybackService : android.app.Service() {
             override fun stopAndRelease() {
                 runCatching { exoPlayer.stop() }
                 runCatching { exoPlayer.release() }
+            }
+
+            override fun postPlaybackLooperBarrier(action: () -> Unit): Boolean {
+                return runCatching {
+                    Handler(exoPlayer.playbackLooper).post(action)
+                }.getOrDefault(false)
             }
         }
     }
@@ -345,10 +554,13 @@ class AdhanPlaybackService : android.app.Service() {
     }
 
     override fun onDestroy() {
+        prepareTimeoutJob?.cancel()
+        prepareTimeoutJob = null
         startJob?.cancel()
         startJob = null
         serviceScope.cancel()
         lifecycleController.cleanup()
+        handoverTokens.releaseAll()
         super.onDestroy()
     }
 
@@ -356,10 +568,44 @@ class AdhanPlaybackService : android.app.Service() {
         private const val TAG = "AdhanPlaybackService"
         const val EXTRA_PRAYER = "prayer"
         const val EXTRA_TEST = "test"
+        const val EXTRA_WAKE_LOCK_TOKEN = "wake_lock_token"
         const val ACTION_STOP = "com.ayah.quran.prayer.STOP_ADHAN"
+        internal const val PREPARATION_TIMEOUT_MILLIS = 8_000L
 
         @Volatile
         var isAdhanActive: Boolean = false
             private set
+
+        internal fun beginReEntrantStart(
+            prayer: Prayer,
+            incomingWakeLockToken: Long,
+            lifecycleController: AdhanPlaybackLifecycleController,
+            handoverTokens: HandoverTokenTracker,
+            onEnterForeground: () -> Unit,
+            onReleaseIncomingToken: (Long) -> Unit,
+            onFallbackNotify: (Prayer) -> Unit,
+            onCancelPriorJobs: () -> Unit,
+            onStopSelfIfIdle: () -> Unit,
+        ): Long? {
+            try {
+                onEnterForeground()
+            } catch (t: Throwable) {
+                if (t is Error) {
+                    runCatching { onReleaseIncomingToken(incomingWakeLockToken) }
+                    throw t
+                }
+                Log.e(TAG, "Failed to enter foreground for AdhanPlaybackService", t)
+                runCatching { onReleaseIncomingToken(incomingWakeLockToken) }
+                runCatching { onFallbackNotify(prayer) }
+                runCatching { onStopSelfIfIdle() }
+                return null
+            }
+
+            onCancelPriorJobs()
+            val token = lifecycleController.nextGeneration()
+            handoverTokens.register(token, incomingWakeLockToken)
+            lifecycleController.cleanup()
+            return token
+        }
     }
 }

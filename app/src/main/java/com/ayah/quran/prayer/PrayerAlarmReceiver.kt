@@ -11,14 +11,17 @@ import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.time.Clock
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -28,6 +31,7 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
     @Inject lateinit var manager: PrayerTimeManager
     @Inject lateinit var notifications: PrayerNotifications
     @Inject lateinit var occurrenceGuard: PrayerAlarmOccurrenceGuard
+    @Inject lateinit var wakeLock: PrayerAlarmWakeLock
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -59,7 +63,11 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
         } else {
             CoroutineScope(SupervisorJob() + Dispatchers.Default)
         }
-        scope.launch {
+        launchAlarmWork(
+            scope = scope,
+            correlationId = correlationId,
+            onFinish = { result.finish() },
+        ) { finishOnce ->
             handleAlarm(
                 prayer = prayer,
                 dayKey = dayKey,
@@ -71,7 +79,7 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                 onDispatch = { mode, voiceId ->
                     dispatchPrayerAlert(context, prayer, mode, voiceId, correlationId)
                 },
-                onFinish = { result.finish() },
+                onFinish = finishOnce,
             )
         }
     }
@@ -83,43 +91,142 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
         voiceId: String,
         correlationId: String,
     ) {
-        when (mode) {
-            AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
-                notifications.post(prayer, mode)
-                PrayerAlarmLog.notificationPosted(
-                    correlationId,
-                    if (mode == AdhanMode.NOTIFICATION_SOUND) {
-                        PrayerNotifications.CHANNEL_ALERT
-                    } else {
-                        PrayerNotifications.CHANNEL_SILENT
-                    },
-                )
-            }
-
-            AdhanMode.FULL_ADHAN -> {
+        val activeWakeLock = if (::wakeLock.isInitialized) wakeLock else null
+        routePrayerAlert(
+            mode = mode,
+            voiceId = voiceId,
+            correlationId = correlationId,
+            wakeLock = activeWakeLock,
+            onPostNotification = { notifyMode ->
+                notifications.post(prayer, notifyMode)
+            },
+            onStartFullAdhanService = { tokenId ->
                 val serviceIntent = Intent(context, AdhanPlaybackService::class.java)
                     .putExtra(AdhanPlaybackService.EXTRA_PRAYER, prayer.name)
                     .putExtra(AdhanPlaybackService.EXTRA_TEST, false)
-                runCatching {
-                    context.startForegroundService(serviceIntent)
-                    PrayerAlarmLog.playbackStarted(correlationId, voiceId)
-                }.onFailure { e ->
-                    PrayerAlarmLog.playbackFallback(
-                        correlationId,
-                        "startForegroundService failed: ${e.message}",
-                    )
-                    notifications.post(prayer, AdhanMode.SILENT)
-                }
-            }
-
-            AdhanMode.DISABLED -> {
-                PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
-            }
-        }
+                    .apply {
+                        if (tokenId > PrayerAlarmWakeLock.INVALID_TOKEN_ID) {
+                            putExtra(AdhanPlaybackService.EXTRA_WAKE_LOCK_TOKEN, tokenId)
+                        }
+                    }
+                context.startForegroundService(serviceIntent)
+            },
+            onFallbackSilent = {
+                notifications.post(prayer, AdhanMode.SILENT)
+            },
+        )
     }
 
     companion object {
         private const val ALARM_TIMEOUT_MILLIS = 8_000L
+
+        internal fun launchAlarmWork(
+            scope: CoroutineScope,
+            correlationId: String,
+            onFinish: () -> Unit,
+            block: suspend (finishOnce: () -> Unit) -> Unit,
+        ) {
+            val finished = AtomicBoolean(false)
+            val finishOnce: () -> Unit = {
+                if (finished.compareAndSet(false, true)) {
+                    runCatching { onFinish() }
+                        .onFailure { e ->
+                            Log.w(
+                                PrayerAlarmLog.TAG,
+                                "$correlationId | FINISH_ERROR | ${e.javaClass.simpleName}",
+                            )
+                        }
+                }
+            }
+            if (!scope.isActive) {
+                finishOnce()
+                return
+            }
+            val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                Log.e(
+                    PrayerAlarmLog.TAG,
+                    "$correlationId | LAUNCH_ERROR | ${throwable.javaClass.simpleName}",
+                    throwable,
+                )
+                finishOnce()
+            }
+            try {
+                val job = scope.launch(exceptionHandler) {
+                    try {
+                        block(finishOnce)
+                    } finally {
+                        finishOnce()
+                    }
+                }
+                job.invokeOnCompletion { finishOnce() }
+            } catch (t: Throwable) {
+                finishOnce()
+                if (t is Error) throw t
+            }
+        }
+
+        internal fun routePrayerAlert(
+            mode: AdhanMode,
+            voiceId: String,
+            correlationId: String,
+            wakeLock: PrayerAlarmWakeLock?,
+            onPostNotification: (AdhanMode) -> Unit,
+            onStartFullAdhanService: (tokenId: Long) -> Unit,
+            onFallbackSilent: () -> Unit,
+        ) {
+            when (mode) {
+                AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
+                    onPostNotification(mode)
+                    PrayerAlarmLog.notificationPosted(
+                        correlationId,
+                        if (mode == AdhanMode.NOTIFICATION_SOUND) {
+                            PrayerNotifications.CHANNEL_ALERT
+                        } else {
+                            PrayerNotifications.CHANNEL_SILENT
+                        },
+                    )
+                }
+
+                AdhanMode.FULL_ADHAN -> {
+                    dispatchFullAdhan(
+                        voiceId = voiceId,
+                        correlationId = correlationId,
+                        wakeLock = wakeLock,
+                        startService = onStartFullAdhanService,
+                        onFallbackSilent = onFallbackSilent,
+                    )
+                }
+
+                AdhanMode.DISABLED -> {
+                    PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
+                }
+            }
+        }
+
+        internal fun dispatchFullAdhan(
+            voiceId: String,
+            correlationId: String,
+            wakeLock: PrayerAlarmWakeLock?,
+            startService: (tokenId: Long) -> Unit,
+            onFallbackSilent: () -> Unit,
+        ) {
+            val lease = wakeLock?.acquireHandover()
+            val tokenId = lease?.tokenId ?: PrayerAlarmWakeLock.INVALID_TOKEN_ID
+            runCatching {
+                startService(tokenId)
+            }.onSuccess {
+                runCatching {
+                    PrayerAlarmLog.playbackStarted(correlationId, voiceId)
+                }
+            }.onFailure { e ->
+                lease?.release()
+                PrayerAlarmLog.playbackFallback(
+                    correlationId,
+                    "startForegroundService failed: ${e.message}",
+                )
+                onFallbackSilent()
+            }
+        }
 
         internal suspend fun handleAlarm(
             prayer: Prayer,
