@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -17,7 +18,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,6 +30,7 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -37,6 +42,18 @@ sealed interface AdhanDownloadState {
     data object Downloaded : AdhanDownloadState
 }
 
+internal enum class DeleteLifecycleStatus {
+    PENDING,
+    IN_PROGRESS,
+    FAILED,
+    CANCELLED,
+}
+
+internal data class DeleteTrackerEntry(
+    val opId: Long,
+    val status: DeleteLifecycleStatus,
+)
+
 @Singleton
 class AdhanDownloadRepository internal constructor(
     private val audioDirProvider: () -> File,
@@ -44,6 +61,9 @@ class AdhanDownloadRepository internal constructor(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val minValidBytes: Long,
+    private val deleteFile: (File) -> Boolean = { it.delete() },
+    private val fileExists: (File) -> Boolean = { it.exists() },
+    private val onBeforeDeleteFile: (suspend (File) -> Unit)? = null,
 ) {
 
     @Inject
@@ -53,7 +73,7 @@ class AdhanDownloadRepository internal constructor(
         @ApplicationScope appScope: CoroutineScope,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ) : this(
-        audioDirProvider = { File(context.getExternalFilesDir(null), "adhan").also { it.mkdirs() } },
+        audioDirProvider = { File(context.getExternalFilesDir(null), "adhan") },
         client = baseClient.newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
@@ -65,179 +85,605 @@ class AdhanDownloadRepository internal constructor(
         minValidBytes = DEFAULT_MIN_VALID_BYTES,
     )
 
-    private class ActiveDownload {
+    private class ActiveDownload(val opId: Long) {
         val job = AtomicReference<Job?>(null)
         val call = AtomicReference<Call?>(null)
         val cancelled = AtomicBoolean(false)
 
-        fun cancel() {
+        fun markCancelled() {
             cancelled.set(true)
+        }
+
+        fun cancelResources() {
             call.get()?.cancel()
             job.get()?.cancel()
         }
     }
 
+    private val nextOperationId = AtomicLong(0L)
+    private val downloadLock = Any()
+    private val latestGeneration = HashMap<String, Long>()
     private val activeDownloads = ConcurrentHashMap<String, ActiveDownload>()
+    private val operationJobs = HashMap<String, LinkedHashSet<Job>>()
+    private val deleteTrackers = HashMap<String, DeleteTrackerEntry>()
+    private val recordingMutexes = ConcurrentHashMap<String, Mutex>()
 
     private val _states = MutableStateFlow<Map<String, AdhanDownloadState>>(emptyMap())
     val states: StateFlow<Map<String, AdhanDownloadState>> = _states.asStateFlow()
 
-    private val audioDir: File
-        get() = audioDirProvider().also { it.mkdirs() }
+    private fun mutexFor(recordingId: String): Mutex =
+        recordingMutexes.computeIfAbsent(recordingId) { Mutex() }
 
-    fun isDownloaded(recording: AdhanRecording): Boolean =
-        fileOf(recording).let { it.exists() && it.length() > 1000 }
+    private fun isOwner(recordingId: String, opId: Long): Boolean =
+        synchronized(downloadLock) { latestGeneration[recordingId] == opId }
 
-    private fun fileOf(recording: AdhanRecording): File =
-        File(audioDir, "${recording.id}.${recording.fileExtension}")
+    private fun isBlockedByDelete(recordingId: String): Boolean =
+        synchronized(downloadLock) { deleteTrackers.containsKey(recordingId) }
 
-    fun downloadedFile(recordingId: String): File? =
-        audioDir.listFiles()?.firstOrNull {
-            it.name.startsWith("$recordingId.") && !it.name.endsWith(".part") && it.length() > 1000
+    private fun existingAudioDir(): File? =
+        audioDirProvider().takeIf { fileExists(it) && it.isDirectory }
+
+    private fun writableAudioDir(): File =
+        audioDirProvider().also { it.mkdirs() }
+
+    private fun fileOf(dir: File, recording: AdhanRecording): File =
+        File(dir, "${recording.id}.${recording.fileExtension}")
+
+    fun isDownloaded(recording: AdhanRecording): Boolean {
+        if (isBlockedByDelete(recording.id)) return false
+        val dir = existingAudioDir() ?: return false
+        val file = fileOf(dir, recording)
+        return fileExists(file) && file.isFile && file.length() > MIN_EXISTING_BYTES
+    }
+
+    fun downloadedFile(recordingId: String): File? {
+        if (isBlockedByDelete(recordingId)) return null
+        return existingAudioDir()?.listFiles()?.firstOrNull {
+            it.isFile &&
+                fileExists(it) &&
+                it.name.startsWith("$recordingId.") &&
+                !it.name.endsWith(".part") &&
+                it.length() > MIN_EXISTING_BYTES
         }
+    }
 
     fun download(recording: AdhanRecording) {
-        val active = ActiveDownload()
-        if (activeDownloads.putIfAbsent(recording.id, active) != null) {
-            return
-        }
-        _states.update { it + (recording.id to AdhanDownloadState.Downloading(0f)) }
+        val recordingId = recording.id
+        val jobToStart: Job
 
-        val job = scope.launch(ioDispatcher) {
-            val partFile = File(audioDir, "${recording.id}.part")
-            try {
-                Log.i(TAG, "download: start id=${recording.id}")
-                val downloadUrl = recording.downloadUrl ?: throw IOException("no download URL")
-                val request = Request.Builder()
-                    .url(downloadUrl)
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Linux; Android 14; HONOR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-                    )
-                    .build()
+        synchronized(downloadLock) {
+            if (activeDownloads.containsKey(recordingId)) {
+                return
+            }
+            val opId = nextOperationId.incrementAndGet()
+            val active = ActiveDownload(opId)
+            val previousJobs = snapshotPriorJobsLocked(recordingId)
 
-                val call = client.newCall(request)
-                active.call.set(call)
-                if (active.cancelled.get()) {
-                    call.cancel()
-                    throw CancellationException("Download cancelled")
-                }
+            latestGeneration[recordingId] = opId
+            activeDownloads[recordingId] = active
+            _states.update { it + (recordingId to AdhanDownloadState.Downloading(0f)) }
 
-                call.execute().use { response ->
-                    currentCoroutineContext().ensureActive()
-                    if (active.cancelled.get()) throw CancellationException("Download cancelled")
-                    Log.i(TAG, "download: HTTP ${response.code} id=${recording.id}")
-                    if (!response.isSuccessful) {
-                        throw IOException("HTTP ${response.code} downloading adhan")
+            lateinit var downloadJob: Job
+            downloadJob = scope.launch(ioDispatcher, start = CoroutineStart.LAZY) {
+                var partFile: File? = null
+                try {
+                    for (prev in previousJobs) {
+                        prev.join()
                     }
-                    val body = response.body ?: throw IOException("empty body")
-                    val contentLength = body.contentLength()
-                    var total = 0L
-                    var lastEmit = 0f
-                    body.byteStream().use { input ->
-                        partFile.outputStream().use { output ->
-                            val buf = ByteArray(64_000)
-                            while (true) {
+                    currentCoroutineContext().ensureActive()
+                    if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                        throw CancellationException("Download cancelled")
+                    }
+
+                    mutexFor(recordingId).withLock {
+                        currentCoroutineContext().ensureActive()
+                        if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                            throw CancellationException("Download cancelled")
+                        }
+
+                        Log.i(TAG, "download: start id=$recordingId op=$opId")
+                        val dir = writableAudioDir()
+                        cleanupOrphanedPartFiles(recordingId)
+
+                        val targetPart = File(dir, "$recordingId.$opId.part")
+                        partFile = targetPart
+                        deleteTargetFile(targetPart)
+
+                        val downloadUrl = recording.downloadUrl ?: throw IOException("no download URL")
+                        val request = Request.Builder()
+                            .url(downloadUrl)
+                            .header(
+                                "User-Agent",
+                                "Mozilla/5.0 (Linux; Android 14; HONOR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                            )
+                            .build()
+
+                        val call = client.newCall(request)
+                        active.call.set(call)
+                        if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                            call.cancel()
+                            throw CancellationException("Download cancelled")
+                        }
+
+                        try {
+                            call.execute().use { response ->
                                 currentCoroutineContext().ensureActive()
-                                if (active.cancelled.get()) {
+                                if (active.cancelled.get() || !isOwner(recordingId, opId)) {
                                     throw CancellationException("Download cancelled")
                                 }
-                                val read = input.read(buf)
-                                if (read <= 0) break
-                                output.write(buf, 0, read)
-                                total += read
-                                if (contentLength > 0) {
-                                    val progress = (total.toFloat() / contentLength).coerceIn(0f, 1f)
-                                    if (progress - lastEmit >= 0.1f || progress >= 1f) {
-                                        lastEmit = progress
-                                        if (!active.cancelled.get()) {
-                                            _states.update {
-                                                it + (recording.id to AdhanDownloadState.Downloading(progress))
+                                Log.i(TAG, "download: HTTP ${response.code} id=$recordingId op=$opId")
+                                if (!response.isSuccessful) {
+                                    throw IOException("HTTP ${response.code} downloading adhan")
+                                }
+                                val body = response.body ?: throw IOException("empty body")
+                                val contentLength = body.contentLength()
+                                var total = 0L
+                                var lastEmit = 0f
+                                body.byteStream().use { input ->
+                                    targetPart.outputStream().use { output ->
+                                        val buf = ByteArray(64_000)
+                                        while (true) {
+                                            currentCoroutineContext().ensureActive()
+                                            if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                                                throw CancellationException("Download cancelled")
+                                            }
+                                            val read = input.read(buf)
+                                            if (read <= 0) break
+                                            output.write(buf, 0, read)
+                                            total += read
+                                            if (contentLength > 0) {
+                                                val progress = (total.toFloat() / contentLength).coerceIn(0f, 1f)
+                                                if (progress - lastEmit >= 0.1f || progress >= 1f) {
+                                                    lastEmit = progress
+                                                    if (!active.cancelled.get()) {
+                                                        updateOwnedState(
+                                                            recordingId,
+                                                            opId,
+                                                            AdhanDownloadState.Downloading(progress),
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
+                                Log.i(TAG, "download: bytes=$total id=$recordingId op=$opId")
+                            }
+                        } finally {
+                            active.call.compareAndSet(call, null)
+                        }
+
+                        currentCoroutineContext().ensureActive()
+                        if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                            throw CancellationException("Download cancelled")
+                        }
+
+                        if (!fileExists(targetPart) || targetPart.length() < minValidBytes) {
+                            throw IOException("downloaded file too small (${targetPart.length()} bytes)")
+                        }
+
+                        val finalFile = fileOf(dir, recording)
+                        val staleSiblings = dir.listFiles()
+                            ?.filter {
+                                it.isFile &&
+                                    it.name.startsWith("$recordingId.") &&
+                                    it.name != finalFile.name &&
+                                    it.name != targetPart.name
+                            }
+                            .orEmpty()
+                        for (sibling in staleSiblings) {
+                            if (!deleteTargetFile(sibling)) {
+                                throw IOException("failed removing stale adhan file ${sibling.name}")
                             }
                         }
+
+                        currentCoroutineContext().ensureActive()
+                        if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                            throw CancellationException("Download cancelled")
+                        }
+
+                        if (fileExists(finalFile)) {
+                            deleteTargetFile(finalFile)
+                        }
+                        if (!targetPart.renameTo(finalFile)) {
+                            try {
+                                targetPart.copyTo(finalFile, overwrite = true)
+                            } catch (t: Throwable) {
+                                cleanupPartQuietly(finalFile)
+                                throw t
+                            }
+                            cleanupPartQuietly(targetPart)
+                        }
+                        partFile = null
+
+                        if (!fileExists(finalFile) || finalFile.length() < minValidBytes) {
+                            cleanupPartQuietly(finalFile)
+                            throw IOException("replaced adhan file invalid (${finalFile.length()} bytes)")
+                        }
+
+                        val coroutineActive = currentCoroutineContext().isActive
+                        var committed = false
+                        synchronized(downloadLock) {
+                            if (coroutineActive && latestGeneration[recordingId] == opId && !active.cancelled.get()) {
+                                val existingDelete = deleteTrackers[recordingId]
+                                if (existingDelete != null && existingDelete.opId < opId) {
+                                    deleteTrackers.remove(recordingId)
+                                }
+                                _states.update { it + (recordingId to AdhanDownloadState.Downloaded) }
+                                committed = true
+                            }
+                        }
+                        if (!committed) {
+                            deleteTargetFile(finalFile)
+                            throw CancellationException("Download cancelled")
+                        }
                     }
-                    Log.i(TAG, "download: bytes=$total id=${recording.id}")
-                }
-
-                currentCoroutineContext().ensureActive()
-                if (active.cancelled.get()) {
-                    throw CancellationException("Download cancelled")
-                }
-
-                if (partFile.length() < minValidBytes) {
-                    throw IOException("downloaded file too small (${partFile.length()} bytes)")
-                }
-
-                val finalFile = File(audioDir, "${recording.id}.${recording.fileExtension}")
-                if (active.cancelled.get()) {
-                    throw CancellationException("Download cancelled")
-                }
-                if (finalFile.exists()) finalFile.delete()
-                if (!partFile.renameTo(finalFile)) {
-                    partFile.copyTo(finalFile, overwrite = true)
-                    partFile.delete()
-                }
-
-                if (active.cancelled.get()) {
-                    finalFile.delete()
-                    throw CancellationException("Download cancelled")
-                }
-
-                _states.update { it + (recording.id to AdhanDownloadState.Downloaded) }
-            } catch (ce: CancellationException) {
-                partFile.delete()
-                _states.update { current ->
-                    if (activeDownloads[recording.id] === active || current[recording.id] is AdhanDownloadState.Downloading) {
-                        current - recording.id
+                } catch (ce: CancellationException) {
+                    cleanupPartQuietly(partFile)
+                    clearOwnedState(recordingId, opId)
+                    throw ce
+                } catch (e: Error) {
+                    cleanupPartQuietly(partFile)
+                    clearOwnedState(recordingId, opId)
+                    throw e
+                } catch (e: Exception) {
+                    cleanupPartQuietly(partFile)
+                    if (active.cancelled.get() || !isOwner(recordingId, opId)) {
+                        clearOwnedState(recordingId, opId)
                     } else {
-                        current
+                        Log.e(TAG, "download: FAILED id=$recordingId op=$opId", e)
+                        updateOwnedState(
+                            recordingId,
+                            opId,
+                            AdhanDownloadState.Failed(e.message ?: "unknown error"),
+                        )
+                    }
+                } finally {
+                    active.call.set(null)
+                    synchronized(downloadLock) {
+                        activeDownloads.remove(recordingId, active)
+                        unregisterJobLocked(recordingId, downloadJob)
                     }
                 }
-                throw ce
-            } catch (e: Exception) {
-                partFile.delete()
-                if (active.cancelled.get()) {
-                    _states.update { it - recording.id }
-                } else {
-                    Log.e(TAG, "download: FAILED id=${recording.id}", e)
-                    _states.update {
-                        it + (recording.id to AdhanDownloadState.Failed(e.message ?: "unknown error"))
-                    }
-                }
-            } finally {
-                activeDownloads.remove(recording.id, active)
             }
+
+            downloadJob.invokeOnCompletion { cause ->
+                synchronized(downloadLock) {
+                    if (cause != null && latestGeneration[recordingId] == opId) {
+                        if (_states.value[recordingId] is AdhanDownloadState.Downloading) {
+                            _states.update { it - recordingId }
+                        }
+                    }
+                    activeDownloads.remove(recordingId, active)
+                    unregisterJobLocked(recordingId, downloadJob)
+                }
+            }
+
+            active.job.set(downloadJob)
+            registerJobLocked(recordingId, downloadJob)
+            jobToStart = downloadJob
         }
-        active.job.set(job)
-        if (active.cancelled.get()) {
-            active.cancel()
-        }
+
+        jobToStart.start()
     }
 
     fun cancelDownload(recordingId: String) {
-        val active = activeDownloads.remove(recordingId)
-        active?.cancel()
-        _states.update { it - recordingId }
-        File(audioDir, "$recordingId.part").delete()
+        val activeToCancel: ActiveDownload?
+        val jobToStart: Job
+
+        synchronized(downloadLock) {
+            val opId = nextOperationId.incrementAndGet()
+            val active = activeDownloads.remove(recordingId)
+            active?.markCancelled()
+            val previousJobs = snapshotPriorJobsLocked(recordingId)
+            latestGeneration[recordingId] = opId
+            _states.update { it - recordingId }
+
+            lateinit var cancelJob: Job
+            cancelJob = scope.launch(ioDispatcher, start = CoroutineStart.LAZY) {
+                for (prev in previousJobs) {
+                    prev.join()
+                }
+                currentCoroutineContext().ensureActive()
+                mutexFor(recordingId).withLock {
+                    currentCoroutineContext().ensureActive()
+                    if (isOwner(recordingId, opId)) {
+                        cleanupOrphanedPartFiles(recordingId)
+                    }
+                }
+            }
+
+            cancelJob.invokeOnCompletion {
+                synchronized(downloadLock) {
+                    unregisterJobLocked(recordingId, cancelJob)
+                }
+            }
+
+            registerJobLocked(recordingId, cancelJob)
+            activeToCancel = active
+            jobToStart = cancelJob
+        }
+
+        activeToCancel?.cancelResources()
+        jobToStart.start()
     }
 
     fun deleteDownload(recordingId: String) {
-        cancelDownload(recordingId)
-        audioDir.listFiles()?.forEach { file ->
-            if (file.name.startsWith("$recordingId.")) file.delete()
+        val activeToCancel: ActiveDownload?
+        val jobToStart: Job
+
+        synchronized(downloadLock) {
+            val opId = nextOperationId.incrementAndGet()
+            val active = activeDownloads.remove(recordingId)
+            active?.markCancelled()
+            val previousJobs = snapshotPriorJobsLocked(recordingId)
+            latestGeneration[recordingId] = opId
+            deleteTrackers[recordingId] = DeleteTrackerEntry(opId, DeleteLifecycleStatus.PENDING)
+            _states.update { it + (recordingId to AdhanDownloadState.NotDownloaded) }
+
+            lateinit var deleteJob: Job
+            deleteJob = scope.launch(ioDispatcher, start = CoroutineStart.LAZY) {
+                try {
+                    for (prev in previousJobs) {
+                        prev.join()
+                    }
+                    currentCoroutineContext().ensureActive()
+                    mutexFor(recordingId).withLock {
+                        synchronized(downloadLock) {
+                            if (deleteTrackers[recordingId]?.opId == opId) {
+                                deleteTrackers[recordingId] = DeleteTrackerEntry(
+                                    opId,
+                                    DeleteLifecycleStatus.IN_PROGRESS,
+                                )
+                            }
+                        }
+                        currentCoroutineContext().ensureActive()
+
+                        var allDeleted = true
+                        val targets = try {
+                            existingAudioDir()
+                                ?.listFiles()
+                                ?.filter { it.name.startsWith("$recordingId.") }
+                                .orEmpty()
+                        } catch (ce: CancellationException) {
+                            throw ce
+                        } catch (e: Error) {
+                            throw e
+                        } catch (t: Throwable) {
+                            Log.e(TAG, "deleteDownload: failed listing files for $recordingId", t)
+                            allDeleted = false
+                            emptyList()
+                        }
+
+                        for (file in targets) {
+                            currentCoroutineContext().ensureActive()
+                            onBeforeDeleteFile?.invoke(file)
+                            currentCoroutineContext().ensureActive()
+                            if (!deleteTargetFile(file)) {
+                                allDeleted = false
+                            }
+                        }
+
+                        if (allDeleted) {
+                            val remaining = try {
+                                existingAudioDir()
+                                    ?.listFiles()
+                                    ?.filter { it.name.startsWith("$recordingId.") && fileExists(it) }
+                                    .orEmpty()
+                            } catch (ce: CancellationException) {
+                                throw ce
+                            } catch (e: Error) {
+                                throw e
+                            } catch (t: Throwable) {
+                                Log.e(TAG, "deleteDownload: failed verifying files for $recordingId", t)
+                                allDeleted = false
+                                emptyList()
+                            }
+                            if (remaining.isNotEmpty()) {
+                                allDeleted = false
+                            }
+                        }
+
+                        if (allDeleted) {
+                            currentCoroutineContext().ensureActive()
+                            synchronized(downloadLock) {
+                                if (deleteTrackers[recordingId]?.opId == opId) {
+                                    deleteTrackers.remove(recordingId)
+                                }
+                                if (latestGeneration[recordingId] == opId) {
+                                    _states.update { it - recordingId }
+                                }
+                            }
+                        } else {
+                            synchronized(downloadLock) {
+                                if (deleteTrackers[recordingId]?.opId == opId) {
+                                    deleteTrackers[recordingId] = DeleteTrackerEntry(
+                                        opId,
+                                        DeleteLifecycleStatus.FAILED,
+                                    )
+                                }
+                                if (latestGeneration[recordingId] == opId) {
+                                    _states.update { it + (recordingId to AdhanDownloadState.NotDownloaded) }
+                                }
+                            }
+                        }
+                    }
+                } catch (ce: CancellationException) {
+                    synchronized(downloadLock) {
+                        if (deleteTrackers[recordingId]?.opId == opId) {
+                            deleteTrackers[recordingId] = DeleteTrackerEntry(
+                                opId,
+                                DeleteLifecycleStatus.CANCELLED,
+                            )
+                        }
+                        if (latestGeneration[recordingId] == opId) {
+                            _states.update { it + (recordingId to AdhanDownloadState.NotDownloaded) }
+                        }
+                    }
+                    throw ce
+                } catch (e: Error) {
+                    synchronized(downloadLock) {
+                        if (deleteTrackers[recordingId]?.opId == opId) {
+                            deleteTrackers[recordingId] = DeleteTrackerEntry(
+                                opId,
+                                DeleteLifecycleStatus.FAILED,
+                            )
+                        }
+                        if (latestGeneration[recordingId] == opId) {
+                            _states.update { it + (recordingId to AdhanDownloadState.NotDownloaded) }
+                        }
+                    }
+                    throw e
+                }
+            }
+
+            deleteJob.invokeOnCompletion { cause ->
+                synchronized(downloadLock) {
+                    val entry = deleteTrackers[recordingId]
+                    if (entry != null && entry.opId == opId) {
+                        if (entry.status == DeleteLifecycleStatus.PENDING ||
+                            entry.status == DeleteLifecycleStatus.IN_PROGRESS
+                        ) {
+                            val terminalStatus = if (cause is CancellationException) {
+                                DeleteLifecycleStatus.CANCELLED
+                            } else {
+                                DeleteLifecycleStatus.FAILED
+                            }
+                            deleteTrackers[recordingId] = entry.copy(status = terminalStatus)
+                            if (latestGeneration[recordingId] == opId) {
+                                _states.update { it + (recordingId to AdhanDownloadState.NotDownloaded) }
+                            }
+                        }
+                    }
+                    unregisterJobLocked(recordingId, deleteJob)
+                }
+            }
+
+            registerJobLocked(recordingId, deleteJob)
+            activeToCancel = active
+            jobToStart = deleteJob
         }
-        _states.update { it - recordingId }
+
+        activeToCancel?.cancelResources()
+        jobToStart.start()
     }
 
     internal fun isDownloadActive(recordingId: String): Boolean =
         activeDownloads.containsKey(recordingId)
 
+    internal fun hasPendingOperation(recordingId: String): Boolean =
+        synchronized(downloadLock) {
+            activeDownloads.containsKey(recordingId) ||
+                operationJobs[recordingId]?.any { it.isActive } == true
+        }
+
+    internal fun deleteStatusForTest(recordingId: String): DeleteLifecycleStatus? =
+        synchronized(downloadLock) { deleteTrackers[recordingId]?.status }
+
+    internal fun currentOperationJobForTest(recordingId: String): Job? =
+        synchronized(downloadLock) { operationJobs[recordingId]?.lastOrNull() }
+
+    internal suspend fun awaitPendingOperation(recordingId: String) {
+        while (true) {
+            val pending = synchronized(downloadLock) {
+                operationJobs[recordingId]?.toList().orEmpty()
+            }
+            if (pending.isEmpty()) return
+            for (job in pending) {
+                job.join()
+            }
+            val remaining = synchronized(downloadLock) {
+                operationJobs[recordingId]?.toList().orEmpty()
+            }
+            if (remaining.isEmpty() || remaining == pending) return
+        }
+    }
+
+    private fun snapshotPriorJobsLocked(recordingId: String): List<Job> =
+        operationJobs[recordingId]?.toList().orEmpty()
+
+    private fun registerJobLocked(recordingId: String, job: Job) {
+        operationJobs.getOrPut(recordingId) { LinkedHashSet() }.add(job)
+    }
+
+    private fun unregisterJobLocked(recordingId: String, job: Job) {
+        val jobs = operationJobs[recordingId] ?: return
+        jobs.remove(job)
+        if (jobs.isEmpty()) {
+            operationJobs.remove(recordingId)
+        }
+    }
+
+    private fun updateOwnedState(
+        recordingId: String,
+        opId: Long,
+        state: AdhanDownloadState,
+    ): Boolean = synchronized(downloadLock) {
+        if (latestGeneration[recordingId] != opId) return false
+        _states.update { it + (recordingId to state) }
+        true
+    }
+
+    private fun clearOwnedState(recordingId: String, opId: Long) {
+        synchronized(downloadLock) {
+            if (latestGeneration[recordingId] == opId) {
+                _states.update { it - recordingId }
+            }
+        }
+    }
+
+    private fun deleteTargetFile(file: File): Boolean = try {
+        if (!fileExists(file)) {
+            true
+        } else {
+            deleteFile(file) && !fileExists(file)
+        }
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (e: Error) {
+        throw e
+    } catch (t: Throwable) {
+        Log.e(TAG, "deleteDownload: failed deleting ${file.name}", t)
+        false
+    }
+
+    private fun cleanupPartQuietly(partFile: File?) {
+        if (partFile == null) return
+        try {
+            if (partFile.exists()) {
+                partFile.delete()
+            }
+        } catch (e: Error) {
+            throw e
+        } catch (t: Throwable) {
+            Log.e(TAG, "download: failed cleaning part file ${partFile.name}", t)
+        }
+    }
+
+    private fun cleanupOrphanedPartFiles(recordingId: String) {
+        val parts = try {
+            existingAudioDir()
+                ?.listFiles()
+                ?.filter {
+                    it.isFile &&
+                        (it.name == "$recordingId.part" ||
+                            (it.name.startsWith("$recordingId.") && it.name.endsWith(".part")))
+                }
+                .orEmpty()
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: Error) {
+            throw e
+        } catch (t: Throwable) {
+            Log.e(TAG, "cleanupOrphanedPartFiles: failed listing for $recordingId", t)
+            emptyList()
+        }
+        parts.forEach { deleteTargetFile(it) }
+    }
+
     private companion object {
         const val TAG = "AdhanDownload"
         const val DEFAULT_MIN_VALID_BYTES = 100_000L
+        const val MIN_EXISTING_BYTES = 1_000L
     }
 }
