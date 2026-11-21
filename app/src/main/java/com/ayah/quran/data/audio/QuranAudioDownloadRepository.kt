@@ -294,23 +294,35 @@ class QuranAudioDownloadRepository internal constructor(
 
                             val global = firstGlobal + ayahInSurah - 1
                             val url = QuranAudioCatalog.ayahUrl(edition, global)
-                            fetchTo(url, part, active, id, opId)
+                            val expectedBytes = fetchTo(url, part, active, id, opId)
 
                             currentCoroutineContext().ensureActive()
                             if (active.cancelled.get() || !isOwner(id, opId)) {
-                                part.delete()
+                                cleanupFileQuietly(part)
                                 throw CancellationException("Download cancelled")
                             }
 
-                            if (!part.isFile || part.length() <= minAyahBytes) {
-                                part.delete()
-                                throw IOException("ayah file too small (${part.length()}B) $url")
+                            val partLength = part.length()
+                            if (!part.isFile || partLength != expectedBytes || partLength <= minAyahBytes) {
+                                cleanupFileQuietly(part)
+                                throw IOException("ayah file invalid (expected ${expectedBytes}B, on disk ${partLength}B) $url")
                             }
                             if (!part.renameTo(local)) {
-                                part.copyTo(local, overwrite = true)
-                                part.delete()
+                                try {
+                                    part.copyTo(local, overwrite = true)
+                                } catch (t: Throwable) {
+                                    cleanupFileQuietly(local, t)
+                                    throw t
+                                }
+                                cleanupFileQuietly(part)
                             }
                             currentPart = null
+
+                            val promotedLength = local.length()
+                            if (!local.isFile || promotedLength != expectedBytes || promotedLength <= minAyahBytes) {
+                                cleanupFileQuietly(local)
+                                throw IOException("promoted ayah file invalid (expected ${expectedBytes}B, on disk ${promotedLength}B) $url")
+                            }
 
                             done++
                             updateOwnedProgress(
@@ -338,11 +350,15 @@ class QuranAudioDownloadRepository internal constructor(
                         }
                     }
                 } catch (ce: CancellationException) {
-                    currentPart?.delete()
+                    cleanupFileQuietly(currentPart, ce)
                     clearOwnedState(id, opId)
                     throw ce
+                } catch (e: Error) {
+                    cleanupFileQuietly(currentPart, e)
+                    clearOwnedState(id, opId)
+                    throw e
                 } catch (e: Exception) {
-                    currentPart?.delete()
+                    cleanupFileQuietly(currentPart, e)
                     if (active.cancelled.get() || !isOwner(id, opId)) {
                         clearOwnedState(id, opId)
                     } else {
@@ -499,13 +515,31 @@ class QuranAudioDownloadRepository internal constructor(
             ?.forEach { it.delete() }
     }
 
+    private fun cleanupFileQuietly(file: File?, primary: Throwable? = null) {
+        if (file == null) return
+        try {
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (t: Throwable) {
+            if (primary != null) {
+                primary.addSuppressed(t)
+                Log.e(TAG, "downloadSurah: failed cleaning file ${file.name}", t)
+            } else if (t is Error) {
+                throw t
+            } else {
+                Log.e(TAG, "downloadSurah: failed cleaning file ${file.name}", t)
+            }
+        }
+    }
+
     private suspend fun fetchTo(
         url: String,
         target: File,
         active: ActiveSurahDownload,
         id: String,
         opId: Long,
-    ) {
+    ): Long {
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", UA)
@@ -516,6 +550,8 @@ class QuranAudioDownloadRepository internal constructor(
             call.cancel()
             throw CancellationException("Download cancelled")
         }
+        var contentLength = -1L
+        var totalBytesRead = 0L
         try {
             call.execute().use { response ->
                 currentCoroutineContext().ensureActive()
@@ -524,23 +560,62 @@ class QuranAudioDownloadRepository internal constructor(
                 }
                 if (!response.isSuccessful) throw IOException("HTTP ${response.code} $url")
                 val body = response.body ?: throw IOException("empty body $url")
+                contentLength = body.contentLength()
+                if (contentLength == 0L) {
+                    throw IOException("empty ayah body (Content-Length: 0) $url")
+                }
+                if (contentLength > 0L && contentLength <= minAyahBytes) {
+                    throw IOException("declared ayah file too small (${contentLength}B) $url")
+                }
                 body.byteStream().use { input ->
                     target.outputStream().use { output ->
                         val buffer = ByteArray(64_000)
+                        var consecutiveZeroReads = 0
                         while (true) {
                             currentCoroutineContext().ensureActive()
                             if (active.cancelled.get() || !isOwner(id, opId)) {
                                 throw CancellationException("Download cancelled")
                             }
                             val read = input.read(buffer)
-                            if (read <= 0) break
+                            if (read < 0) break
+                            if (read == 0) {
+                                consecutiveZeroReads++
+                                if (consecutiveZeroReads >= MAX_CONSECUTIVE_ZERO_READS) {
+                                    throw IOException("stalled ayah download stream $url")
+                                }
+                                continue
+                            }
+                            consecutiveZeroReads = 0
+                            totalBytesRead += read
+                            if (contentLength > 0L && totalBytesRead > contentLength) {
+                                throw IOException("ayah download exceeded Content-Length (expected ${contentLength}B, received >${contentLength}B) $url")
+                            }
                             output.write(buffer, 0, read)
                         }
                     }
                 }
             }
+
+            currentCoroutineContext().ensureActive()
+            if (active.cancelled.get() || !isOwner(id, opId)) {
+                throw CancellationException("Download cancelled")
+            }
+            if (totalBytesRead <= 0L) {
+                throw IOException("downloaded ayah file is empty $url")
+            }
+            if (contentLength > 0L && totalBytesRead != contentLength) {
+                throw IOException("truncated ayah download (expected ${contentLength}B, received ${totalBytesRead}B) $url")
+            }
+            val writtenBytes = target.length()
+            if (!target.isFile || writtenBytes != totalBytesRead) {
+                throw IOException("written ayah file size mismatch (expected ${totalBytesRead}B, on disk ${writtenBytes}B) $url")
+            }
+            if (writtenBytes <= minAyahBytes) {
+                throw IOException("ayah file too small (${writtenBytes}B) $url")
+            }
+            return totalBytesRead
         } catch (t: Throwable) {
-            target.delete()
+            cleanupFileQuietly(target, t)
             throw t
         } finally {
             active.call.compareAndSet(call, null)
@@ -551,5 +626,6 @@ class QuranAudioDownloadRepository internal constructor(
         const val TAG = "QuranAudio"
         const val UA = "Mozilla/5.0 (Linux; Android) Ayah-Quran-App"
         const val DEFAULT_MIN_AYAH_BYTES = 1_000L
+        const val MAX_CONSECUTIVE_ZERO_READS = 5
     }
 }

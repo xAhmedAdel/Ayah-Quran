@@ -205,6 +205,8 @@ class AdhanDownloadRepository internal constructor(
                             throw CancellationException("Download cancelled")
                         }
 
+                        var contentLength = -1L
+                        var total = 0L
                         try {
                             call.execute().use { response ->
                                 currentCoroutineContext().ensureActive()
@@ -216,22 +218,39 @@ class AdhanDownloadRepository internal constructor(
                                     throw IOException("HTTP ${response.code} downloading adhan")
                                 }
                                 val body = response.body ?: throw IOException("empty body")
-                                val contentLength = body.contentLength()
-                                var total = 0L
+                                contentLength = body.contentLength()
+                                if (contentLength == 0L) {
+                                    throw IOException("empty adhan body (Content-Length: 0)")
+                                }
+                                if (contentLength > 0L && contentLength < minValidBytes) {
+                                    throw IOException("declared adhan file too small ($contentLength bytes)")
+                                }
                                 var lastEmit = 0f
                                 body.byteStream().use { input ->
                                     targetPart.outputStream().use { output ->
                                         val buf = ByteArray(64_000)
+                                        var consecutiveZeroReads = 0
                                         while (true) {
                                             currentCoroutineContext().ensureActive()
                                             if (active.cancelled.get() || !isOwner(recordingId, opId)) {
                                                 throw CancellationException("Download cancelled")
                                             }
                                             val read = input.read(buf)
-                                            if (read <= 0) break
-                                            output.write(buf, 0, read)
+                                            if (read < 0) break
+                                            if (read == 0) {
+                                                consecutiveZeroReads++
+                                                if (consecutiveZeroReads >= MAX_CONSECUTIVE_ZERO_READS) {
+                                                    throw IOException("stalled adhan download stream")
+                                                }
+                                                continue
+                                            }
+                                            consecutiveZeroReads = 0
                                             total += read
-                                            if (contentLength > 0) {
+                                            if (contentLength > 0L && total > contentLength) {
+                                                throw IOException("adhan download exceeded Content-Length (expected $contentLength bytes, received >$contentLength)")
+                                            }
+                                            output.write(buf, 0, read)
+                                            if (contentLength > 0L) {
                                                 val progress = (total.toFloat() / contentLength).coerceIn(0f, 1f)
                                                 if (progress - lastEmit >= 0.1f || progress >= 1f) {
                                                     lastEmit = progress
@@ -258,8 +277,18 @@ class AdhanDownloadRepository internal constructor(
                             throw CancellationException("Download cancelled")
                         }
 
-                        if (!fileExists(targetPart) || targetPart.length() < minValidBytes) {
-                            throw IOException("downloaded file too small (${targetPart.length()} bytes)")
+                        if (total <= 0L) {
+                            throw IOException("downloaded adhan file is empty")
+                        }
+                        if (contentLength > 0L && total != contentLength) {
+                            throw IOException("truncated adhan download (expected $contentLength bytes, received $total)")
+                        }
+                        val writtenPartBytes = targetPart.length()
+                        if (!fileExists(targetPart) || writtenPartBytes != total) {
+                            throw IOException("written adhan part size mismatch (expected $total bytes, on disk $writtenPartBytes)")
+                        }
+                        if (writtenPartBytes < minValidBytes) {
+                            throw IOException("downloaded file too small ($writtenPartBytes bytes)")
                         }
 
                         val finalFile = fileOf(dir, recording)
@@ -289,16 +318,17 @@ class AdhanDownloadRepository internal constructor(
                             try {
                                 targetPart.copyTo(finalFile, overwrite = true)
                             } catch (t: Throwable) {
-                                cleanupPartQuietly(finalFile)
+                                cleanupPartQuietly(finalFile, t)
                                 throw t
                             }
                             cleanupPartQuietly(targetPart)
                         }
                         partFile = null
 
-                        if (!fileExists(finalFile) || finalFile.length() < minValidBytes) {
+                        val finalBytes = finalFile.length()
+                        if (!fileExists(finalFile) || finalBytes != total || finalBytes < minValidBytes) {
                             cleanupPartQuietly(finalFile)
-                            throw IOException("replaced adhan file invalid (${finalFile.length()} bytes)")
+                            throw IOException("replaced adhan file invalid (expected $total bytes, on disk $finalBytes)")
                         }
 
                         val coroutineActive = currentCoroutineContext().isActive
@@ -319,15 +349,15 @@ class AdhanDownloadRepository internal constructor(
                         }
                     }
                 } catch (ce: CancellationException) {
-                    cleanupPartQuietly(partFile)
+                    cleanupPartQuietly(partFile, ce)
                     clearOwnedState(recordingId, opId)
                     throw ce
                 } catch (e: Error) {
-                    cleanupPartQuietly(partFile)
+                    cleanupPartQuietly(partFile, e)
                     clearOwnedState(recordingId, opId)
                     throw e
                 } catch (e: Exception) {
-                    cleanupPartQuietly(partFile)
+                    cleanupPartQuietly(partFile, e)
                     if (active.cancelled.get() || !isOwner(recordingId, opId)) {
                         clearOwnedState(recordingId, opId)
                     } else {
@@ -647,16 +677,21 @@ class AdhanDownloadRepository internal constructor(
         false
     }
 
-    private fun cleanupPartQuietly(partFile: File?) {
+    private fun cleanupPartQuietly(partFile: File?, primary: Throwable? = null) {
         if (partFile == null) return
         try {
             if (partFile.exists()) {
                 partFile.delete()
             }
-        } catch (e: Error) {
-            throw e
         } catch (t: Throwable) {
-            Log.e(TAG, "download: failed cleaning part file ${partFile.name}", t)
+            if (primary != null) {
+                primary.addSuppressed(t)
+                Log.e(TAG, "download: failed cleaning part file ${partFile.name}", t)
+            } else if (t is Error) {
+                throw t
+            } else {
+                Log.e(TAG, "download: failed cleaning part file ${partFile.name}", t)
+            }
         }
     }
 
@@ -685,5 +720,6 @@ class AdhanDownloadRepository internal constructor(
         const val TAG = "AdhanDownload"
         const val DEFAULT_MIN_VALID_BYTES = 100_000L
         const val MIN_EXISTING_BYTES = 1_000L
+        const val MAX_CONSECUTIVE_ZERO_READS = 5
     }
 }

@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 class AdhanDownloadCancellationTest {
 
@@ -885,6 +886,486 @@ class AdhanDownloadCancellationTest {
             assertEquals(AdhanDownloadState.Downloaded, repo.states.value[recording.id])
             assertNotNull(repo.downloadedFile(recording.id))
             assertArrayEquals(payloadA, repo.downloadedFile(recording.id)!!.readBytes())
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    private fun customAdhanBody(
+        declaredLength: Long,
+        payload: ByteArray,
+        readInvoked: AtomicBoolean? = null,
+    ): ResponseBody = object : ResponseBody() {
+        override fun contentType() = "audio/ogg".toMediaType()
+        override fun contentLength() = declaredLength
+        override fun source(): BufferedSource = object : Source {
+            private var offset = 0
+            override fun read(sink: Buffer, byteCount: Long): Long {
+                readInvoked?.set(true)
+                if (offset >= payload.size) return -1L
+                val count = minOf(byteCount, (payload.size - offset).toLong()).toInt()
+                sink.write(payload, offset, count)
+                offset += count
+                return count.toLong()
+            }
+
+            override fun timeout(): Timeout = Timeout.NONE
+            override fun close() = Unit
+        }.buffer()
+    }
+
+    @Test
+    fun truncatedAdhanAboveMinValidBytesIsRejectedAndRetrySucceedsWithoutOverwritingValidFile() = runBlocking {
+        val mode = AtomicInteger(0)
+        val fullPayload = ByteArray(4_096) { 0x31 }
+        val truncatedPayload = ByteArray(2_048) { 0x19 }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val body = when (mode.get()) {
+                    0 -> customAdhanBody(declaredLength = 4_096L, payload = truncatedPayload)
+                    1 -> customAdhanBody(declaredLength = 4_096L, payload = fullPayload)
+                    else -> customAdhanBody(declaredLength = 8_192L, payload = truncatedPayload)
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_truncated_retry")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertFalse(File(audioDir, "${recording.id}.ogg").exists())
+            assertFalse(hasAnyPartFiles(audioDir))
+
+            mode.set(1)
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertEquals(AdhanDownloadState.Downloaded, repo.states.value[recording.id])
+            assertTrue(repo.isDownloaded(recording))
+            val downloaded = repo.downloadedFile(recording.id)
+            assertNotNull(downloaded)
+            assertEquals(4_096L, downloaded!!.length())
+            assertArrayEquals(fullPayload, downloaded.readBytes())
+            assertFalse(hasAnyPartFiles(audioDir))
+
+            mode.set(2)
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            val preserved = File(audioDir, "${recording.id}.ogg")
+            assertTrue(preserved.isFile)
+            assertArrayEquals(fullPayload, preserved.readBytes())
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun overReadBeyondDeclaredContentLengthIsRejectedAndCleansPart() = runBlocking {
+        val audioDir = File(tempFolder.root, "adhan_over_read")
+        val readCalls = AtomicInteger(0)
+        val partBytesAtClose = AtomicLong(-1L)
+        val chunks = listOf(
+            ByteArray(2_048) { 0x41 },
+            ByteArray(1_024) { 0x42 },
+            ByteArray(1_024) { 0x43 },
+            ByteArray(1_024) { 0x44 },
+        )
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val body = object : ResponseBody() {
+                    private val cachedSource = object : Source {
+                        private var index = 0
+                        override fun read(sink: Buffer, byteCount: Long): Long {
+                            readCalls.incrementAndGet()
+                            if (index >= chunks.size) return -1L
+                            val chunk = chunks[index++]
+                            sink.write(chunk)
+                            return chunk.size.toLong()
+                        }
+
+                        override fun timeout(): Timeout = Timeout.NONE
+                        override fun close() {
+                            val part = audioDir.listFiles()?.singleOrNull { it.name.endsWith(".part") }
+                            partBytesAtClose.compareAndSet(-1L, part?.length() ?: -1L)
+                        }
+                    }.buffer()
+
+                    override fun contentType() = "audio/ogg".toMediaType()
+                    override fun contentLength() = 2_048L
+                    override fun source(): BufferedSource = cachedSource
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            }
+            .build()
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertEquals(2, readCalls.get())
+            assertEquals(2_048L, partBytesAtClose.get())
+            assertFalse(File(audioDir, "${recording.id}.ogg").exists())
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun explicitZeroContentLengthIsRejectedAndCleansPart() = runBlocking {
+        val readInvoked = AtomicBoolean(false)
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(
+                        customAdhanBody(
+                            declaredLength = 0L,
+                            payload = ByteArray(2_048) { 0x4E },
+                            readInvoked = readInvoked,
+                        ),
+                    )
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_zero_len")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertFalse(readInvoked.get())
+            assertFalse(File(audioDir, "${recording.id}.ogg").exists())
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun declaredContentLengthBelowMinValidBytesFailsFastWithoutReadingStream() = runBlocking {
+        val readInvoked = AtomicBoolean(false)
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(
+                        customAdhanBody(
+                            declaredLength = 512L,
+                            payload = ByteArray(512) { 0x51 },
+                            readInvoked = readInvoked,
+                        ),
+                    )
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_fail_fast_small")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertFalse(readInvoked.get())
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun unknownContentLengthAboveMinValidBytesSucceeds() = runBlocking {
+        val payload = ByteArray(2_048) { 0x61 }
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(customAdhanBody(declaredLength = -1L, payload = payload))
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_unknown_len_ok")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertEquals(AdhanDownloadState.Downloaded, repo.states.value[recording.id])
+            assertTrue(repo.isDownloaded(recording))
+            val file = repo.downloadedFile(recording.id)
+            assertNotNull(file)
+            assertEquals(2_048L, file!!.length())
+            assertArrayEquals(payload, file.readBytes())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun unknownContentLengthBelowMinValidBytesIsRejected() = runBlocking {
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(customAdhanBody(declaredLength = -1L, payload = ByteArray(512) { 0x71 }))
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_unknown_len_small")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun truncatedRecoveryDownloadAfterFailedDeletePreservesDeleteTrackerAndHidesOldFile() = runBlocking {
+        val audioDir = File(tempFolder.root, "adhan_truncated_after_failed_delete").apply { mkdirs() }
+        val oldPayload = ByteArray(2_048) { 0x0A }
+        val existingFile = File(audioDir, "${recording.id}.ogg").apply { writeBytes(oldPayload) }
+        val allowDelete = AtomicBoolean(false)
+        val returnFull = AtomicBoolean(false)
+        val fullPayload = ByteArray(4_096) { 0x5B }
+        val truncatedPayload = ByteArray(2_048) { 0x2C }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val body = if (returnFull.get()) {
+                    customAdhanBody(declaredLength = 4_096L, payload = fullPayload)
+                } else {
+                    customAdhanBody(declaredLength = 4_096L, payload = truncatedPayload)
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            }
+            .build()
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+                deleteFile = { file ->
+                    if (file.name == existingFile.name && !allowDelete.get()) {
+                        false
+                    } else {
+                        file.delete()
+                    }
+                },
+            )
+
+            repo.deleteDownload(recording.id)
+            repo.awaitPendingOperation(recording.id)
+
+            assertEquals(DeleteLifecycleStatus.FAILED, repo.deleteStatusForTest(recording.id))
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertTrue(repo.states.value[recording.id] is AdhanDownloadState.Failed)
+            assertEquals(DeleteLifecycleStatus.FAILED, repo.deleteStatusForTest(recording.id))
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
+            assertArrayEquals(oldPayload, existingFile.readBytes())
+            assertFalse(hasAnyPartFiles(audioDir))
+
+            allowDelete.set(true)
+            returnFull.set(true)
+            repo.download(recording)
+            repo.awaitPendingOperation(recording.id)
+
+            assertEquals(AdhanDownloadState.Downloaded, repo.states.value[recording.id])
+            assertNull(repo.deleteStatusForTest(recording.id))
+            assertTrue(repo.isDownloaded(recording))
+            val recovered = repo.downloadedFile(recording.id)
+            assertNotNull(recovered)
+            assertArrayEquals(fullPayload, recovered!!.readBytes())
+            assertFalse(hasAnyPartFiles(audioDir))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun cancelProducingEarlyEofClearsStateAndNeverReportsTruncationFailure() = runBlocking {
+        val firstChunkWritten = CountDownLatch(1)
+        val allowEof = CountDownLatch(1)
+        val observedStates = Collections.synchronizedList(mutableListOf<AdhanDownloadState?>())
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val body = object : ResponseBody() {
+                    override fun contentType() = "audio/ogg".toMediaType()
+                    override fun contentLength() = 20_000L
+                    override fun source(): BufferedSource = object : Source {
+                        private var sent = false
+                        override fun read(sink: Buffer, byteCount: Long): Long {
+                            if (!sent) {
+                                sent = true
+                                sink.write(ByteArray(2_048) { 0x33 })
+                                return 2_048L
+                            }
+                            firstChunkWritten.countDown()
+                            allowEof.await(5, TimeUnit.SECONDS)
+                            return -1L
+                        }
+
+                        override fun timeout(): Timeout = Timeout.NONE
+                        override fun close() = Unit
+                    }.buffer()
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            }
+            .build()
+
+        val audioDir = File(tempFolder.root, "adhan_cancel_early_eof")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = AdhanDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minValidBytes = 1_024L,
+            )
+
+            val collector = scope.launch {
+                repo.states.collect { map -> observedStates.add(map[recording.id]) }
+            }
+
+            repo.download(recording)
+            assertTrue(firstChunkWritten.await(5, TimeUnit.SECONDS))
+
+            repo.cancelDownload(recording.id)
+            allowEof.countDown()
+            repo.awaitPendingOperation(recording.id)
+            collector.cancel()
+
+            assertNull(repo.states.value[recording.id])
+            assertTrue(observedStates.none { it is AdhanDownloadState.Failed })
+            assertFalse(repo.isDownloaded(recording))
+            assertNull(repo.downloadedFile(recording.id))
             assertFalse(hasAnyPartFiles(audioDir))
         } finally {
             scope.cancel()

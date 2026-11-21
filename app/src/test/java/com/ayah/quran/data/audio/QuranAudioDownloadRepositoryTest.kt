@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class QuranAudioDownloadRepositoryTest {
@@ -805,6 +806,422 @@ class QuranAudioDownloadRepositoryTest {
             assertEquals(3, repo.downloadedCounts.value[surah108Key])
             assertEquals(3, repo.downloadedAyahCount(edition.editionId, 108, 3))
             assertTrue(repo.isDownloaded(edition.editionId, 108, 3))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    private fun customAudioBody(
+        declaredLength: Long,
+        payload: ByteArray,
+        readInvoked: AtomicBoolean? = null,
+    ): ResponseBody = object : ResponseBody() {
+        override fun contentType() = "audio/mpeg".toMediaType()
+        override fun contentLength() = declaredLength
+        override fun source(): BufferedSource = object : Source {
+            private var offset = 0
+            override fun read(sink: Buffer, byteCount: Long): Long {
+                readInvoked?.set(true)
+                if (offset >= payload.size) return -1L
+                val count = minOf(byteCount, (payload.size - offset).toLong()).toInt()
+                sink.write(payload, offset, count)
+                offset += count
+                return count.toLong()
+            }
+
+            override fun timeout(): Timeout = Timeout.NONE
+            override fun close() = Unit
+        }.buffer()
+    }
+
+    @Test
+    fun truncatedAyahAboveMinBytesIsRejectedAndRetryDownloadsCleanly() = runBlocking {
+        val truncateAyah3 = AtomicBoolean(true)
+        val requestCounts = ConcurrentHashMap<Int, AtomicInteger>()
+        val fullPayload = ByteArray(4_096) { 0x3C }
+        val truncatedPayload = ByteArray(2_048) { 0x11 }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val url = chain.request().url.toString()
+                val globalAyah = url.substringAfterLast("/").substringBefore(".").toInt()
+                requestCounts.computeIfAbsent(globalAyah) { AtomicInteger(0) }.incrementAndGet()
+
+                val body = if (globalAyah == 3 && truncateAyah3.get()) {
+                    customAudioBody(declaredLength = 4_096L, payload = truncatedPayload)
+                } else {
+                    customAudioBody(declaredLength = 4_096L, payload = fullPayload)
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_truncated_and_retry")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:1"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 1)
+            repo.awaitPendingOperation(edition.editionId, 1)
+
+            val surahDir = File(File(audioDir, edition.editionId), "1")
+            assertTrue(repo.states.value[key] is QuranAudioState.Failed)
+            assertTrue(File(surahDir, "1.mp3").isFile)
+            assertTrue(File(surahDir, "2.mp3").isFile)
+            assertFalse(File(surahDir, "3.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
+            assertEquals(2, repo.downloadedAyahCount(edition.editionId, 1, 7))
+            assertNull(repo.localAyahFile(edition.editionId, 1, 3))
+
+            truncateAyah3.set(false)
+            val done = CountDownLatch(1)
+            repo.downloadSurah(edition, surah = 1) {
+                done.countDown()
+            }
+            repo.awaitPendingOperation(edition.editionId, 1)
+
+            assertTrue(done.await(5, TimeUnit.SECONDS))
+            assertEquals(QuranAudioState.Downloaded, repo.states.value[key])
+            assertEquals(7, repo.downloadedAyahCount(edition.editionId, 1, 7))
+            assertEquals(4_096L, File(surahDir, "3.mp3").length())
+            assertEquals(1, requestCounts[1]?.get())
+            assertEquals(1, requestCounts[2]?.get())
+            assertEquals(2, requestCounts[3]?.get())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun overReadBeyondDeclaredContentLengthIsRejectedAndCleansPart() = runBlocking {
+        val audioDir = File(tempFolder.root, "quran_over_read")
+        val surahDir = File(File(audioDir, edition.editionId), "108")
+        val readCalls = AtomicInteger(0)
+        val partBytesAtClose = AtomicLong(-1L)
+        val chunks = listOf(
+            ByteArray(2_048) { 0x44 },
+            ByteArray(1_024) { 0x45 },
+            ByteArray(1_024) { 0x46 },
+            ByteArray(1_024) { 0x47 },
+        )
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val body = object : ResponseBody() {
+                    private val cachedSource = object : Source {
+                        private var index = 0
+                        override fun read(sink: Buffer, byteCount: Long): Long {
+                            readCalls.incrementAndGet()
+                            if (index >= chunks.size) return -1L
+                            val chunk = chunks[index++]
+                            sink.write(chunk)
+                            return chunk.size.toLong()
+                        }
+
+                        override fun timeout(): Timeout = Timeout.NONE
+                        override fun close() {
+                            val part = surahDir.listFiles()?.singleOrNull { it.name.endsWith(".part") }
+                            partBytesAtClose.compareAndSet(-1L, part?.length() ?: -1L)
+                        }
+                    }.buffer()
+
+                    override fun contentType() = "audio/mpeg".toMediaType()
+                    override fun contentLength() = 2_048L
+                    override fun source(): BufferedSource = cachedSource
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            })
+            .build()
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 108)
+            repo.awaitPendingOperation(edition.editionId, 108)
+
+            assertTrue(repo.states.value[key] is QuranAudioState.Failed)
+            assertEquals(2, readCalls.get())
+            assertEquals(2_048L, partBytesAtClose.get())
+            assertFalse(File(surahDir, "1.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
+            assertEquals(0, repo.downloadedAyahCount(edition.editionId, 108, 3))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun explicitZeroContentLengthIsRejectedAndCleansPart() = runBlocking {
+        val readInvoked = AtomicBoolean(false)
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(
+                        customAudioBody(
+                            declaredLength = 0L,
+                            payload = ByteArray(2_048) { 0x4E },
+                            readInvoked = readInvoked,
+                        ),
+                    )
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_zero_len")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 108)
+            repo.awaitPendingOperation(edition.editionId, 108)
+
+            val surahDir = File(File(audioDir, edition.editionId), "108")
+            assertTrue(repo.states.value[key] is QuranAudioState.Failed)
+            assertFalse(readInvoked.get())
+            assertFalse(File(surahDir, "1.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun declaredContentLengthAtOrBelowMinAyahBytesFailsFastWithoutReadingStream() = runBlocking {
+        val readInvoked = AtomicBoolean(false)
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(
+                        customAudioBody(
+                            declaredLength = 512L,
+                            payload = ByteArray(512) { 0x55 },
+                            readInvoked = readInvoked,
+                        ),
+                    )
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_fail_fast_small")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 108)
+            repo.awaitPendingOperation(edition.editionId, 108)
+
+            val surahDir = File(File(audioDir, edition.editionId), "108")
+            assertTrue(repo.states.value[key] is QuranAudioState.Failed)
+            assertFalse(readInvoked.get())
+            assertFalse(File(surahDir, "1.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun unknownContentLengthAboveMinBytesSucceeds() = runBlocking {
+        val payload = ByteArray(2_048) { 0x66 }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(customAudioBody(declaredLength = -1L, payload = payload))
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_unknown_len_ok")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 108)
+            repo.awaitPendingOperation(edition.editionId, 108)
+
+            val surahDir = File(File(audioDir, edition.editionId), "108")
+            assertEquals(QuranAudioState.Downloaded, repo.states.value[key])
+            assertEquals(3, repo.downloadedAyahCount(edition.editionId, 108, 3))
+            for (ayah in 1..3) {
+                assertEquals(2_048L, File(surahDir, "$ayah.mp3").length())
+            }
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun unknownContentLengthBelowMinBytesIsRejected() = runBlocking {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(customAudioBody(declaredLength = -1L, payload = ByteArray(512) { 0x77 }))
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_unknown_len_small")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            repo.downloadSurah(edition, surah = 108)
+            repo.awaitPendingOperation(edition.editionId, 108)
+
+            val surahDir = File(File(audioDir, edition.editionId), "108")
+            assertTrue(repo.states.value[key] is QuranAudioState.Failed)
+            assertFalse(File(surahDir, "1.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun cancelProducingEarlyEofClearsStateAndNeverReportsTruncationFailure() = runBlocking {
+        val firstChunkWritten = CountDownLatch(1)
+        val allowEof = CountDownLatch(1)
+        val observedStates = Collections.synchronizedList(mutableListOf<QuranAudioState?>())
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val body = object : ResponseBody() {
+                    override fun contentType() = "audio/mpeg".toMediaType()
+                    override fun contentLength() = 10_000L
+                    override fun source(): BufferedSource = object : Source {
+                        private var sent = false
+                        override fun read(sink: Buffer, byteCount: Long): Long {
+                            if (!sent) {
+                                sent = true
+                                sink.write(ByteArray(2_048) { 0x22 })
+                                return 2_048L
+                            }
+                            firstChunkWritten.countDown()
+                            allowEof.await(5, TimeUnit.SECONDS)
+                            return -1L
+                        }
+
+                        override fun timeout(): Timeout = Timeout.NONE
+                        override fun close() = Unit
+                    }.buffer()
+                }
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(body)
+                    .build()
+            })
+            .build()
+
+        val audioDir = File(tempFolder.root, "quran_cancel_early_eof")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val key = "${edition.editionId}:108"
+        try {
+            val repo = QuranAudioDownloadRepository(
+                audioDirProvider = { audioDir },
+                client = client,
+                scope = scope,
+                ioDispatcher = Dispatchers.IO,
+                minAyahBytes = 1_000L,
+                autoScanOnInit = false,
+            )
+
+            val collector = scope.launch {
+                repo.states.collect { map -> observedStates.add(map[key]) }
+            }
+
+            repo.downloadSurah(edition, surah = 108)
+            assertTrue(firstChunkWritten.await(5, TimeUnit.SECONDS))
+
+            repo.cancelDownload(edition.editionId, 108)
+            allowEof.countDown()
+            repo.awaitPendingOperation(edition.editionId, 108)
+            collector.cancel()
+
+            val surahDir = File(File(audioDir, edition.editionId), "108")
+            assertNull(repo.states.value[key])
+            assertTrue(observedStates.none { it is QuranAudioState.Failed })
+            assertFalse(File(surahDir, "1.mp3").exists())
+            assertTrue(surahDir.listFiles()?.none { it.name.endsWith(".part") } == true)
         } finally {
             scope.cancel()
         }
