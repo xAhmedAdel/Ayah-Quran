@@ -220,7 +220,7 @@
     <string name="settings_updates_install">Install update</string>
     <string name="settings_updates_error">Update check failed: %1$s</string>
     <string name="settings_licenses">Licenses</string>
-    <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz/page layout data from the Madani mushaf via quran.com. Amiri and IBM Plex Sans Arabic typefaces under SIL Open Font License 1.1. Adhan recordings (Wikimedia Commons): CC0 by Adam-synagda; Sabah Fakhri recording (public domain); CC BY-SA 4.0 by Andrewler and Mahfoudou. City data from GeoNames (CC-BY 4.0). Morning &amp; Evening Adhkar structured data © 2024 Seen Arabic (Seen-Arabic/Morning-And-Evening-Adhkar-DB, MIT License). Fortress of the Muslim (Hisn al-Muslim) by Sheikh Sa\'id ibn Ali ibn Wahf al-Qahtani (free non-commercial unaltered redistribution; structured Arabic JSON via asellam/HisnElMuslim, MIT License © 2021 Abdellah SELLAM). Forty Hadith of Imam An-Nawawi Arabic dataset via fawazahmed0/hadith-api (The Unlicense / Public Domain). Thematic Hadith translations &amp; explanations © HadeethEnc.com (Encyclopedia of Translated Prophetic Hadiths, dataset version hadeethenc-api-v1-2026-11-20, distributed unmodified with source attribution).</string>
+    <string name="settings_licenses_summary">Quran text (Uthmani) © Tanzil Project, Creative Commons Attribution 3.0 — tanzil.net. Juz, page, and Rub\' al-Hizb layout data from the Madani mushaf via quran.com (cross-checked against Tanzil metadata). Amiri and IBM Plex Sans Arabic typefaces under SIL Open Font License 1.1. Adhan recordings (Wikimedia Commons): CC0 by Adam-synagda; Sabah Fakhri recording (public domain); CC BY-SA 4.0 by Andrewler and Mahfoudou. City data from GeoNames (CC-BY 4.0). Morning &amp; Evening Adhkar structured data © 2024 Seen Arabic (Seen-Arabic/Morning-And-Evening-Adhkar-DB, MIT License). Fortress of the Muslim (Hisn al-Muslim) by Sheikh Sa\'id ibn Ali ibn Wahf al-Qahtani (free non-commercial unaltered redistribution; structured Arabic JSON via asellam/HisnElMuslim, MIT License © 2021 Abdellah SELLAM). Forty Hadith of Imam An-Nawawi Arabic dataset via fawazahmed0/hadith-api (The Unlicense / Public Domain). Thematic Hadith translations &amp; explanations © HadeethEnc.com (Encyclopedia of Translated Prophetic Hadiths, dataset version hadeethenc-api-v1-2026-11-20, distributed unmodified with source attribution).</string>
 
     <!-- Prayer times & adhan (Phase 12) -->
     <string name="nav_prayer">Prayer</string>
@@ -403,10 +403,19 @@
     <string name="settings_licenses_view">View</string>
     <string name="quran_tab_surahs">Surahs</string>
     <string name="quran_tab_juz">Juz</string>
+    <string name="quran_tab_rub">Rub\'</string>
     <string name="quran_tab_bookmarks">Bookmarks</string>
+    <string name="quran_tab_bookmarks_short">Saved</string>
+    <string name="quran_tab_bookmarks_count_cd">Bookmarks (%1$d)</string>
     <string name="quran_page_badge">p. %1$d</string>
     <string name="quran_page_range_badge">p. %1$s</string>
     <string name="quran_juz_title">Juz %1$d</string>
+    <string name="quran_rub_title">Rub\' %1$d</string>
+    <string name="quran_rub_hizb_start">Hizb %1$d (Start) · Juz %2$d</string>
+    <string name="quran_rub_hizb_quarter">Hizb %1$d (1/4) · Juz %2$d</string>
+    <string name="quran_rub_hizb_half">Hizb %1$d (1/2) · Juz %2$d</string>
+    <string name="quran_rub_hizb_three_quarters">Hizb %1$d (3/4) · Juz %2$d</string>
+    <string name="quran_rub_row_cd">Rub %1$d, %2$s, Surah %3$s, Ayah %4$d, Page %5$d</string>
     <string name="bookmarks_remove">Remove bookmark</string>
     <string name="bookmarks_removed_snackbar">Bookmark removed</string>
     <string name="action_undo">Undo</string>

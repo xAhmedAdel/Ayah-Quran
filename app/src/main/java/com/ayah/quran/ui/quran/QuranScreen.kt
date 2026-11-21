@@ -3,12 +3,15 @@ package com.ayah.quran.ui.quran
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,9 +50,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -90,12 +99,53 @@ fun QuranScreen(
     viewModel: QuranViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var activeTab by rememberSaveable { mutableStateOf(QuranHubTab.SURAHS) }
-    var showPageJumpDialog by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val removedMessage = stringResource(R.string.bookmarks_removed_snackbar)
     val undoLabel = stringResource(R.string.action_undo)
+
+    QuranHubContent(
+        state = state,
+        onQueryChange = viewModel::onQueryChange,
+        onRetryImport = viewModel::retryImport,
+        onOpenSurah = onOpenSurah,
+        onOpenAyah = onOpenAyah,
+        onOpenPage = onOpenPage,
+        onRemoveBookmark = { surahId, ayahNumber ->
+            viewModel.removeBookmark(surahId, ayahNumber)
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
+                    message = removedMessage,
+                    actionLabel = undoLabel,
+                    duration = SnackbarDuration.Short,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.undoLastRemove()
+                }
+            }
+        },
+        snackbarHostState = snackbarHostState,
+        modifier = modifier,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun QuranHubContent(
+    state: QuranListUiState,
+    onQueryChange: (String) -> Unit,
+    onRetryImport: () -> Unit,
+    onOpenSurah: (Int) -> Unit,
+    onOpenAyah: (surahId: Int, ayahNumber: Int) -> Unit,
+    onOpenPage: (page: Int) -> Unit,
+    onRemoveBookmark: (surahId: Int, ayahNumber: Int) -> Unit,
+    modifier: Modifier = Modifier,
+    initialTab: QuranHubTab = QuranHubTab.SURAHS,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+) {
+    var activeTab by rememberSaveable { mutableStateOf(initialTab) }
+    var showPageJumpDialog by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -137,7 +187,7 @@ fun QuranScreen(
         ) {
             AyahSearchBar(
                 query = state.query,
-                onQueryChange = viewModel::onQueryChange,
+                onQueryChange = onQueryChange,
                 placeholder = stringResource(R.string.quran_search_hint),
                 modifier = Modifier
                     .padding(horizontal = AyahSpacing.m)
@@ -158,7 +208,7 @@ fun QuranScreen(
             when {
                 state.importError != null -> ImportFailedState(
                     reason = state.importError.orEmpty(),
-                    onRetry = viewModel::retryImport,
+                    onRetry = onRetryImport,
                 )
 
                 state.isLoading -> ImportingState(progress = state.importProgress)
@@ -177,23 +227,18 @@ fun QuranScreen(
                         onOpenJuz = { juz -> onOpenAyah(juz.startSurahId, juz.startAyahNumber) },
                     )
 
+                    QuranHubTab.RUB -> RubList(
+                        rubList = state.rubList,
+                        query = state.query,
+                        onOpenRub = { rub -> onOpenAyah(rub.startSurahId, rub.startAyahNumber) },
+                    )
+
                     QuranHubTab.BOOKMARKS -> BookmarksListContent(
                         bookmarks = state.bookmarks,
                         isLoading = false,
                         onOpenAyah = onOpenAyah,
                         onRemoveBookmark = { bookmark ->
-                            viewModel.removeBookmark(bookmark.surahId, bookmark.ayahNumber)
-                            scope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                val result = snackbarHostState.showSnackbar(
-                                    message = removedMessage,
-                                    actionLabel = undoLabel,
-                                    duration = SnackbarDuration.Short,
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    viewModel.undoLastRemove()
-                                }
-                            }
+                            onRemoveBookmark(bookmark.surahId, bookmark.ayahNumber)
                         },
                     )
                 }
@@ -212,6 +257,13 @@ fun QuranScreen(
     }
 }
 
+private data class QuranTabItem(
+    val tab: QuranHubTab,
+    val label: String,
+    val accessibleLabel: String,
+    val testTag: String,
+)
+
 @Composable
 private fun QuranHubTabSwitcher(
     selectedTab: QuranHubTab,
@@ -219,60 +271,91 @@ private fun QuranHubTabSwitcher(
     onSelectTab: (QuranHubTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bookmarksLabel = if (bookmarkCount > 0) {
-        "${stringResource(R.string.quran_tab_bookmarks)} (${AyahNumbering.isolateLtr(bookmarkCount.toString())})"
+    val surahsLabel = stringResource(R.string.quran_tab_surahs)
+    val juzLabel = stringResource(R.string.quran_tab_juz)
+    val rubLabel = stringResource(R.string.quran_tab_rub)
+    val bookmarksFull = stringResource(R.string.quran_tab_bookmarks)
+    val bookmarksShort = stringResource(R.string.quran_tab_bookmarks_short)
+    val bookmarksAccessible = if (bookmarkCount > 0) {
+        stringResource(R.string.quran_tab_bookmarks_count_cd, bookmarkCount)
     } else {
-        stringResource(R.string.quran_tab_bookmarks)
+        bookmarksFull
     }
-    val tabs = listOf(
-        Triple(QuranHubTab.SURAHS, stringResource(R.string.quran_tab_surahs), "quran_tab_surahs"),
-        Triple(QuranHubTab.JUZ, stringResource(R.string.quran_tab_juz), "quran_tab_juz"),
-        Triple(QuranHubTab.BOOKMARKS, bookmarksLabel, "quran_tab_bookmarks"),
-    )
+    val fontScale = LocalDensity.current.fontScale
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(AyahRadii.pill),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Row(
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val compactBookmarks = maxWidth < 350.dp || fontScale > 1.15f
+        val hideCountInLabel = (maxWidth < 340.dp && fontScale > 1.2f) || fontScale > 1.35f
+        val bookmarksBase = if (compactBookmarks) bookmarksShort else bookmarksFull
+        val bookmarksVisible = if (bookmarkCount > 0 && !hideCountInLabel) {
+            "$bookmarksBase (${AyahNumbering.isolateLtr(bookmarkCount.toString())})"
+        } else {
+            bookmarksBase
+        }
+        val tabs = listOf(
+            QuranTabItem(QuranHubTab.SURAHS, surahsLabel, surahsLabel, "quran_tab_surahs"),
+            QuranTabItem(QuranHubTab.JUZ, juzLabel, juzLabel, "quran_tab_juz"),
+            QuranTabItem(QuranHubTab.RUB, rubLabel, rubLabel, "quran_tab_rub"),
+            QuranTabItem(QuranHubTab.BOOKMARKS, bookmarksVisible, bookmarksAccessible, "quran_tab_bookmarks"),
+        )
+
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(AyahSpacing.xxs),
-            horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xxs),
+                .testTag("quran_tab_switcher"),
+            shape = RoundedCornerShape(AyahRadii.pill),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(AyahTouchTargets.hairline, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            tabs.forEach { (tab, label, tag) ->
-                val selected = tab == selectedTab
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(AyahRadii.pill))
-                        .clickable { onSelectTab(tab) }
-                        .testTag(tag),
-                    shape = RoundedCornerShape(AyahRadii.pill),
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        Color.Transparent
-                    },
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.onPrimary
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(AyahSpacing.xxs),
+                horizontalArrangement = Arrangement.spacedBy(AyahSpacing.xxs),
+            ) {
+                tabs.forEach { item ->
+                    val isSelected = item.tab == selectedTab
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 40.dp)
+                            .clip(RoundedCornerShape(AyahRadii.pill))
+                            .semantics {
+                                role = Role.Tab
+                                selected = isSelected
+                                contentDescription = item.accessibleLabel
+                            }
+                            .clickable { onSelectTab(item.tab) }
+                            .testTag(item.testTag),
+                        shape = RoundedCornerShape(AyahRadii.pill),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            Color.Transparent
                         },
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(
-                            horizontal = AyahSpacing.s,
-                            vertical = AyahSpacing.s,
-                        ),
-                    )
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(
+                                horizontal = AyahSpacing.xs,
+                                vertical = AyahSpacing.s,
+                            ),
+                        ) {
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -547,6 +630,137 @@ private fun JuzRow(
                         fontFamily = QuranTextFontFamily,
                         fontSize = 18.sp,
                         lineHeight = 30.sp,
+                        textDirection = TextDirection.Rtl,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RubList(
+    rubList: List<RubSummary>,
+    query: String,
+    onOpenRub: (RubSummary) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (rubList.isEmpty()) {
+        val message = if (query.isNotBlank()) {
+            stringResource(R.string.quran_search_no_results, query)
+        } else {
+            stringResource(R.string.quran_list_empty)
+        }
+        EmptyState(
+            icon = Icons.Outlined.SearchOff,
+            title = stringResource(R.string.quran_tab_rub),
+            message = message,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(AyahSpacing.xl),
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("quran_rub_list"),
+    ) {
+        items(rubList, key = { it.rubNumber }) { rub ->
+            RubRow(
+                rub = rub,
+                onClick = { onOpenRub(rub) },
+            )
+            AyahInsetDivider(startIndent = 70.dp)
+        }
+    }
+}
+
+@Composable
+private fun RubRow(
+    rub: RubSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isArabic = AppLocale.isArabic
+    val surahDisplay = if (isArabic) rub.startSurahNameAr else rub.startSurahNameTransliterated
+    val divisionMetaRes = when (rub.quarterInHizb) {
+        1 -> R.string.quran_rub_hizb_start
+        2 -> R.string.quran_rub_hizb_quarter
+        3 -> R.string.quran_rub_hizb_half
+        else -> R.string.quran_rub_hizb_three_quarters
+    }
+    val divisionMeta = stringResource(divisionMetaRes, rub.hizbNumber, rub.juzNumber)
+    val rowDescription = stringResource(
+        R.string.quran_rub_row_cd,
+        rub.rubNumber,
+        divisionMeta,
+        surahDisplay,
+        rub.startAyahNumber,
+        rub.startPage,
+    )
+
+    Row(
+        modifier = modifier
+            .semantics(mergeDescendants = true) {
+                contentDescription = rowDescription
+            }
+            .clickable(onClick = onClick)
+            .fillMaxWidth()
+            .padding(horizontal = AyahSpacing.m, vertical = AyahSpacing.sm)
+            .testTag("rub_row_${rub.rubNumber}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AyahSpacing.m),
+    ) {
+        SurahNumberEmblem(
+            number = rub.rubNumber,
+            tint = MaterialTheme.colorScheme.secondary,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(AyahSpacing.xxs),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.quran_rub_title, rub.rubNumber),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                AyahStatusBadge(
+                    label = stringResource(R.string.quran_page_badge, rub.startPage),
+                    kind = AyahStatusKind.NEUTRAL,
+                )
+            }
+            Text(
+                text = "$surahDisplay · ${AyahNumbering.isolateLtr("${rub.startSurahId}:${rub.startAyahNumber}")}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = divisionMeta,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (rub.startAyahText.isNotBlank()) {
+                Text(
+                    text = rub.startAyahText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = QuranTextFontFamily,
+                        fontSize = 18.sp,
+                        lineHeight = 28.sp,
                         textDirection = TextDirection.Rtl,
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

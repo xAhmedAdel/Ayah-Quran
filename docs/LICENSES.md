@@ -14,10 +14,22 @@
   Full OFL text stored at `docs/licenses/ibm-plex-sans-arabic/OFL.txt`;
   official source: https://github.com/google/fonts/tree/main/ofl/ibmplexsansarabic
 
-## Quran text (to be completed at Phase 2 import)
+## Quran text & structural division metadata
 
-- Dataset source, revision, checksum, and license will be recorded in
-  `docs/QURAN_DATA.md` and surfaced in Settings → Licenses.
+- **Tanzil Quran Text (Uthmani, Version 1.1)** (`app/src/main/assets/quran/quran-uthmani.txt`)
+  and **Tanzil Quran Metadata** (`app/src/main/assets/quran/quran-data.xml`) —
+  Copyright (C) 2007–2026 Tanzil Project (`https://tanzil.net`), licensed under
+  **Creative Commons Attribution 3.0 Unported (CC-BY 3.0)**. Text is bundled
+  unmodified with its copyright header preserved.
+- **Madani Mushaf Page, Juz & Rub' al-Hizb Structural Layout**
+  (`app/src/main/assets/quran/ayah-metrics.txt`,
+  `app/src/main/assets/quran/rub-el-hizb.txt`) — Derived from the public
+  `quran.com` API v4 (KFGQPC Madani Mushaf layout) and cross-checked against
+  Tanzil full metadata (`v1.0`, CC-BY). Because `quran.com` does not publish a
+  distinct formal license header for its structural verse-mapping endpoints,
+  only factual numeric index boundaries are stored, with full provenance,
+  SHA-256 checksums, and the Rub' 106 (`15:49` vs Tanzil `15:50`) audit note
+  recorded in `docs/QURAN_DATA.md` and surfaced in Settings → Licenses.
 
 ## Open-source libraries
 

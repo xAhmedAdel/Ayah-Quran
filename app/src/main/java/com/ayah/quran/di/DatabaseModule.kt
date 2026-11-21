@@ -32,6 +32,11 @@ object DatabaseModule {
         com.ayah.quran.data.quran.QuranTextParser()
 
     @Provides
+    @Singleton
+    fun provideRubElHizbParser(): com.ayah.quran.data.quran.RubElHizbParser =
+        com.ayah.quran.data.quran.RubElHizbParser()
+
+    @Provides
     fun provideSurahDao(database: AyahDatabase): SurahDao = database.surahDao()
 
     @Provides

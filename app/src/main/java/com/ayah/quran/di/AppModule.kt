@@ -1,5 +1,6 @@
 package com.ayah.quran.di
 
+import com.ayah.quran.data.quran.AssetRubElHizbCatalog
 import com.ayah.quran.data.quran.BookmarkRepositoryImpl
 import com.ayah.quran.data.quran.QuranRepositoryImpl
 import com.ayah.quran.data.quran.ReadingProgressRepositoryImpl
@@ -12,6 +13,7 @@ import com.ayah.quran.data.wallpapers.WallpaperSettingsRepositoryImpl
 import com.ayah.quran.domain.repository.BookmarkRepository
 import com.ayah.quran.domain.repository.QuranRepository
 import com.ayah.quran.domain.repository.ReadingProgressRepository
+import com.ayah.quran.domain.repository.RubElHizbCatalog
 import com.ayah.quran.domain.repository.AudioPreferencesRepository
 import com.ayah.quran.domain.repository.ReaderPreferencesRepository
 import com.ayah.quran.domain.repository.UserPreferencesRepository
@@ -40,6 +42,12 @@ abstract class AppModule {
     abstract fun bindQuranRepository(
         implementation: QuranRepositoryImpl,
     ): QuranRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRubElHizbCatalog(
+        implementation: AssetRubElHizbCatalog,
+    ): RubElHizbCatalog
 
     @Binds
     @Singleton

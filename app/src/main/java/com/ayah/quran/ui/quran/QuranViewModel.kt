@@ -6,6 +6,7 @@ import com.ayah.quran.domain.model.BookmarkedAyah
 import com.ayah.quran.domain.model.QuranImportState
 import com.ayah.quran.domain.model.Surah
 import com.ayah.quran.domain.usecase.GetAyahUseCase
+import com.ayah.quran.domain.usecase.GetRubElHizbListUseCase
 import com.ayah.quran.domain.usecase.GetSurahUseCase
 import com.ayah.quran.domain.usecase.ImportQuranIfNeededUseCase
 import com.ayah.quran.domain.usecase.ObserveBookmarkedAyahsUseCase
@@ -29,6 +30,7 @@ import javax.inject.Inject
 enum class QuranHubTab {
     SURAHS,
     JUZ,
+    RUB,
     BOOKMARKS,
 }
 
@@ -43,6 +45,19 @@ data class JuzSummary(
     val endPage: Int,
 )
 
+data class RubSummary(
+    val rubNumber: Int,
+    val hizbNumber: Int,
+    val quarterInHizb: Int,
+    val juzNumber: Int,
+    val startSurahId: Int,
+    val startAyahNumber: Int,
+    val startSurahNameAr: String,
+    val startSurahNameTransliterated: String,
+    val startAyahText: String,
+    val startPage: Int,
+)
+
 data class QuranListUiState(
     val isLoading: Boolean = true,
     val importProgress: Float? = null,
@@ -50,6 +65,7 @@ data class QuranListUiState(
     val surahs: List<Surah> = emptyList(),
     val surahStartPages: Map<Int, Int> = emptyMap(),
     val juzList: List<JuzSummary> = emptyList(),
+    val rubList: List<RubSummary> = emptyList(),
     val bookmarks: List<BookmarkedAyah> = emptyList(),
     val totalBookmarkCount: Int = 0,
     val query: String = "",
@@ -67,13 +83,13 @@ class QuranViewModel @Inject constructor(
     private val pageForSurahStart: PageForSurahStartUseCase,
     private val getAyah: GetAyahUseCase,
     private val getSurah: GetSurahUseCase,
+    private val getRubElHizbList: GetRubElHizbListUseCase,
     private val toggleBookmark: ToggleBookmarkUseCase,
 ) : ViewModel() {
 
     private val queryFlow = MutableStateFlow("")
     private val retryTrigger = MutableStateFlow(0)
-    private var cachedStartPages: Map<Int, Int>? = null
-    private var cachedJuzList: List<JuzSummary>? = null
+    private var cachedMetadata: QuranMetadata? = null
     private var lastRemovedBookmark: Pair<Int, Int>? = null
 
     private val metadataFlow = observeQuranImportState()
@@ -81,7 +97,7 @@ class QuranViewModel @Inject constructor(
             if (state is QuranImportState.Completed) {
                 flow { emit(loadMetadata()) }
             } else {
-                flowOf(emptyMap<Int, Int>() to emptyList<JuzSummary>())
+                flowOf(QuranMetadata())
             }
         }
 
@@ -93,14 +109,15 @@ class QuranViewModel @Inject constructor(
         .flatMapLatest { (importState, query, _) ->
             when (importState) {
                 is QuranImportState.Completed ->
-                    searchSurahs(query).combine(metadataFlow) { surahs, (pages, juzs) ->
+                    searchSurahs(query).combine(metadataFlow) { surahs, metadata ->
                         QuranListUiState(
                             isLoading = false,
                             importProgress = null,
                             importError = null,
                             surahs = surahs,
-                            surahStartPages = pages,
-                            juzList = filterJuz(juzs, query),
+                            surahStartPages = metadata.startPages,
+                            juzList = filterJuz(metadata.juzList, query),
+                            rubList = filterRub(metadata.rubList, query),
                             query = query,
                         )
                     }
@@ -159,20 +176,24 @@ class QuranViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadMetadata(): Pair<Map<Int, Int>, List<JuzSummary>> {
-        val existingPages = cachedStartPages
-        val existingJuz = cachedJuzList
-        if (existingPages != null && existingJuz != null) {
-            return existingPages to existingJuz
-        }
+    private suspend fun loadMetadata(): QuranMetadata {
+        cachedMetadata?.let { return it }
         val pages = buildMap {
             for (surahId in 1..TOTAL_SURAHS) {
                 pageForSurahStart(surahId)?.let { put(surahId, it) }
             }
         }
+        val surahCache = HashMap<Int, Surah?>()
+        suspend fun resolveSurah(surahId: Int): Surah? =
+            if (surahCache.containsKey(surahId)) {
+                surahCache[surahId]
+            } else {
+                getSurah(surahId).also { surahCache[surahId] = it }
+            }
+
         val rawJuz = JUZ_STARTS.map { (juz, surahId, ayahNumber) ->
             val ayah = getAyah(surahId, ayahNumber)
-            val surah = getSurah(surahId)
+            val surah = resolveSurah(surahId)
             JuzSeed(
                 juzNumber = juz,
                 startSurahId = surahId,
@@ -201,9 +222,32 @@ class QuranViewModel @Inject constructor(
                 endPage = endPage,
             )
         }
-        if (pages.isNotEmpty()) cachedStartPages = pages
-        if (juzList.isNotEmpty()) cachedJuzList = juzList
-        return pages to juzList
+        val rubEntries = runCatching { getRubElHizbList() }.getOrDefault(emptyList())
+        val rubList = rubEntries.map { rub ->
+            val ayah = getAyah(rub.startSurahId, rub.startAyahNumber)
+            val surah = resolveSurah(rub.startSurahId)
+            RubSummary(
+                rubNumber = rub.rubNumber,
+                hizbNumber = rub.hizbNumber,
+                quarterInHizb = rub.quarterInHizb,
+                juzNumber = rub.juzNumber,
+                startSurahId = rub.startSurahId,
+                startAyahNumber = rub.startAyahNumber,
+                startSurahNameAr = surah?.nameArabic ?: "",
+                startSurahNameTransliterated = surah?.nameTransliterated ?: "Surah ${rub.startSurahId}",
+                startAyahText = ayah?.textUthmani ?: "",
+                startPage = ayah?.page ?: 1,
+            )
+        }
+        val metadata = QuranMetadata(
+            startPages = pages,
+            juzList = juzList,
+            rubList = rubList,
+        )
+        if (pages.isNotEmpty() && juzList.isNotEmpty()) {
+            cachedMetadata = metadata
+        }
+        return metadata
     }
 
     private fun filterJuz(list: List<JuzSummary>, query: String): List<JuzSummary> {
@@ -217,6 +261,26 @@ class QuranViewModel @Inject constructor(
         }
     }
 
+    private fun filterRub(list: List<RubSummary>, query: String): List<RubSummary> {
+        val q = query.trim()
+        if (q.isEmpty()) return list
+        return list.filter { rub ->
+            rub.rubNumber.toString().contains(q) ||
+                rub.hizbNumber.toString().contains(q) ||
+                rub.juzNumber.toString().contains(q) ||
+                rub.startSurahNameAr.contains(q) ||
+                rub.startSurahNameTransliterated.contains(q, ignoreCase = true) ||
+                rub.startAyahText.contains(q) ||
+                "${rub.startSurahId}:${rub.startAyahNumber}".contains(q) ||
+                "الربع ${rub.rubNumber}".contains(q) ||
+                "الحزب ${rub.hizbNumber}".contains(q) ||
+                "الجزء ${rub.juzNumber}".contains(q) ||
+                "rub ${rub.rubNumber}".contains(q, ignoreCase = true) ||
+                "hizb ${rub.hizbNumber}".contains(q, ignoreCase = true) ||
+                "juz ${rub.juzNumber}".contains(q, ignoreCase = true)
+        }
+    }
+
     private fun filterBookmarks(list: List<BookmarkedAyah>, query: String): List<BookmarkedAyah> {
         val q = query.trim()
         if (q.isEmpty()) return list
@@ -227,6 +291,12 @@ class QuranViewModel @Inject constructor(
                 "${bm.surahId}:${bm.ayahNumber}".contains(q)
         }
     }
+
+    private data class QuranMetadata(
+        val startPages: Map<Int, Int> = emptyMap(),
+        val juzList: List<JuzSummary> = emptyList(),
+        val rubList: List<RubSummary> = emptyList(),
+    )
 
     private data class JuzSeed(
         val juzNumber: Int,

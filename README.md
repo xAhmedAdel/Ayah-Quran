@@ -118,9 +118,9 @@ All 50 screenshots below (`25` Light Mode and `25` Dark Mode pairs) were capture
 ## Features
 
 ### 1. Holy Quran & Reading Experience
-- **604-Page Madani Mushaf Reader**: True horizontal RTL page-by-page Mushaf layout (`صفحة 1 من 604`) mapped to standard Madani page boundaries (`page-boundaries.json`), with ornamental Surah headers, automatic Bismillah rendering (excluding Surah At-Tawbah), and inline tap-to-select Ayah highlighting.
+- **604-Page Madani Mushaf Reader**: True horizontal RTL page-by-page Mushaf layout (`صفحة 1 من 604`) mapped to standard Madani page boundaries (`ayah-metrics.txt` & `quran-data.xml`), with ornamental Surah headers, automatic Bismillah rendering (excluding Surah At-Tawbah), and inline tap-to-select Ayah highlighting.
 - **Continuous Surah Reader**: Toggle instantaneously between paginated Mushaf mode and continuous vertical Surah scrolling (`وضع القراءة المستمرة`).
-- **30-Juz & 114-Surah Navigation**: Browse by Surah (`السور`), Juz (`الأجزاء`), or Saved Bookmarks (`المحفوظات`), or jump directly to any Madani Mushaf page (`1–604`).
+- **114-Surah, 30-Juz & 240-Rub' Navigation**: Browse by Surah (`السور`), Juz (`الأجزاء`), Rub' al-Hizb (`الأرباع`), or Saved Bookmarks (`المحفوظات`), or jump directly to any Madani Mushaf page (`1–604`).
 - **Diacritic-Insensitive Arabic Search**: Normalizes Arabic Tashkeel, Alef variants (`أ إ آ ٱ -> ا`), and Ta-Marbuta so users can search Surahs and verses effortlessly without typing diacritics.
 - **Bookmarks & Reading Streak Tracking**: Bookmark any Ayah with a single tap, resume exactly where you left off from the Home card, and track weekly reading consistency.
 
@@ -262,7 +262,7 @@ Ayah-Quran/
 │   │   │   ├── assets/
 │   │   │   │   ├── companion/             # Bundled JSON seeds: Adhkar, Duas, Tasbih presets, Hadith library
 │   │   │   │   ├── prayer/cities.json     # Bundled GeoNames offline world cities catalog (1,000+ cities)
-│   │   │   │   └── quran/                 # Tanzil Uthmani v1.1 text + Surah, 604-Page & 30-Juz boundaries
+│   │   │   │   └── quran/                 # quran-uthmani.txt (Tanzil Uthmani v1.1), quran-data.xml, ayah-metrics.txt, rub-el-hizb.txt
 │   │   │   ├── java/com/ayah/quran/
 │   │   │   │   ├── core/                  # Room v4 database, migrations, DataStore, Material 3 design system
 │   │   │   │   ├── data/                  # Repositories, seeders, Media3 player, downloader, updater
@@ -365,20 +365,20 @@ Run the unit test suite at any time with:
 Ayah is built upon verified open Islamic datasets, typography, and recordings. Full legal texts and checksums are documented in [docs/QURAN_DATA.md](docs/QURAN_DATA.md), [docs/LICENSES.md](docs/LICENSES.md), [docs/ADHAN-AUDIO-SOURCES.md](docs/ADHAN-AUDIO-SOURCES.md), and [docs/ADHAN-AUDIO-LICENSES.md](docs/ADHAN-AUDIO-LICENSES.md).
 
 ### 1. Quranic Text — Tanzil Project (CC-BY 3.0)
-- **Source**: [Tanzil.net](https://tanzil.net) — Uthmani Script (`quran-uthmani.txt`, Version `1.1`)
+- **Source**: [Tanzil.net](https://tanzil.net) — Tanzil Quran Text, **Uthmani, Version 1.1** (February 2021, `quran-uthmani.txt`) and Tanzil Quran metadata (`quran-data.xml`)
 - **Copyright**: Copyright (C) 2007–2026 Tanzil Project
 - **License**: [Creative Commons Attribution 3.0 Unported (CC-BY 3.0)](https://creativecommons.org/licenses/by/3.0/)
 - **Integrity Policy**: The Quranic text is bundled unmodified (`114` Surahs, `6,236` numbered Ayahs) and verified by SHA-256 checksums:
 
-| Bundled Asset | SHA-256 Checksum |
-| :--- | :--- |
-| `app/src/main/assets/quran/quran-uthmani.txt` | `468f220be208fb489dc9aa1fd7dfa7ec1fc37ab6bc0eff5fffa4ece0ffe363e5` |
-| `app/src/main/assets/quran/surah-metadata.json` | `d1924b4ef0604c8f22949db50daed5ac70f21deed31b2627b2083281d7db0e13` |
-| `app/src/main/assets/quran/page-boundaries.json` | `51aa5293bc78f25da9c17782ecbe99446e5f5a073eb34631ba2a5c32ed4ff25e` |
-| `app/src/main/assets/quran/juz-boundaries.json` | `be20f3dc48850c5a6c7b405a65c14f3d67a549df021536869eb3ef24dfbfae76` |
+| Bundled Asset | Content | SHA-256 Checksum |
+| :--- | :--- | :--- |
+| `app/src/main/assets/quran/quran-uthmani.txt` | Tanzil Quran Text, Uthmani, Version 1.1 (verbatim with copyright block) | `bf4f57b968d03f4131c070b1e285da9be0e0a108a21c910e872801ca273312c8` |
+| `app/src/main/assets/quran/quran-data.xml` | Tanzil Quran metadata (114 Surah names/types/counts, 30 Juz boundaries) | `59da25958547318e524793563ea6a233144ce04513862563bc604d8f683cec03` |
+| `app/src/main/assets/quran/ayah-metrics.txt` | Per-Ayah Juz & Madani Mushaf page mapping (`surah\|ayah\|juz\|page`) | `8476c68b7cc7fcb44b94f29ef17be0246c695251b670c7580ce4825ab4b77804` |
+| `app/src/main/assets/quran/rub-el-hizb.txt` | 240 Rub' al-Hizb (Quarter-Hizb) boundaries (`rub\|surah\|ayah`) | `840104f1947e3585f2067f5a70bd5790fdcc85575b2f50889d4d9a3eaab78cf4` |
 
-### 2. Mushaf Pagination & Juz Boundaries
-- **Source**: Standard `604`-page Madani Mushaf page boundaries and `30`-Juz boundaries cross-referenced against [quran.com](https://quran.com) API v4 structural metadata.
+### 2. Mushaf Pagination, Juz & Rub' al-Hizb Boundaries
+- **Source**: Standard `604`-page Madani Mushaf page/Juz mapping (`ayah-metrics.txt`) and `240` Rub' al-Hizb boundaries (`rub-el-hizb.txt`) derived from [quran.com](https://quran.com) API v4 (KFGQPC Madani Mushaf layout) and cross-checked against Tanzil metadata (`v1.0`, CC-BY). See [docs/QURAN_DATA.md](docs/QURAN_DATA.md) for verification details including the Rub' 106 (`15:49` vs Tanzil `15:50`) audit note.
 
 ### 3. Arabic Typography (SIL Open Font License 1.1)
 - **Amiri (`Amiri-Regular.ttf`, `Amiri-Bold.ttf`)**: Classical Naskh typeface designed by Khaled Hosny for typesetting the Holy Quran ([SIL OFL 1.1](https://scripts.sil.org/OFL)).
