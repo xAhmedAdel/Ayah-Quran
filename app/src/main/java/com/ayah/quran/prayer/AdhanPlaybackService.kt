@@ -135,17 +135,13 @@ internal class AdhanPlaybackLifecycleController(
         if (audioUri.isNullOrBlank()) {
             generation += 1L
             cancelAllWatchdogs()
-            onFallbackNotify(prayer)
-            onReleaseHandover(token)
-            onStopSelf()
+            terminateWithFallback(token, prayer, runCleanup = false)
             return
         }
         if (!onRequestFocus()) {
             generation += 1L
             cancelAllWatchdogs()
-            onFallbackNotify(prayer)
-            onReleaseHandover(token)
-            onStopSelf()
+            terminateWithFallback(token, prayer, runCleanup = false)
             return
         }
         try {
@@ -166,31 +162,82 @@ internal class AdhanPlaybackLifecycleController(
                     if (isCurrentGeneration(token)) {
                         generation += 1L
                         cancelAllWatchdogs()
-                        onFallbackNotify(prayer)
-                        cleanup()
-                        onReleaseHandover(token)
-                        onStopSelf()
+                        terminateWithFallback(token, prayer, runCleanup = true)
                     }
                 },
             )
             if (!isCurrentGeneration(token)) {
-                runCatching { handle.stopAndRelease() }
-                onAbandonFocus()
-                onReleaseHandover(token)
+                var fatalError: Error? = null
+                fatalError = runTeardownStep(fatalError, "stopAndReleaseStaleHandle") {
+                    handle.stopAndRelease()
+                }
+                if (activeGeneration == token) {
+                    fatalError = cleanupInternal(fatalError)
+                }
+                fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                    onReleaseHandover(token)
+                }
+                if (fatalError != null) {
+                    throw fatalError
+                }
                 return
             }
             currentHandle = handle
             onActiveChanged(true)
             onStopQuran()
-        } catch (t: Throwable) {
+        } catch (e: Error) {
+            var fatalError: Error = e
             if (isCurrentGeneration(token)) {
                 generation += 1L
+                fatalError = runTeardownStep(fatalError, "cancelAllWatchdogs") {
+                    cancelAllWatchdogs()
+                }!!
+                fatalError = cleanupInternal(fatalError)!!
+                fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                    onReleaseHandover(token)
+                }!!
+                fatalError = runTeardownStep(fatalError, "stopSelf") {
+                    onStopSelf()
+                }!!
+            } else {
+                if (activeGeneration == token) {
+                    fatalError = cleanupInternal(fatalError)!!
+                }
+                fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                    onReleaseHandover(token)
+                }!!
             }
-            cancelAllWatchdogs()
-            onFallbackNotify(prayer)
-            cleanup()
-            onReleaseHandover(token)
-            onStopSelf()
+            throw fatalError
+        } catch (t: Throwable) {
+            if (!isCurrentGeneration(token)) {
+                var fatalError: Error? = null
+                if (activeGeneration == token) {
+                    fatalError = cleanupInternal(fatalError)
+                }
+                fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                    onReleaseHandover(token)
+                }
+                if (fatalError != null) {
+                    throw fatalError
+                }
+                return
+            }
+            generation += 1L
+            val watchdogError = runTeardownStep(null, "cancelAllWatchdogs") {
+                cancelAllWatchdogs()
+            }
+            if (watchdogError != null) {
+                var fatalError: Error = watchdogError
+                fatalError = cleanupInternal(fatalError)!!
+                fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                    onReleaseHandover(token)
+                }!!
+                fatalError = runTeardownStep(fatalError, "stopSelf") {
+                    onStopSelf()
+                }!!
+                throw fatalError
+            }
+            terminateWithFallback(token, prayer, runCleanup = true)
         }
     }
 
@@ -211,12 +258,7 @@ internal class AdhanPlaybackLifecycleController(
             val fallbackPrayer = currentPrayer
             generation += 1L
             cancelAllWatchdogs()
-            if (fallbackPrayer != null) {
-                onFallbackNotify(fallbackPrayer)
-            }
-            cleanup()
-            onReleaseHandover(token)
-            onStopSelf()
+            terminateWithFallback(token, fallbackPrayer, runCleanup = true)
             return
         }
         onStartMaxDurationWatchdog(token)
@@ -226,10 +268,7 @@ internal class AdhanPlaybackLifecycleController(
         if (!isCurrentGeneration(token) || playbackConfirmed) return false
         generation += 1L
         cancelAllWatchdogs()
-        onFallbackNotify(prayer)
-        cleanup()
-        onReleaseHandover(token)
-        onStopSelf()
+        terminateWithFallback(token, prayer, runCleanup = true)
         return true
     }
 
@@ -258,14 +297,7 @@ internal class AdhanPlaybackLifecycleController(
         val fallbackPrayer = if (!playbackConfirmed) currentPrayer else null
         generation += 1L
         cancelAllWatchdogs()
-        if (fallbackPrayer != null) {
-            onFallbackNotify(fallbackPrayer)
-        }
-        cleanup()
-        if (pendingToken > 0L) {
-            onReleaseHandover(pendingToken)
-        }
-        onStopSelf()
+        terminateWithFallback(pendingToken, fallbackPrayer, runCleanup = true)
     }
 
     fun onFocusLossTransient() {
@@ -296,16 +328,63 @@ internal class AdhanPlaybackLifecycleController(
     }
 
     fun cleanup() {
+        val fatalError = cleanupInternal(null)
+        if (fatalError != null) {
+            throw fatalError
+        }
+    }
+
+    private fun cleanupInternal(primaryError: Error?): Error? {
         playbackConfirmed = false
         pausedForTransientFocus = false
         currentPrayer = null
         activeGeneration = 0L
-        onActiveChanged(false)
-        currentHandle?.let { handle ->
-            runCatching { handle.stopAndRelease() }
+        var fatalError = primaryError
+        fatalError = runTeardownStep(fatalError, "onActiveChanged") {
+            onActiveChanged(false)
         }
+        val handle = currentHandle
         currentHandle = null
-        onAbandonFocus()
+        if (handle != null) {
+            fatalError = runTeardownStep(fatalError, "stopAndRelease") {
+                handle.stopAndRelease()
+            }
+        }
+        fatalError = runTeardownStep(fatalError, "abandonFocus") {
+            onAbandonFocus()
+        }
+        return fatalError
+    }
+
+    private fun terminateWithFallback(
+        token: Long,
+        prayer: Prayer?,
+        runCleanup: Boolean,
+    ) {
+        var fatalError: Error? = null
+        if (prayer != null) {
+            try {
+                onFallbackNotify(prayer)
+            } catch (e: Error) {
+                fatalError = e
+            } catch (t: Throwable) {
+                Log.e(AdhanPlaybackService.TAG, "Fallback notification failed for $prayer", t)
+            }
+        }
+        if (runCleanup) {
+            fatalError = cleanupInternal(fatalError)
+        }
+        if (token > 0L) {
+            fatalError = runTeardownStep(fatalError, "releaseHandover") {
+                onReleaseHandover(token)
+            }
+        }
+        fatalError = runTeardownStep(fatalError, "stopSelf") {
+            onStopSelf()
+        }
+        if (fatalError != null) {
+            throw fatalError
+        }
     }
 
     private fun cancelAllWatchdogs() {
@@ -342,7 +421,9 @@ class AdhanPlaybackService : android.app.Service() {
             onActiveChanged = { active -> isAdhanActive = active },
             onRequestFocus = { requestFocus() },
             onAbandonFocus = { abandonFocus() },
-            onFallbackNotify = { prayer -> notifications.post(prayer, AdhanMode.SILENT) },
+            onFallbackNotify = { prayer ->
+                postFallbackAlert(prayer) { p, mode -> notifications.post(p, mode) }
+            },
             onStopQuran = {
                 runCatching {
                     stopService(Intent(this, com.ayah.quran.data.audio.QuranPlaybackService::class.java))
@@ -427,7 +508,7 @@ class AdhanPlaybackService : android.app.Service() {
                 }
             },
             onFallbackNotify = { failedPrayer ->
-                runCatching { notifications.post(failedPrayer, AdhanMode.SILENT) }
+                postFallbackAlert(failedPrayer) { p, mode -> notifications.post(p, mode) }
             },
             onCancelPriorJobs = {
                 prepareTimeoutJob?.cancel()
@@ -458,17 +539,20 @@ class AdhanPlaybackService : android.app.Service() {
         }
 
         startJob = serviceScope.launch {
-            val audioUri = try {
-                withContext(Dispatchers.IO) {
-                    resolveAudioUri(prayer)
-                }
-            } catch (ce: CancellationException) {
-                handoverTokens.releaseForGeneration(token)
-                throw ce
-            } catch (t: Throwable) {
-                Log.e(TAG, "Failed to resolve Adhan preferences/audio source", t)
-                null
-            }
+            val audioUri = resolveAudioUriForGeneration(
+                token = token,
+                isCurrentGeneration = { lifecycleController.isCurrentGeneration(it) },
+                resolveUri = {
+                    withContext(Dispatchers.IO) {
+                        resolveAudioUri(prayer)
+                    }
+                },
+                onCancelCurrentPreparationWatchdog = {
+                    prepareTimeoutJob?.cancel()
+                    prepareTimeoutJob = null
+                },
+                onReleaseGenerationHandover = { handoverTokens.releaseForGeneration(it) },
+            )
             if (!lifecycleController.isCurrentGeneration(token)) {
                 handoverTokens.releaseForGeneration(token)
                 return@launch
@@ -654,7 +738,7 @@ class AdhanPlaybackService : android.app.Service() {
     }
 
     companion object {
-        private const val TAG = "AdhanPlaybackService"
+        internal const val TAG = "AdhanPlaybackService"
         const val EXTRA_PRAYER = "prayer"
         const val EXTRA_TEST = "test"
         const val EXTRA_WAKE_LOCK_TOKEN = "wake_lock_token"
@@ -666,6 +750,57 @@ class AdhanPlaybackService : android.app.Service() {
         @Volatile
         var isAdhanActive: Boolean = false
             private set
+
+        internal fun postFallbackAlert(
+            prayer: Prayer,
+            post: (Prayer, AdhanMode) -> Boolean,
+        ): Boolean {
+            val fallbackMode = PrayerNotifications.FULL_ADHAN_FALLBACK_MODE
+            val fallbackChannel = PrayerNotifications.channelIdFor(fallbackMode)
+            val posted = try {
+                post(prayer, fallbackMode)
+            } catch (e: Error) {
+                throw e
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to post fallback prayer alert for $prayer", t)
+                false
+            }
+            if (!posted) {
+                Log.w(TAG, "Fallback prayer alert for $prayer not posted (channel=$fallbackChannel)")
+            }
+            return posted
+        }
+
+        internal suspend fun resolveAudioUriForGeneration(
+            token: Long,
+            isCurrentGeneration: (Long) -> Boolean,
+            resolveUri: suspend () -> String?,
+            onCancelCurrentPreparationWatchdog: () -> Unit,
+            onReleaseGenerationHandover: (Long) -> Unit,
+        ): String? {
+            return try {
+                resolveUri()
+            } catch (ce: CancellationException) {
+                runTeardownStep(null, "releaseHandoverOnCancel") {
+                    onReleaseGenerationHandover(token)
+                }?.let { throw it }
+                throw ce
+            } catch (e: Error) {
+                var fatalError: Error = e
+                if (isCurrentGeneration(token)) {
+                    fatalError = runTeardownStep(fatalError, "cancelPreparationWatchdog") {
+                        onCancelCurrentPreparationWatchdog()
+                    }!!
+                }
+                fatalError = runTeardownStep(fatalError, "releaseHandoverOnError") {
+                    onReleaseGenerationHandover(token)
+                }!!
+                throw fatalError
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to resolve Adhan preferences/audio source", t)
+                null
+            }
+        }
 
         internal fun beginReEntrantStart(
             prayer: Prayer,
@@ -680,15 +815,32 @@ class AdhanPlaybackService : android.app.Service() {
         ): Long? {
             try {
                 onEnterForeground()
+            } catch (e: Error) {
+                var fatalError: Error = e
+                fatalError = runTeardownStep(fatalError, "releaseIncomingToken") {
+                    onReleaseIncomingToken(incomingWakeLockToken)
+                }!!
+                fatalError = runTeardownStep(fatalError, "stopSelfIfIdle") {
+                    onStopSelfIfIdle()
+                }!!
+                throw fatalError
             } catch (t: Throwable) {
-                if (t is Error) {
-                    runCatching { onReleaseIncomingToken(incomingWakeLockToken) }
-                    throw t
-                }
                 Log.e(TAG, "Failed to enter foreground for AdhanPlaybackService", t)
-                runCatching { onReleaseIncomingToken(incomingWakeLockToken) }
-                runCatching { onFallbackNotify(prayer) }
-                runCatching { onStopSelfIfIdle() }
+                var fatalError: Error? = null
+                fatalError = runTeardownStep(fatalError, "releaseIncomingToken") {
+                    onReleaseIncomingToken(incomingWakeLockToken)
+                }
+                if (fatalError == null) {
+                    fatalError = runTeardownStep(fatalError, "fallbackNotify") {
+                        onFallbackNotify(prayer)
+                    }
+                }
+                fatalError = runTeardownStep(fatalError, "stopSelfIfIdle") {
+                    onStopSelfIfIdle()
+                }
+                if (fatalError != null) {
+                    throw fatalError
+                }
                 return null
             }
 
@@ -698,5 +850,29 @@ class AdhanPlaybackService : android.app.Service() {
             lifecycleController.cleanup()
             return token
         }
+    }
+}
+
+private inline fun runTeardownStep(
+    primaryError: Error?,
+    stepName: String,
+    action: () -> Unit,
+): Error? {
+    return try {
+        action()
+        primaryError
+    } catch (e: Error) {
+        if (primaryError == null) {
+            e
+        } else {
+            primaryError.addSuppressed(e)
+            primaryError
+        }
+    } catch (t: Throwable) {
+        if (primaryError != null) {
+            primaryError.addSuppressed(t)
+        }
+        Log.e(AdhanPlaybackService.TAG, "Adhan teardown step '$stepName' failed", t)
+        primaryError
     }
 }

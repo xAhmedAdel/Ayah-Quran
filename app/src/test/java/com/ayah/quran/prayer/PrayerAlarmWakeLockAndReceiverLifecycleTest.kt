@@ -274,9 +274,15 @@ class PrayerAlarmWakeLockAndReceiverLifecycleTest {
                         voiceId = voiceId,
                         correlationId = "mode-${mode.name}",
                         wakeLock = wakeLock,
-                        onPostNotification = { postedNotifications += it },
+                        onPostNotification = {
+                            postedNotifications += it
+                            true
+                        },
                         onStartFullAdhanService = { token -> startedServiceTokens += token },
-                        onFallbackSilent = { postedNotifications += AdhanMode.SILENT },
+                        onFallbackAlert = {
+                            postedNotifications += it
+                            true
+                        },
                     )
                 },
                 onFinish = { finished++ },
@@ -313,9 +319,15 @@ class PrayerAlarmWakeLockAndReceiverLifecycleTest {
                     voiceId = voiceId,
                     correlationId = "mode-FULL_ADHAN",
                     wakeLock = wakeLock,
-                    onPostNotification = { postedNotifications += it },
+                    onPostNotification = {
+                        postedNotifications += it
+                        true
+                    },
                     onStartFullAdhanService = { token -> startedServiceTokens += token },
-                    onFallbackSilent = { postedNotifications += AdhanMode.SILENT },
+                    onFallbackAlert = {
+                        postedNotifications += it
+                        true
+                    },
                 )
             },
             onFinish = { fullFinished++ },
@@ -376,7 +388,7 @@ class PrayerAlarmWakeLockAndReceiverLifecycleTest {
             correlationId = "fajr-full",
             wakeLock = wakeLock,
             startService = { tokenId -> handedToken = tokenId },
-            onFallbackSilent = {},
+            onFallbackAlert = { true },
         )
         assertTrue(handedToken > 0L)
         assertTrue(created.single().isHeld())
@@ -657,14 +669,17 @@ class PrayerAlarmWakeLockAndReceiverLifecycleTest {
             },
             elapsedRealtimeMs = clock::get,
         )
-        var fallbackCount = 0
+        val fallbackModes = mutableListOf<AdhanMode>()
 
         PrayerAlarmReceiver.dispatchFullAdhan(
             voiceId = "default",
             correlationId = "fgs-fail",
             wakeLock = wakeLock,
             startService = { throw IllegalStateException("ForegroundServiceStartNotAllowed") },
-            onFallbackSilent = { fallbackCount++ },
+            onFallbackAlert = { mode ->
+                fallbackModes += mode
+                true
+            },
         )
 
         assertEquals(1, created.size)
@@ -672,7 +687,7 @@ class PrayerAlarmWakeLockAndReceiverLifecycleTest {
         assertEquals(1, created.single().releaseCount)
         assertFalse(created.single().isHeld())
         assertEquals(0, wakeLock.activeLeaseCountForTest())
-        assertEquals(1, fallbackCount)
+        assertEquals(listOf(AdhanMode.NOTIFICATION_SOUND), fallbackModes)
     }
 
     @Test

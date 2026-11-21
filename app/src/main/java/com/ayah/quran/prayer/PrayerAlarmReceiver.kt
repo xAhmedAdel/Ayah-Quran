@@ -111,8 +111,8 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                     }
                 context.startForegroundService(serviceIntent)
             },
-            onFallbackSilent = {
-                notifications.post(prayer, AdhanMode.SILENT)
+            onFallbackAlert = { fallbackMode ->
+                notifications.post(prayer, fallbackMode)
             },
         )
     }
@@ -170,21 +170,25 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             voiceId: String,
             correlationId: String,
             wakeLock: PrayerAlarmWakeLock?,
-            onPostNotification: (AdhanMode) -> Unit,
+            onPostNotification: (AdhanMode) -> Boolean,
             onStartFullAdhanService: (tokenId: Long) -> Unit,
-            onFallbackSilent: () -> Unit,
+            onFallbackAlert: (AdhanMode) -> Boolean,
+            onLogNotificationPosted: (String) -> Unit = { channel ->
+                PrayerAlarmLog.notificationPosted(correlationId, channel)
+            },
+            onLogNotificationSuppressed: (String) -> Unit = { reason ->
+                PrayerAlarmLog.notificationSuppressed(correlationId, reason)
+            },
         ) {
             when (mode) {
                 AdhanMode.NOTIFICATION_SOUND, AdhanMode.SILENT -> {
-                    onPostNotification(mode)
-                    PrayerAlarmLog.notificationPosted(
-                        correlationId,
-                        if (mode == AdhanMode.NOTIFICATION_SOUND) {
-                            PrayerNotifications.CHANNEL_ALERT
-                        } else {
-                            PrayerNotifications.CHANNEL_SILENT
-                        },
-                    )
+                    val channel = PrayerNotifications.channelIdFor(mode)
+                    val posted = onPostNotification(mode)
+                    if (posted) {
+                        onLogNotificationPosted(channel)
+                    } else {
+                        onLogNotificationSuppressed("POST_NOTIFICATIONS_DENIED channel=$channel")
+                    }
                 }
 
                 AdhanMode.FULL_ADHAN -> {
@@ -193,12 +197,14 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                         correlationId = correlationId,
                         wakeLock = wakeLock,
                         startService = onStartFullAdhanService,
-                        onFallbackSilent = onFallbackSilent,
+                        onFallbackAlert = onFallbackAlert,
+                        onLogNotificationPosted = onLogNotificationPosted,
+                        onLogNotificationSuppressed = onLogNotificationSuppressed,
                     )
                 }
 
                 AdhanMode.DISABLED -> {
-                    PrayerAlarmLog.notificationSuppressed(correlationId, "DISABLED")
+                    onLogNotificationSuppressed("DISABLED")
                 }
             }
         }
@@ -208,24 +214,52 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             correlationId: String,
             wakeLock: PrayerAlarmWakeLock?,
             startService: (tokenId: Long) -> Unit,
-            onFallbackSilent: () -> Unit,
-        ) {
+            onFallbackAlert: (AdhanMode) -> Boolean,
+            onLogNotificationPosted: (String) -> Unit = { channel ->
+                PrayerAlarmLog.notificationPosted(correlationId, channel)
+            },
+            onLogNotificationSuppressed: (String) -> Unit = { reason ->
+                PrayerAlarmLog.notificationSuppressed(correlationId, reason)
+            },
+        ): Boolean {
             val lease = wakeLock?.acquireHandover()
             val tokenId = lease?.tokenId ?: PrayerAlarmWakeLock.INVALID_TOKEN_ID
-            runCatching {
+            try {
                 startService(tokenId)
-            }.onSuccess {
-                runCatching {
-                    PrayerAlarmLog.playbackStarted(correlationId, voiceId)
-                }
-            }.onFailure { e ->
+            } catch (e: Error) {
                 lease?.release()
+                throw e
+            } catch (t: Throwable) {
+                lease?.release()
+                val fallbackMode = PrayerNotifications.FULL_ADHAN_FALLBACK_MODE
+                val fallbackChannel = PrayerNotifications.channelIdFor(fallbackMode)
                 PrayerAlarmLog.playbackFallback(
                     correlationId,
-                    "startForegroundService failed: ${e.message}",
+                    "startForegroundService failed: ${t.message}; fallback=${fallbackMode.name}",
                 )
-                onFallbackSilent()
+                val posted = try {
+                    onFallbackAlert(fallbackMode)
+                } catch (e: Error) {
+                    throw e
+                } catch (postError: Throwable) {
+                    Log.e(
+                        PrayerAlarmLog.TAG,
+                        "$correlationId | FALLBACK_POST_ERROR | ${postError.javaClass.simpleName}",
+                        postError,
+                    )
+                    false
+                }
+                if (posted) {
+                    onLogNotificationPosted(fallbackChannel)
+                } else {
+                    onLogNotificationSuppressed("FALLBACK_NOT_POSTED channel=$fallbackChannel")
+                }
+                return posted
             }
+            runCatching {
+                PrayerAlarmLog.playbackStarted(correlationId, voiceId)
+            }
+            return true
         }
 
         internal suspend fun handleAlarm(

@@ -67,10 +67,7 @@ class PrayerNotifications @Inject constructor(
     /** The prayer-time notification ("حان الآن وقت صلاة …"). */
     fun prayerNotification(prayer: Prayer, mode: AdhanMode): Notification {
         val title = context.getString(R.string.prayer_notification_title, prayerName(prayer))
-        val channelId = when (mode) {
-            AdhanMode.NOTIFICATION_SOUND -> CHANNEL_ALERT
-            else -> CHANNEL_SILENT
-        }
+        val channelId = channelIdFor(mode)
         return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_prayer_notification)
             .setContentTitle(title)
@@ -97,10 +94,7 @@ class PrayerNotifications @Inject constructor(
     fun postDiagnostic(mode: AdhanMode) {
         createChannels()
         if (!canNotify()) return
-        val channelId = when (mode) {
-            AdhanMode.NOTIFICATION_SOUND -> PrayerNotificationsChannels.ALERT
-            else -> PrayerNotificationsChannels.SILENT
-        }
+        val channelId = channelIdFor(mode)
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_prayer_notification)
             .setContentTitle(context.getString(R.string.prayer_diagnostic_alarm_title))
@@ -111,11 +105,12 @@ class PrayerNotifications @Inject constructor(
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_DIAGNOSTIC, notification)
     }
 
-    fun post(prayer: Prayer, mode: AdhanMode) {
-        if (!canNotify()) return
+    fun post(prayer: Prayer, mode: AdhanMode): Boolean {
+        if (!canNotify()) return false
         createChannels()
         NotificationManagerCompat.from(context)
             .notify(NOTIFICATION_ID_PRAYER, prayerNotification(prayer, mode))
+        return true
     }
 
     fun postStatus(id: Int, notification: Notification) {
@@ -139,10 +134,16 @@ class PrayerNotifications @Inject constructor(
         val CHANNEL_PLAYBACK = PrayerNotificationsChannels.PLAYBACK
         val CHANNEL_ALERT = PrayerNotificationsChannels.ALERT
         val CHANNEL_SILENT = PrayerNotificationsChannels.SILENT
+        internal val FULL_ADHAN_FALLBACK_MODE: AdhanMode = AdhanMode.NOTIFICATION_SOUND
         const val NOTIFICATION_ID_PRAYER = 6001
         const val NOTIFICATION_ID_PLAYBACK = 6002
         const val NOTIFICATION_ID_TEST = 6010
         const val NOTIFICATION_ID_DIAGNOSTIC = 6011
+
+        internal fun channelIdFor(mode: AdhanMode): String = when (mode) {
+            AdhanMode.NOTIFICATION_SOUND -> CHANNEL_ALERT
+            else -> CHANNEL_SILENT
+        }
     }
 }
 
