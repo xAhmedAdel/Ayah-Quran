@@ -1,6 +1,7 @@
 package com.ayah.quran.domain.model.companion
 
 import java.time.Duration
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 enum class CompanionReminderType(
@@ -47,6 +48,8 @@ data class CompanionReminderConfig(
     val enabled: Boolean,
     val hour: Int,
     val minute: Int,
+    val scheduleVersion: Long = 0L,
+    val lastHandledEpochDay: Long? = null,
 ) {
     fun formattedTime(): String = "%02d:%02d".format(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
 }
@@ -93,12 +96,16 @@ object CompanionReminderTimeCalculator {
         now: ZonedDateTime,
         hour: Int,
         minute: Int,
+        earliestDate: LocalDate? = null,
     ): Long {
         val safeHour = hour.coerceIn(0, 23)
         val safeMinute = minute.coerceIn(0, 59)
         var target = now.withHour(safeHour).withMinute(safeMinute).withSecond(0).withNano(0)
+        if (earliestDate != null && target.toLocalDate().isBefore(earliestDate)) {
+            target = earliestDate.atTime(safeHour, safeMinute).atZone(now.zone)
+        }
         if (!target.isAfter(now)) {
-            target = now.plusDays(1).withHour(safeHour).withMinute(safeMinute).withSecond(0).withNano(0)
+            target = target.plusDays(1)
         }
         return Duration.between(now, target).toMillis().coerceAtLeast(MIN_DELAY_MILLIS)
     }

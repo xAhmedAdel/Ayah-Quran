@@ -22,8 +22,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CompanionRemindersViewModelTest {
@@ -54,6 +56,15 @@ class CompanionRemindersViewModelTest {
         val nyDstSpringForward = ZonedDateTime.of(2026, 3, 7, 23, 0, 0, 0, ZoneId.of("America/New_York"))
         val dstDelay = CompanionReminderTimeCalculator.computeInitialDelayMillis(nyDstSpringForward, 7, 0)
         assertEquals(7 * 3_600_000L, dstDelay)
+
+        val earlyFire = ZonedDateTime.of(2026, 11, 20, 6, 59, 58, 0, utc)
+        val nextDayFromEarly = CompanionReminderTimeCalculator.computeInitialDelayMillis(
+            now = earlyFire,
+            hour = 7,
+            minute = 0,
+            earliestDate = LocalDate.of(2026, 11, 21),
+        )
+        assertEquals(24 * 3_600_000L + 2_000L, nextDayFromEarly)
     }
 
     @Test
@@ -139,39 +150,45 @@ private class FakeRemindersRepository : CompanionRemindersRepository {
     override val preferences: Flow<CompanionRemindersPreferences> = flow
 
     override suspend fun setEnabled(type: CompanionReminderType, enabled: Boolean): CompanionReminderConfig {
-        val updated = when (type) {
-            CompanionReminderType.MORNING_ADHKAR -> flow.value.copy(
-                morningAdhkar = flow.value.morningAdhkar.copy(enabled = enabled),
-            )
-            CompanionReminderType.EVENING_ADHKAR -> flow.value.copy(
-                eveningAdhkar = flow.value.eveningAdhkar.copy(enabled = enabled),
-            )
-            CompanionReminderType.DAILY_REFLECTION -> flow.value.copy(
-                dailyReflection = flow.value.dailyReflection.copy(enabled = enabled),
-            )
-        }
-        flow.value = updated
-        return updated.configOf(type)
+        val current = flow.value.configOf(type)
+        val next = current.copy(
+            enabled = enabled,
+            scheduleVersion = current.scheduleVersion + 1L,
+            lastHandledEpochDay = if (enabled && !current.enabled) null else current.lastHandledEpochDay,
+        )
+        flow.value = flow.value.withConfig(next)
+        return next
     }
 
     override suspend fun setTime(type: CompanionReminderType, hour: Int, minute: Int): CompanionReminderConfig {
-        val updated = when (type) {
-            CompanionReminderType.MORNING_ADHKAR -> flow.value.copy(
-                morningAdhkar = flow.value.morningAdhkar.copy(hour = hour, minute = minute),
-            )
-            CompanionReminderType.EVENING_ADHKAR -> flow.value.copy(
-                eveningAdhkar = flow.value.eveningAdhkar.copy(hour = hour, minute = minute),
-            )
-            CompanionReminderType.DAILY_REFLECTION -> flow.value.copy(
-                dailyReflection = flow.value.dailyReflection.copy(hour = hour, minute = minute),
-            )
+        val current = flow.value.configOf(type)
+        val next = current.copy(
+            hour = hour,
+            minute = minute,
+            scheduleVersion = current.scheduleVersion + 1L,
+            lastHandledEpochDay = null,
+        )
+        flow.value = flow.value.withConfig(next)
+        return next
+    }
+
+    override suspend fun markHandled(type: CompanionReminderType, epochDay: Long, expectedVersion: Long) {
+        val current = flow.value.configOf(type)
+        if (current.scheduleVersion == expectedVersion) {
+            flow.value = flow.value.withConfig(current.copy(lastHandledEpochDay = epochDay))
         }
-        flow.value = updated
-        return updated.configOf(type)
     }
 
     override suspend fun markPermissionRequested() {
         flow.value = flow.value.copy(permissionRequestedBefore = true)
+    }
+
+    private fun CompanionRemindersPreferences.withConfig(
+        config: CompanionReminderConfig,
+    ): CompanionRemindersPreferences = when (config.type) {
+        CompanionReminderType.MORNING_ADHKAR -> copy(morningAdhkar = config)
+        CompanionReminderType.EVENING_ADHKAR -> copy(eveningAdhkar = config)
+        CompanionReminderType.DAILY_REFLECTION -> copy(dailyReflection = config)
     }
 }
 
@@ -179,18 +196,32 @@ private class RecordingReminderScheduler : CompanionReminderScheduler {
     val activeScheduled = linkedMapOf<CompanionReminderType, CompanionReminderConfig>()
     val cancelledTypes = mutableListOf<CompanionReminderType>()
 
-    override fun schedule(config: CompanionReminderConfig) {
+    override suspend fun schedule(config: CompanionReminderConfig) {
         activeScheduled[config.type] = config
     }
 
-    override fun cancel(type: CompanionReminderType) {
+    override suspend fun cancel(type: CompanionReminderType) {
         activeScheduled.remove(type)
         cancelledTypes.add(type)
     }
 
-    override fun reconcileAll(preferences: CompanionRemindersPreferences) {
+    override suspend fun reconcileAll(
+        preferences: CompanionRemindersPreferences,
+        replaceExisting: Boolean,
+    ) {
         preferences.allConfigs().forEach { cfg ->
             if (cfg.enabled) schedule(cfg) else cancel(cfg.type)
         }
     }
+
+    override suspend fun reconcile(
+        type: CompanionReminderType,
+        replaceExisting: Boolean,
+    ) = Unit
+
+    override suspend fun scheduleNextFromWorker(
+        type: CompanionReminderType,
+        expectedVersion: Long,
+        currentWorkId: UUID,
+    ): Boolean = true
 }

@@ -77,7 +77,7 @@ class AyahApplication : Application(), Configuration.Provider {
         appScope.launch {
             try {
                 val prefs = companionRemindersRepository.preferences.first()
-                companionReminderScheduler.reconcileAll(prefs)
+                companionReminderScheduler.reconcileAll(prefs, replaceExisting = false)
             } catch (ce: CancellationException) {
                 throw ce
             } catch (t: Throwable) {
