@@ -22,7 +22,10 @@ import com.ayah.quran.domain.model.prayer.PrayerVoiceSelection
 import com.ayah.quran.domain.model.prayer.AdhanVoiceDefaults
 import com.ayah.quran.domain.repository.prayer.PrayerPreferences
 import com.ayah.quran.domain.repository.prayer.PrayerPreferencesRepository
+import com.ayah.quran.prayer.AlarmOccurrenceKey
+import com.ayah.quran.prayer.PrayerAlarmOccurrenceGuard
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -148,6 +151,39 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun tryMarkAlarmOccurrenceFired(
+        occurrenceKey: String,
+        retentionCutoffDate: LocalDate?,
+    ): Boolean {
+        var newlyMarked = false
+        dataStore.edit { prefs ->
+            val raw = prefs[KEY_FIRED_ALARM_OCCURRENCES]
+            val existing = raw
+                ?.split('\n')
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+            val retained = if (retentionCutoffDate == null) {
+                existing
+            } else {
+                existing.filter { entry ->
+                    val entryDate = AlarmOccurrenceKey.extractDayKey(entry)
+                    entryDate == null || !entryDate.isBefore(retentionCutoffDate)
+                }
+            }
+            if (occurrenceKey in retained) {
+                if (retained.size != existing.size) {
+                    prefs[KEY_FIRED_ALARM_OCCURRENCES] = retained.joinToString("\n")
+                }
+                newlyMarked = false
+                return@edit
+            }
+            val updated = (retained + occurrenceKey).takeLast(PrayerAlarmOccurrenceGuard.MAX_ENTRIES)
+            prefs[KEY_FIRED_ALARM_OCCURRENCES] = updated.joinToString("\n")
+            newlyMarked = true
+        }
+        return newlyMarked
+    }
+
     private fun Preferences.toPrayerPreferences(): PrayerPreferences = PrayerPreferences(
         location = locationOrNull(),
         autoLocationEnabled = this[KEY_AUTO_LOCATION] ?: false,
@@ -229,5 +265,6 @@ class PrayerPreferencesRepositoryImpl @Inject constructor(
         val KEY_VENDOR_GUIDANCE_DONE = booleanPreferencesKey("prayer_vendor_guidance_done")
         val KEY_DOWNLOADED_ADHAN_IDS = stringSetPreferencesKey("prayer_adhan_downloaded_ids")
         val KEY_CUSTOM_ADHAN_URI = stringPreferencesKey("prayer_custom_adhan_uri")
+        val KEY_FIRED_ALARM_OCCURRENCES = stringPreferencesKey("prayer_fired_alarm_occurrences")
     }
 }

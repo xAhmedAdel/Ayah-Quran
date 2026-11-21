@@ -147,6 +147,10 @@ class PrayerReceiverAndAdhanLifecycleTest {
             override suspend fun setHijriAdjustmentDays(days: Int) = Unit
             override suspend fun setOnboardingCompleted() = Unit
             override suspend fun setVendorGuidanceAcknowledged() = Unit
+            override suspend fun tryMarkAlarmOccurrenceFired(
+                occurrenceKey: String,
+                retentionCutoffDate: LocalDate?,
+            ): Boolean = true
         }
 
         val manager = PrayerTimeManager(fakeRepo, fakeCalculator, fakeScheduler)

@@ -8,6 +8,7 @@ import com.ayah.quran.domain.model.prayer.PrayerAdhanConfig
 import com.ayah.quran.domain.model.prayer.Prayer
 import com.ayah.quran.domain.model.prayer.PrayerLocation
 import com.ayah.quran.domain.model.prayer.PrayerVoiceSelection
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -69,4 +70,9 @@ interface PrayerPreferencesRepository {
     val downloadedAdhanIds: Flow<Set<String>>
 
     suspend fun setAdhanDownloaded(id: String, downloaded: Boolean)
+
+    suspend fun tryMarkAlarmOccurrenceFired(
+        occurrenceKey: String,
+        retentionCutoffDate: LocalDate? = null,
+    ): Boolean
 }
