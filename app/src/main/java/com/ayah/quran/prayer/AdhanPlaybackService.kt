@@ -7,6 +7,7 @@ import android.content.Intent
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
@@ -100,16 +101,22 @@ internal class AdhanPlaybackLifecycleController(
     private val createAndStartPlayer: (uri: String, onEnded: () -> Unit, onError: (Throwable?) -> Unit) -> AdhanPlaybackHandle,
     private val onReleaseHandover: (Long) -> Unit = {},
     private val onCancelPreparationWatchdog: () -> Unit = {},
+    private val onStartMaxDurationWatchdog: (Long) -> Unit = {},
+    private val onCancelMaxDurationWatchdog: () -> Unit = {},
+    private val onStartTransientFocusWatchdog: (Long) -> Unit = {},
+    private val onCancelTransientFocusWatchdog: () -> Unit = {},
 ) {
     private var currentHandle: AdhanPlaybackHandle? = null
     private var currentPrayer: Prayer? = null
     private var activeGeneration: Long = 0L
     private var generation: Long = 0L
     private var playbackConfirmed: Boolean = false
+    private var pausedForTransientFocus: Boolean = false
 
     fun nextGeneration(): Long {
         generation += 1L
         playbackConfirmed = false
+        pausedForTransientFocus = false
         return generation
     }
 
@@ -127,7 +134,7 @@ internal class AdhanPlaybackLifecycleController(
         cleanup()
         if (audioUri.isNullOrBlank()) {
             generation += 1L
-            onCancelPreparationWatchdog()
+            cancelAllWatchdogs()
             onFallbackNotify(prayer)
             onReleaseHandover(token)
             onStopSelf()
@@ -135,7 +142,7 @@ internal class AdhanPlaybackLifecycleController(
         }
         if (!onRequestFocus()) {
             generation += 1L
-            onCancelPreparationWatchdog()
+            cancelAllWatchdogs()
             onFallbackNotify(prayer)
             onReleaseHandover(token)
             onStopSelf()
@@ -149,7 +156,7 @@ internal class AdhanPlaybackLifecycleController(
                 {
                     if (isCurrentGeneration(token)) {
                         generation += 1L
-                        onCancelPreparationWatchdog()
+                        cancelAllWatchdogs()
                         cleanup()
                         onReleaseHandover(token)
                         onStopSelf()
@@ -158,7 +165,7 @@ internal class AdhanPlaybackLifecycleController(
                 {
                     if (isCurrentGeneration(token)) {
                         generation += 1L
-                        onCancelPreparationWatchdog()
+                        cancelAllWatchdogs()
                         onFallbackNotify(prayer)
                         cleanup()
                         onReleaseHandover(token)
@@ -179,7 +186,7 @@ internal class AdhanPlaybackLifecycleController(
             if (isCurrentGeneration(token)) {
                 generation += 1L
             }
-            onCancelPreparationWatchdog()
+            cancelAllWatchdogs()
             onFallbackNotify(prayer)
             cleanup()
             onReleaseHandover(token)
@@ -193,6 +200,7 @@ internal class AdhanPlaybackLifecycleController(
         onCancelPreparationWatchdog()
         val handle = currentHandle
         if (handle == null) {
+            onStartMaxDurationWatchdog(token)
             onReleaseHandover(token)
             return
         }
@@ -202,20 +210,43 @@ internal class AdhanPlaybackLifecycleController(
         if (!posted) {
             val fallbackPrayer = currentPrayer
             generation += 1L
+            cancelAllWatchdogs()
             if (fallbackPrayer != null) {
                 onFallbackNotify(fallbackPrayer)
             }
             cleanup()
             onReleaseHandover(token)
             onStopSelf()
+            return
         }
+        onStartMaxDurationWatchdog(token)
     }
 
     fun onPreparationTimeout(token: Long, prayer: Prayer): Boolean {
         if (!isCurrentGeneration(token) || playbackConfirmed) return false
         generation += 1L
-        onCancelPreparationWatchdog()
+        cancelAllWatchdogs()
         onFallbackNotify(prayer)
+        cleanup()
+        onReleaseHandover(token)
+        onStopSelf()
+        return true
+    }
+
+    fun onMaxDurationTimeout(token: Long): Boolean {
+        if (!isCurrentGeneration(token) || !playbackConfirmed) return false
+        generation += 1L
+        cancelAllWatchdogs()
+        cleanup()
+        onReleaseHandover(token)
+        onStopSelf()
+        return true
+    }
+
+    fun onTransientFocusTimeout(token: Long): Boolean {
+        if (!isCurrentGeneration(token) || !playbackConfirmed || !pausedForTransientFocus) return false
+        generation += 1L
+        cancelAllWatchdogs()
         cleanup()
         onReleaseHandover(token)
         onStopSelf()
@@ -226,7 +257,7 @@ internal class AdhanPlaybackLifecycleController(
         val pendingToken = activeGeneration
         val fallbackPrayer = if (!playbackConfirmed) currentPrayer else null
         generation += 1L
-        onCancelPreparationWatchdog()
+        cancelAllWatchdogs()
         if (fallbackPrayer != null) {
             onFallbackNotify(fallbackPrayer)
         }
@@ -239,16 +270,24 @@ internal class AdhanPlaybackLifecycleController(
 
     fun onFocusLossTransient() {
         currentHandle?.pause()
+        if (playbackConfirmed && !pausedForTransientFocus && activeGeneration > 0L) {
+            pausedForTransientFocus = true
+            onStartTransientFocusWatchdog(activeGeneration)
+        }
     }
 
     fun onFocusGain() {
+        if (pausedForTransientFocus) {
+            pausedForTransientFocus = false
+            onCancelTransientFocusWatchdog()
+        }
         currentHandle?.play()
     }
 
     fun stopAll() {
         val previousToken = generation
         generation += 1L
-        onCancelPreparationWatchdog()
+        cancelAllWatchdogs()
         cleanup()
         if (previousToken > 0L) {
             onReleaseHandover(previousToken)
@@ -258,6 +297,7 @@ internal class AdhanPlaybackLifecycleController(
 
     fun cleanup() {
         playbackConfirmed = false
+        pausedForTransientFocus = false
         currentPrayer = null
         activeGeneration = 0L
         onActiveChanged(false)
@@ -266,6 +306,12 @@ internal class AdhanPlaybackLifecycleController(
         }
         currentHandle = null
         onAbandonFocus()
+    }
+
+    private fun cancelAllWatchdogs() {
+        onCancelPreparationWatchdog()
+        onCancelMaxDurationWatchdog()
+        onCancelTransientFocusWatchdog()
     }
 }
 
@@ -282,6 +328,8 @@ class AdhanPlaybackService : android.app.Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var startJob: Job? = null
     private var prepareTimeoutJob: Job? = null
+    private var maxDurationTimeoutJob: Job? = null
+    private var transientFocusTimeoutJob: Job? = null
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
 
@@ -314,6 +362,29 @@ class AdhanPlaybackService : android.app.Service() {
                 prepareTimeoutJob?.cancel()
                 prepareTimeoutJob = null
             },
+            onStartMaxDurationWatchdog = { token ->
+                maxDurationTimeoutJob?.cancel()
+                maxDurationTimeoutJob = serviceScope.launch {
+                    delay(MAX_PLAYBACK_DURATION_MILLIS)
+                    lifecycleController.onMaxDurationTimeout(token)
+                }
+            },
+            onCancelMaxDurationWatchdog = {
+                maxDurationTimeoutJob?.cancel()
+                maxDurationTimeoutJob = null
+            },
+            onStartTransientFocusWatchdog = { token ->
+                if (transientFocusTimeoutJob?.isActive != true) {
+                    transientFocusTimeoutJob = serviceScope.launch {
+                        delay(TRANSIENT_FOCUS_LOSS_TIMEOUT_MILLIS)
+                        lifecycleController.onTransientFocusTimeout(token)
+                    }
+                }
+            },
+            onCancelTransientFocusWatchdog = {
+                transientFocusTimeoutJob?.cancel()
+                transientFocusTimeoutJob = null
+            },
         )
     }
 
@@ -326,6 +397,10 @@ class AdhanPlaybackService : android.app.Service() {
         if (intent?.action == ACTION_STOP) {
             prepareTimeoutJob?.cancel()
             prepareTimeoutJob = null
+            maxDurationTimeoutJob?.cancel()
+            maxDurationTimeoutJob = null
+            transientFocusTimeoutJob?.cancel()
+            transientFocusTimeoutJob = null
             startJob?.cancel()
             startJob = null
             lifecycleController.stopAll()
@@ -357,11 +432,18 @@ class AdhanPlaybackService : android.app.Service() {
             onCancelPriorJobs = {
                 prepareTimeoutJob?.cancel()
                 prepareTimeoutJob = null
+                maxDurationTimeoutJob?.cancel()
+                maxDurationTimeoutJob = null
+                transientFocusTimeoutJob?.cancel()
+                transientFocusTimeoutJob = null
                 startJob?.cancel()
                 startJob = null
             },
             onStopSelfIfIdle = {
-                val hasPendingJobs = startJob?.isActive == true || prepareTimeoutJob?.isActive == true
+                val hasPendingJobs = startJob?.isActive == true ||
+                    prepareTimeoutJob?.isActive == true ||
+                    maxDurationTimeoutJob?.isActive == true ||
+                    transientFocusTimeoutJob?.isActive == true
                 if (!lifecycleController.hasActivePlayback() && !hasPendingJobs) {
                     stopSelf(startId)
                 }
@@ -489,14 +571,17 @@ class AdhanPlaybackService : android.app.Service() {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build(),
             )
-            .setOnAudioFocusChangeListener { change ->
-                when (change) {
-                    AudioManager.AUDIOFOCUS_LOSS -> lifecycleController.onFocusLossPermanent()
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> lifecycleController.onFocusLossTransient()
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Unit
-                    AudioManager.AUDIOFOCUS_GAIN -> lifecycleController.onFocusGain()
-                }
-            }
+            .setOnAudioFocusChangeListener(
+                { change ->
+                    when (change) {
+                        AudioManager.AUDIOFOCUS_LOSS -> lifecycleController.onFocusLossPermanent()
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> lifecycleController.onFocusLossTransient()
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Unit
+                        AudioManager.AUDIOFOCUS_GAIN -> lifecycleController.onFocusGain()
+                    }
+                },
+                Handler(Looper.getMainLooper()),
+            )
             .build()
         focusRequest = request
         return manager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
@@ -556,6 +641,10 @@ class AdhanPlaybackService : android.app.Service() {
     override fun onDestroy() {
         prepareTimeoutJob?.cancel()
         prepareTimeoutJob = null
+        maxDurationTimeoutJob?.cancel()
+        maxDurationTimeoutJob = null
+        transientFocusTimeoutJob?.cancel()
+        transientFocusTimeoutJob = null
         startJob?.cancel()
         startJob = null
         serviceScope.cancel()
@@ -571,6 +660,8 @@ class AdhanPlaybackService : android.app.Service() {
         const val EXTRA_WAKE_LOCK_TOKEN = "wake_lock_token"
         const val ACTION_STOP = "com.ayah.quran.prayer.STOP_ADHAN"
         internal const val PREPARATION_TIMEOUT_MILLIS = 8_000L
+        internal const val MAX_PLAYBACK_DURATION_MILLIS = 5 * 60_000L
+        internal const val TRANSIENT_FOCUS_LOSS_TIMEOUT_MILLIS = 30_000L
 
         @Volatile
         var isAdhanActive: Boolean = false
